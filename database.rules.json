@@ -1,0 +1,59 @@
+{
+  "rules": {
+    "index": {
+      ".read": "auth != null",
+      ".indexOn": [".value"],
+      "$gid": {
+        ".write": "auth != null && (!data.exists() || data.val() < now - 604800000)",
+        ".validate": "newData.isNumber()"
+      }
+    },
+    "games": {
+      "$gid": {
+        ".read": "auth != null && data.child('players/' + auth.uid).exists()",
+        ".write": "auth != null && data.exists() && data.child('meta/createdAt').val() < now - 604800000 && !newData.exists()",
+        "meta": {
+          ".read": "auth != null",
+          ".write": "auth != null && (!data.exists() || data.child('createdBy').val() === auth.uid)",
+          ".validate": "newData.hasChildren(['createdBy', 'createdAt', 'n', 'status']) && newData.child('createdBy').val() === auth.uid && (newData.child('n').val() === 4 || newData.child('n').val() === 6)"
+        },
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('games/' + $gid + '/meta').exists()",
+            ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 20"
+          }
+        },
+        "seats": {
+          "$seat": {
+            ".write": "auth != null && root.child('games/' + $gid + '/players/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid && root.child('games/' + $gid + '/meta/status').val() === 'lobby') || (data.val() === auth.uid && !newData.exists()) || (data.exists() && newData.val() === auth.uid && root.child('games/' + $gid + '/presence/' + data.val()).val() !== true))"
+          }
+        },
+        "presence": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.isBoolean()"
+          }
+        },
+        "state": {
+          ".write": "auth != null && root.child('games/' + $gid + '/players/' + auth.uid).exists()",
+          ".validate": "newData.child('v').isNumber() && (!data.exists() || newData.child('v').val() === data.child('v').val() + 1)"
+        }
+      }
+    },
+    "hands": {
+      "$gid": {
+        ".write": "auth != null && !newData.exists() && (!root.child('games/' + $gid).exists() || root.child('games/' + $gid + '/meta/createdAt').val() < now - 604800000)",
+        "$seat": {
+          ".read": "auth != null && root.child('games/' + $gid + '/seats/' + $seat).val() === auth.uid",
+          ".write": "auth != null && root.child('games/' + $gid + '/players/' + auth.uid).exists()"
+        }
+      }
+    },
+    "decks": {
+      "$gid": {
+        ".read": "auth != null && root.child('games/' + $gid + '/players/' + auth.uid).exists()",
+        ".write": "auth != null && (root.child('games/' + $gid + '/players/' + auth.uid).exists() || (!newData.exists() && (!root.child('games/' + $gid).exists() || root.child('games/' + $gid + '/meta/createdAt').val() < now - 604800000)))"
+      }
+    }
+  }
+}
