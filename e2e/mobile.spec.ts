@@ -35,6 +35,10 @@ test('accueil, table locale et quelques tours de jeu', async ({ page }, info) =>
   await expect(page.getByRole('heading', { name: /Toc/ })).toBeVisible();
   await noHorizontalScroll(page);
   await page.screenshot({ path: `test-results/${info.project.name}-accueil.png` });
+  // Les boutons secondaires de l'accueil doivent être immobiles et cliquables.
+  await page.getByRole('button', { name: 'Règles du jeu' }).click();
+  await expect(page.getByRole('heading', { name: 'Règles du Toc' })).toBeVisible();
+  await page.goBack();
 
   await page.getByRole('button', { name: 'Table locale' }).click();
   await page.getByRole('button', { name: 'Commencer' }).click();
