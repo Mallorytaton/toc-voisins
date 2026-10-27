@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
-import { DEFAULT_VARIANTS, Variants, partner, teamOf } from '../engine';
+import { DEFAULT_VARIANTS, Variants, newGame, partner, teamOf } from '../engine';
+import { Board } from './board';
 import { LocalSetup, loadLocal } from '../local/local';
 import { isFirebaseConfigured } from '../net/firebase-config';
 import { OnlineSession, prefs } from '../net/online';
@@ -30,6 +31,16 @@ function icon(color: number, size = 22) {
   return el;
 }
 
+/** Mini-plateau décoratif de l'accueil, avec quelques pions en cours de partie. */
+function heroBoard() {
+  const b = new Board(4, 0, [0, 1, 2, 3]);
+  const st = newGame(4);
+  const spots: [number, number, number][] = [[0, 0, 12], [0, 1, 74], [1, 0, 30], [1, 2, 0], [2, 1, 50], [2, 3, 75], [3, 0, 8], [3, 2, 66]];
+  for (const [s, i, p] of spots) st.pawns[s][i] = { p, fresh: false };
+  b.update(st, { highlight: [], selected: null, ghosts: [] }, false);
+  return h('div', { class: 'hero-board', 'aria-hidden': 'true' }, b.el);
+}
+
 export function homeScreen(): HTMLElement {
   const local = loadLocal();
   const last = prefs.lastGame;
@@ -47,9 +58,9 @@ export function homeScreen(): HTMLElement {
     null,
     null,
     h('div', { class: 'hero' },
-      h('div', { class: 'hero-pawns', 'aria-hidden': 'true' }, [0, 1, 2, 3].map((c) => icon(c, 34))),
-      h('h1', null, 'Toc', h('span', null, ' entre voisins')),
-      h('p', { class: 'muted' }, 'Créez une partie, envoyez le lien, jouez chacun depuis son téléphone.')),
+      heroBoard(),
+      h('h1', null, 'Toc', h('span', null, 'entre voisins')),
+      h('p', { class: 'tagline' }, 'Créez une partie, envoyez le lien, jouez chacun depuis son téléphone.')),
     online
       ? h('section', { class: 'card-box' },
           h('button', { class: 'btn primary big', onclick: () => go('/creer') }, 'Créer une partie'),

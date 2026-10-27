@@ -7,6 +7,8 @@ import { mountGame } from './ui/game-view';
 import {
   createScreen, go, homeScreen, lobbyScreen, localSetupScreen, reclaimScreen, rulesScreen, share,
 } from './ui/screens';
+import '@fontsource-variable/nunito';
+import '@fontsource-variable/fraunces';
 import './style.css';
 import { botMove, cryptoRng, legalMoves } from './engine';
 

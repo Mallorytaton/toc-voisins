@@ -1,9 +1,10 @@
 import {
   Card, GameState, Move, PawnRef, RANK_NAMES, Rank, SUIT_SYMBOLS, SevenPart, applyMove, applySevenPrefix,
-  clonePawns, inBase, isRed, legalMoves, partner, rankOf, sameRef, suitOf, teamOf,
+  clonePawns, inBase, inHome, isRed, legalMoves, partner, rankOf, sameRef, suitOf, teamOf,
 } from '../engine';
 import { Board } from './board';
-import { shapeIcon } from './colors';
+import { COLORS, shapeIcon } from './colors';
+import { confetti, haptic, isMuted, setMuted, sfx } from './fx';
 import type { GameController } from './controller';
 import { h, toast } from './dom';
 import { rulesView } from './rules';
@@ -20,15 +21,26 @@ interface Sel {
   move: Move | null;
 }
 
+const FACE_ICONS: Record<string, string> = { J: '⚔', Q: '♛', K: '♚', X: '★' };
+
+/** Carte à jouer : index dans les coins, grand motif central. */
 export function cardFace(card: Card) {
   const r = rankOf(card);
   const red = isRed(card);
   const label = SHORT[r] ?? r;
+  const suit = SUIT_SYMBOLS[suitOf(card)] ?? '';
+  const face = FACE_ICONS[r];
+  const corner = (cls: string) => h('span', { class: 'corner ' + cls }, h('b', null, r === 'X' ? '★' : label), r === 'X' ? null : h('i', null, suit));
   return h(
     'span',
-    { class: 'face' + (red ? ' red' : '') + (r === 'X' ? ' joker' : '') },
-    h('span', { class: 'rank' }, label),
-    h('span', { class: 'suit' }, SUIT_SYMBOLS[suitOf(card)] ?? ''),
+    { class: 'face' + (red ? ' red' : '') + (r === 'X' ? ' joker' : '') + (face ? ' figure' : '') },
+    corner('tl'),
+    r === 'X'
+      ? h('span', { class: 'center' }, h('span', { class: 'big' }, '★'), h('span', { class: 'jk' }, 'JOKER'))
+      : face
+        ? h('span', { class: 'center' }, h('span', { class: 'big' }, label), h('span', { class: 'emblem' }, face, suit))
+        : h('span', { class: 'center' }, h('span', { class: 'big' }, suit)),
+    corner('br'),
   );
 }
 
@@ -75,8 +87,20 @@ export function mountGame(root: HTMLElement, ctl: GameController, opts: GameView
     ctl.code
       ? h('button', { class: 'code-btn', onclick: () => opts.onShare?.(), 'aria-label': 'Partager la partie' }, `TOC-${ctl.code}`, h('span', { class: 'muted' }, ' · inviter'))
       : h('span', { class: 'title' }, 'Table locale'),
-    h('button', { class: 'icon-btn', onclick: () => showRules(), 'aria-label': 'Règles' }, '?'),
+    h('div', { class: 'top-actions' },
+      h('button', { class: 'icon-btn', onclick: (e: Event) => toggleSound(e.currentTarget as HTMLElement), 'aria-label': 'Activer ou couper le son' }, isMuted() ? '🔇' : '🔊'),
+      h('button', { class: 'icon-btn', onclick: () => showLog(), 'aria-label': 'Journal des coups' }, '📜'),
+      h('button', { class: 'icon-btn', onclick: () => showRules(), 'aria-label': 'Règles' }, '?')),
   );
+
+  function toggleSound(btn: HTMLElement) {
+    setMuted(!isMuted());
+    btn.textContent = isMuted() ? '🔇' : '🔊';
+    if (!isMuted()) sfx.tap();
+  }
+
+  const pile = h('div', { class: 'pile', 'aria-live': 'polite' });
+  const banner = h('div', { class: 'turn-banner', 'aria-hidden': 'true' }, 'À toi de jouer !');
 
   root.replaceChildren(
     h(
@@ -86,14 +110,13 @@ export function mountGame(root: HTMLElement, ctl: GameController, opts: GameView
       h(
         'div',
         { class: 'game-main' },
-        h('div', { class: 'board-col' }, players, h('div', { class: 'board-wrap' }, board.el), lastLog),
+        h('div', { class: 'board-col' }, players, h('div', { class: 'board-wrap' }, board.el, pile, banner), lastLog),
         h(
           'div',
           { class: 'panel-col' },
           status,
           actions,
           hand,
-          h('details', { class: 'log' }, h('summary', null, 'Journal des coups'), logList),
         ),
       ),
       overlay,
@@ -105,6 +128,16 @@ export function mountGame(root: HTMLElement, ctl: GameController, opts: GameView
       ctl.leave();
       opts.onQuit();
     }
+  }
+
+  function showLog() {
+    const close = () => modal.remove();
+    const modal = h(
+      'div',
+      { class: 'modal', role: 'dialog', 'aria-modal': 'true', onclick: (e: Event) => e.target === modal && close() },
+      h('div', { class: 'modal-box' }, h('button', { class: 'icon-btn close', onclick: close, 'aria-label': 'Fermer' }, '✕'), h('h2', null, 'Journal des coups'), logList),
+    );
+    document.body.append(modal);
   }
 
   function showRules() {
@@ -145,6 +178,8 @@ export function mountGame(root: HTMLElement, ctl: GameController, opts: GameView
   function tapCard(card: Card) {
     const s = st();
     if (busy) return;
+    sfx.tap();
+    haptic(8);
     if (s.phase === 'exchange') {
       if (ctl.viewer < 0 || s.exchange[ctl.viewer]) return;
       sel = sel?.card === card ? null : { card, as: null, pawn: null, parts: [], pawn7: null, move: null };
@@ -156,7 +191,10 @@ export function mountGame(root: HTMLElement, ctl: GameController, opts: GameView
       return render();
     }
     const ms = movesOf(card);
-    if (!ms.length) return toast(`Le ${cardName(card)} ne permet aucun coup`);
+    if (!ms.length) {
+      sfx.error();
+      return toast(`Le ${cardName(card)} ne permet aucun coup`);
+    }
     sel = { card, as: null, pawn: null, parts: [], pawn7: null, move: null };
     const r = rankOf(card) as Rank;
     const ases = [...new Set(ms.map((m) => m.as))];
@@ -166,6 +204,8 @@ export function mountGame(root: HTMLElement, ctl: GameController, opts: GameView
 
   function tapPawn(ref: PawnRef) {
     if (!sel || !sel.as || busy) return;
+    sfx.tap();
+    haptic(8);
     const cand = movesOf(sel.card, sel.as);
     if (sel.as === '7' && cand[0]?.kind === 'seven') {
       sel.pawn7 = ref;
@@ -266,15 +306,22 @@ export function mountGame(root: HTMLElement, ctl: GameController, opts: GameView
         if (!seat.online) cls.push('offline');
         if (s.passed[i]) cls.push('passed');
         if (i === ctl.viewer) cls.push('me');
-        const icon = h('span', { class: 'chip-icon' });
-        icon.innerHTML = shapeIcon(seat.color, 20);
-        const tag = !seat.online ? 'déconnecté' : s.passed[i] ? 'passe' : s.phase === 'exchange' && s.exchange[i] ? 'a donné' : '';
+        const col = COLORS[seat.color]?.fill ?? '#999';
+        const icon = h('span', { class: 'avatar', style: { '--c': col } as never });
+        icon.innerHTML = shapeIcon(seat.color, 22);
+        const homeCount = s.pawns[i].filter((pw) => inHome(s.n, pw.p)).length;
+        const tag = !seat.online ? 'hors ligne' : s.passed[i] ? 'passe' : s.phase === 'exchange' && s.exchange[i] ? '✓' : '';
+        const team = teamOf(s.n, i);
         return h(
           'div',
-          { class: cls.join(' '), title: `${seat.name}, équipe ${TEAM_LETTERS[teamOf(s.n, i)]}` },
+          { class: cls.join(' '), title: `${seat.name}, équipe ${TEAM_LETTERS[team]}` },
           icon,
-          h('span', { class: 'chip-name' }, seat.name || `Joueur ${i + 1}`, seat.bot ? ' 🤖' : ''),
-          h('span', { class: 'chip-meta' }, `${TEAM_LETTERS[teamOf(s.n, i)]} · ${s.hands[i].length} 🂠`),
+          h('span', { class: 'chip-text' },
+            h('span', { class: 'chip-name' }, seat.name || `Joueur ${i + 1}`, seat.bot ? ' 🤖' : ''),
+            h('span', { class: 'chip-meta' },
+              h('span', { class: 'team t' + team }, TEAM_LETTERS[team]),
+              h('span', { class: 'dots', 'aria-label': `${homeCount} pions rentrés` }, [0, 1, 2, 3].map((k) => h('i', { class: k < homeCount ? 'on' : '' }))),
+              h('span', { class: 'count', 'aria-label': `${s.hands[i].length} cartes` }, `${s.hands[i].length}`))),
           tag ? h('span', { class: 'chip-tag' }, tag) : null,
         );
       }),
@@ -372,13 +419,15 @@ export function mountGame(root: HTMLElement, ctl: GameController, opts: GameView
       hand.replaceChildren(h('p', { class: 'muted hand-empty' }, s.passed[ctl.viewer] ? 'Tu as défaussé : attends la prochaine donne.' : 'Plus de cartes'));
       return;
     }
+    const mid = (cards.length - 1) / 2;
     hand.replaceChildren(
-      ...cards.map((c) => {
+      ...cards.map((c, idx) => {
         const cls = ['card'];
         if (sel?.card === c) cls.push('selected');
         if (myTurn() && !playable.has(c)) cls.push('dim');
         if (giving) cls.push('giving');
-        return h('button', { class: cls.join(' '), onclick: () => tapCard(c), 'aria-label': cardName(c) + ' de ' + suitName(c), 'aria-pressed': sel?.card === c ? 'true' : 'false' }, cardFace(c));
+        const off = idx - mid;
+        return h('button', { class: cls.join(' '), style: { '--rot': `${off * 4}deg`, '--lift': `${Math.abs(off) * Math.abs(off) * 2}px`, '--i': idx } as never, onclick: () => tapCard(c), 'aria-label': cardName(c) + ' de ' + suitName(c), 'aria-pressed': sel?.card === c ? 'true' : 'false' }, cardFace(c));
       }),
     );
   }
@@ -390,12 +439,27 @@ export function mountGame(root: HTMLElement, ctl: GameController, opts: GameView
     lastLog.replaceChildren(...entries.slice(0, 2).map((e, i) => h('div', { class: i ? 'muted' : '' }, fmt(e.text))));
   }
 
+  /** Dernière carte jouée, posée au centre du plateau. */
+  function renderPile() {
+    const s = st();
+    const c = s.phase === 'play' || s.phase === 'over' ? s.lastCard : '';
+    if (c === (pile.dataset.card ?? '')) return;
+    pile.dataset.card = c;
+    if (!c) return pile.replaceChildren();
+    pile.replaceChildren(h('div', { class: 'card pile-card' }, cardFace(c)));
+  }
+
   function renderOverlay() {
     const s = st();
     if (s.phase !== 'over') return overlay.replaceChildren();
     const t = s.winner;
     const p = partner(s.n, t);
     const mine = ctl.viewer >= 0 && teamOf(s.n, ctl.viewer) === t;
+    if (!overlay.childElementCount) {
+      confetti([t, p].map((x) => COLORS[ctl.seats[x]?.color]?.fill ?? '#fc0').concat(['#ffd166', '#ffffff']));
+      sfx.win();
+      haptic([60, 40, 120]);
+    }
     overlay.replaceChildren(
       h('div', { class: 'victory' },
         h('div', { class: 'victory-box' },
@@ -412,12 +476,25 @@ export function mountGame(root: HTMLElement, ctl: GameController, opts: GameView
     const s = st();
     if (s.v !== lastV) {
       if (lastV !== -1) sel = null;
-      const mine = myTurn();
-      if (mine && !lastTurnMine) navigator.vibrate?.(80);
-      lastTurnMine = mine;
+      if (myTurn() && !lastTurnMine) haptic(80);
     }
+    const changed = s.v !== lastV && lastV !== -1;
     const marks = boardMarks();
-    board.update(marks.view, { highlight: marks.highlight, selected: sel?.pawn7 ?? sel?.pawn ?? null, ghosts: marks.ghosts }, true);
+    const fx = board.update(marks.view, { highlight: marks.highlight, selected: sel?.pawn7 ?? sel?.pawn ?? null, ghosts: marks.ghosts }, true);
+    if (changed) {
+      if (s.lastCard && s.lastCard !== pile.dataset.card) sfx.card();
+      if (fx.steps) sfx.steps(fx.steps, 110);
+      if (fx.captures) setTimeout(() => { sfx.capture(); haptic([30, 30, 60]); }, fx.delay);
+      if (fx.home) setTimeout(() => sfx.home(), fx.delay);
+      if (myTurn() && !lastTurnMine) {
+        banner.classList.remove('show');
+        void banner.offsetWidth;
+        banner.classList.add('show');
+        setTimeout(() => sfx.turn(), 250);
+      }
+    }
+    renderPile();
+    lastTurnMine = myTurn();
     lastV = s.v;
     renderPlayers();
     renderStatus(marks.preview);

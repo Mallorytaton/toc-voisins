@@ -67,6 +67,7 @@ export class Board {
   private prev = new Map<string, number>();
   private pawnLayer: SVGElement;
   private ghostLayer: SVGElement;
+  private fxLayer: SVGElement;
   private tappable: PawnRef[] = [];
   private L: number;
   private g: Geometry;
@@ -97,7 +98,8 @@ export class Board {
     }) as SVGSVGElement;
     this.ghostLayer = s('g', { class: 'ghosts' });
     this.pawnLayer = s('g', { class: 'pawns' });
-    this.top.append(this.pawnDefs(), this.ghostLayer, this.pawnLayer);
+    this.fxLayer = s('g', { class: 'fx' });
+    this.top.append(this.pawnDefs(), this.ghostLayer, this.pawnLayer, this.fxLayer);
     this.top.addEventListener('click', (e) => this.handleTap(e));
     this.el = h('div', { class: `board-stack n${n}` }, base, this.top);
   }
@@ -332,9 +334,12 @@ export class Board {
     return [this.pos(ref.s, from, ref.i), this.pos(ref.s, to, ref.i)];
   }
 
-  update(st: GameState, marks: BoardMarks, animate = true) {
+  /** Met à jour les pions. Retourne un résumé du mouvement (pour les sons). */
+  update(st: GameState, marks: BoardMarks, animate = true): { steps: number; home: boolean; captures: number; delay: number } {
     const STEP = 110;
     let maxDur = 0;
+    let steps = 0;
+    let home = false;
     const captured: [SVGGElement, Pt[]][] = [];
     const tr = ([x, y]: Pt) => `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     for (let seat = 0; seat < this.n; seat++) {
@@ -351,6 +356,8 @@ export class Board {
           else {
             const dur = Math.max(260, (pts.length - 1) * STEP);
             maxDur = Math.max(maxDur, dur);
+            steps = Math.max(steps, pts.length - 1);
+            if (inHome(this.n, p) && !inHome(this.n, old)) home = true;
             // Petit saut à chaque case.
             const frames: Keyframe[] = [];
             pts.forEach((pt, k) => {
@@ -367,6 +374,11 @@ export class Board {
     }
     for (const [el, pts] of captured) {
       const a = tr(pts[0]), b = tr(pts[pts.length - 1]);
+      // Onde de choc à l'endroit de la prise.
+      const ring = s('circle', { cx: pts[0][0], cy: pts[0][1], r: this.spacing * 0.5, class: 'burst' });
+      this.fxLayer.append(ring);
+      ring.animate?.([{ transform: 'scale(0.6)', opacity: 0 }, { transform: 'scale(0.6)', opacity: 0, offset: 0.55 }, { transform: 'scale(2.6)', opacity: 0.9, offset: 0.7 }, { transform: 'scale(3.4)', opacity: 0 }], { duration: maxDur + 500 });
+      setTimeout(() => ring.remove(), maxDur + 600);
       el.animate(
         [{ transform: a }, { transform: a, offset: 0.6 }, { transform: a + ' scale(1.4)', opacity: 0.2, offset: 0.75 }, { transform: b, opacity: 1 }],
         { duration: maxDur + 500, easing: 'ease-in' },
@@ -380,6 +392,7 @@ export class Board {
         return s('circle', { cx: x, cy: y, r: this.spacing * 0.5, class: 'ghost' });
       }),
     );
+    return { steps, home, captures: captured.length, delay: maxDur };
   }
 
   private handleTap(e: MouseEvent) {
