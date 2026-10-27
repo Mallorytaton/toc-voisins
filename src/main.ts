@@ -8,6 +8,10 @@ import {
   createScreen, go, homeScreen, lobbyScreen, localSetupScreen, reclaimScreen, rulesScreen, share,
 } from './ui/screens';
 import './style.css';
+import { botMove, cryptoRng, legalMoves } from './engine';
+
+/** Accès de test automatisé (?debug dans l'URL). */
+const DEBUG = new URLSearchParams(location.search).has('debug');
 
 registerSW({ immediate: true });
 
@@ -68,6 +72,7 @@ async function openOnline(code: string) {
     else {
       const el = h('div');
       const ctl = sess.controller();
+      if (DEBUG) Object.assign(window, { __toc: { ctl, legalMoves, botMove, cryptoRng } });
       const unmount = mountGame(el, ctl, { onQuit: () => { endSession(); go('/'); }, onShare: () => share(code) });
       setView(el, unmount);
     }
