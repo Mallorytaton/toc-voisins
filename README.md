@@ -19,7 +19,7 @@ Si un joueur ferme l'appli ou perd le réseau, il rouvre le lien et retrouve sa 
 ## Règles
 
 - 4 joueurs (2 équipes) ou 6 joueurs (3 équipes de 2), partenaires face à face, 4 pions chacun.
-- Parcours de 18 cases par joueur. On sort sur sa case de départ, on fait un tour complet, puis on entre dans ses 4 cases maison.
+- Parcours de 18 cases par joueur. On sort sur sa case de départ, on fait un tour complet, puis on entre dans ses 4 cases maison. Comme sur un vrai plateau, l'entrée de la maison est deux trous avant la case de départ.
 - Donnes de 5, 4 puis 4 cartes (paquet neuf tous les trois tours ; deux paquets à 6 joueurs). Au début de chaque donne, chacun donne une carte face cachée à son partenaire.
 - On doit jouer une carte à son tour. Sans coup possible, on défausse sa main et on passe jusqu'à la donne suivante.
 - **As** : sortir ou avancer de 1. **Roi** : sortir ou avancer de 13. **Dame** : 12. **Valet** : échanger un de ses pions avec un autre pion du parcours. **10, 9, 8, 6, 5, 3, 2** : avancer d'autant. **4** : reculer de 4. **7** : 7 pas à répartir entre ses pions, qui prennent tous les pions dépassés ou atteints. **Joker** : n'importe quelle carte.

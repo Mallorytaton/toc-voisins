@@ -16,7 +16,7 @@ function evaluate(st: GameState, seat: number): number {
       let v = 0;
       if (inBase(pw.p)) v = 0;
       else if (inHome(n, pw.p)) v = L + 40 + pw.p;
-      else v = 15 + pw.p;
+      else v = 15 + (pw.p > L - 2 ? 0 : pw.p); // au-delà de son entrée, le pion doit refaire un tour
       score += sign * v;
     }
   }

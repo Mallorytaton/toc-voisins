@@ -30,7 +30,7 @@ export const DEFAULT_VARIANTS: Variants = {
 /**
  * Position d'un pion, exprimée en progression depuis sa propre case de départ :
  *  -1            : à la base
- *  0 .. L        : sur le parcours (0 et L désignent tous deux la case de départ)
+ *  0 .. L-1      : sur le parcours (0 = case de départ, L-2 = case d'entrée en maison)
  *  L+1 .. L+4    : cases maison 1 à 4
  */
 export interface Pawn {

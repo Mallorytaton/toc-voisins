@@ -46,7 +46,7 @@ export function rulesView(v: Variants = DEFAULT_VARIANTS): HTMLElement {
     h(
       'p',
       null,
-      'Le parcours compte 18 cases par joueur. Chaque pion sort sur la case de départ de son joueur (la grande case colorée), fait un tour complet dans le sens des aiguilles d\'une montre puis entre dans ses 4 cases maison en repassant par sa case de départ.',
+      "Le parcours compte 18 cases par joueur. Chaque pion sort sur la case de départ de son joueur (le grand trou cerclé de sa couleur), fait un tour complet dans le sens des aiguilles d'une montre, puis entre dans ses 4 cases maison. Comme sur un vrai plateau, l'entrée de la maison se trouve deux trous avant la case de départ : le pion rentre sans repasser par son départ.",
     ),
     h('h3', null, 'Déroulement'),
     h(
@@ -69,7 +69,7 @@ export function rulesView(v: Variants = DEFAULT_VARIANTS): HTMLElement {
         : li('Valet', "échanger la place d'un de ses pions avec n'importe quel autre pion du parcours (pas en maison, pas un pion protégé sur sa case de départ)"),
       li('10, 9, 8, 6, 3, 2', 'avancer du nombre indiqué'),
       v.fiveOthers ? li('5', "faire avancer de 5 le pion d'un autre joueur (variante)") : li('5', 'avancer de 5'),
-      li('4', 'reculer de 4. Astuce : reculer depuis sa case de départ place le pion tout près de sa maison'),
+      li('4', 'reculer de 4. Astuce : reculer depuis sa case de départ place le pion à deux trous de l’entrée de sa maison'),
       li(
         '7',
         `7 pas à répartir entre ses pions (et ceux du partenaire si l'on a fini en cours de route). Le 7 doit être joué en entier. ${
@@ -84,7 +84,7 @@ export function rulesView(v: Variants = DEFAULT_VARIANTS): HTMLElement {
       null,
       h('li', null, "Un pion qui s'arrête sur une case occupée renvoie l'occupant à sa base, même s'il s'agit d'un pion partenaire."),
       v.startBlocks
-        ? h('li', null, "Un pion qui vient de sortir bloque sa case de départ : personne ne peut le dépasser ni le prendre tant qu'il n'a pas bougé (même pas son propre joueur). Il est marqué d'un anneau.")
+        ? h('li', null, "Un pion qui vient de sortir bloque sa case de départ : personne ne peut le dépasser ni le prendre tant qu'il n'a pas bougé (pas même les autres pions de son joueur). Il est cerclé de blanc.")
         : h('li', null, 'Variante : les pions sur leur case de départ ne bloquent pas.'),
       h('li', null, "On entre en maison à la valeur exacte. On ne peut pas sauter un pion déjà en maison, et le 4 ne fait jamais reculer en maison. Un pion ne fait qu'un seul tour : il doit rentrer."),
     ),

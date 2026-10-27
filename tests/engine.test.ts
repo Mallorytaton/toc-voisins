@@ -84,15 +84,21 @@ describe('cartes de déplacement', () => {
     expect(applyMove(st, find(st, '4S0', () => true)).pawns[0][0].p).toBe(6);
   });
 
-  it('le 4 depuis la case de départ place le pion juste avant sa maison', () => {
-    const st = mk(['4S0', '5S0']);
+  it("le 4 depuis la case de départ place le pion à deux trous de l'entrée de sa maison", () => {
+    const st = mk(['4S0', '3S0']);
     put(st, 0, 0, 0, true);
     let after = applyMove(st, find(st, '4S0', () => true));
     expect(after.pawns[0][0]).toEqual({ p: L - 4, fresh: false });
-    // Il entre ensuite en maison avec un 5 (4 pas jusqu'au départ, 1 en maison).
+    // Il entre ensuite en maison avec un 3 (2 pas jusqu'à l'entrée, 1 en maison).
     after.turn = 0;
-    after = applyMove(after, find(after, '5S0', () => true));
+    after = applyMove(after, find(after, '3S0', () => true));
     expect(after.pawns[0][0].p).toBe(L + 1);
+  });
+
+  it('un pion qui a dépassé son entrée de maison refait un tour', () => {
+    const st = mk(['3S0']);
+    put(st, 0, 0, L - 1); // entre l'entrée de la maison et la case de départ
+    expect(applyMove(st, find(st, '3S0', () => true)).pawns[0][0].p).toBe(2);
   });
 
   it('on ne recule pas en maison avec le 4', () => {
@@ -156,11 +162,19 @@ describe('blocage sur la case de départ', () => {
     expect(movesOf(st, '5S0')).toHaveLength(1);
   });
 
-  it('il bloque aussi son propre joueur qui veut rentrer', () => {
+  it('il bloque ses propres pions qui veulent le dépasser', () => {
     const st = mk(['3S0']);
     put(st, 0, 0, 0, true);
-    put(st, 0, 1, L - 1);
+    put(st, 0, 1, L - 1); // a dépassé son entrée, doit franchir le départ
     expect(movesOf(st, '3S0').map((m) => (m.kind === 'step' ? m.pawn.i : -1))).toEqual([0]);
+  });
+
+  it("mais pas ceux qui rentrent : l'entrée est avant le départ", () => {
+    const st = mk(['3S0']);
+    put(st, 0, 0, 0, true);
+    put(st, 0, 1, L - 3);
+    const m = find(st, '3S0', (m) => m.kind === 'step' && m.pawn.i === 1);
+    expect(applyMove(st, m).pawns[0][1].p).toBe(L + 2);
   });
 
   it('variante sans blocage : on peut dépasser et prendre', () => {
@@ -175,19 +189,19 @@ describe('blocage sur la case de départ', () => {
 describe('entrée en maison', () => {
   it('à la valeur exacte', () => {
     const st = mk(['6S0']);
-    put(st, 0, 0, L - 2);
+    put(st, 0, 0, L - 4);
     expect(applyMove(st, find(st, '6S0', () => true)).pawns[0][0].p).toBe(L + 4);
   });
 
   it('impossible de dépasser le fond de la maison', () => {
     const st = mk(['8S0']);
-    put(st, 0, 0, L - 2);
+    put(st, 0, 0, L - 4);
     expect(movesOf(st, '8S0')).toHaveLength(0);
   });
 
   it('impossible de sauter un pion déjà en maison', () => {
     const st = mk(['5S0', '3S0']);
-    put(st, 0, 0, L - 2);
+    put(st, 0, 0, L - 4);
     put(st, 0, 1, L + 2);
     expect(movesOf(st, '5S0').filter((m) => m.kind === 'step' && m.pawn.i === 0)).toHaveLength(0);
     // Mais on peut s'arrêter juste avant.
@@ -252,7 +266,7 @@ describe('le 7', () => {
     put(st, 0, 0, L + 2);
     put(st, 0, 1, L + 3);
     put(st, 0, 2, L + 4);
-    put(st, 0, 3, L - 1); // 2 pas pour entrer en case maison 1
+    put(st, 0, 3, L - 3); // 2 pas pour entrer en case maison 1
     put(st, 2, 0, 20);
     const m = find(st, '7S0', (m) => m.kind === 'seven' && m.parts.length === 2 && m.parts[0].pawn.s === 0);
     expect(m.kind === 'seven' && m.parts[1].pawn.s).toBe(2);
@@ -355,7 +369,7 @@ describe('fin de partie', () => {
   it("l'équipe gagne quand ses 8 pions sont rentrés", () => {
     const st = mk(['AS0']);
     for (let i = 0; i < 4; i++) put(st, 2, i, L + 1 + i);
-    put(st, 0, 0, L); // sur sa case de départ, après le tour complet
+    put(st, 0, 0, L - 2); // sur sa case d'entrée de maison, après le tour complet
     put(st, 0, 1, L + 2);
     put(st, 0, 2, L + 3);
     put(st, 0, 3, L + 4);

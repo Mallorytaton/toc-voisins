@@ -1,6 +1,6 @@
 import {
   PAWNS_PER_SEAT, HOME_SIZE, Pawns, clonePawns, controlledSeat, homeIndex, inBase, inHome,
-  isBlocker, occupant, onTrack, progressAt, sameRef, squareOf, startSq, trackLen,
+  isBlocker, occupant, onTrack, progressAt, sameRef, squareOf, startSq, stepForward, trackLen,
 } from './board';
 import { RANKS, rankOf } from './cards';
 import type { GameState, Move, PawnRef, Rank, SevenPart, Variants } from './types';
@@ -29,8 +29,8 @@ export function walkForward(ctx: Ctx, ref: PawnRef, k: number): Walk | null {
   let p = pw.p;
   const passed: number[] = [];
   for (let step = 1; step <= k; step++) {
-    const np = p + 1;
-    if (np <= L) {
+    const np = stepForward(n, p);
+    if (np < L) {
       const sq = squareOf(n, ref.s, np);
       const occ = occupant(n, pawns, sq, ref);
       if (occ && isBlocker(v, pawns[occ.s][occ.i])) return null;
@@ -44,7 +44,7 @@ export function walkForward(ctx: Ctx, ref: PawnRef, k: number): Walk | null {
     }
     p = np;
   }
-  return { p, passed, land: p <= L ? squareOf(n, ref.s, p) : -1 };
+  return { p, passed, land: p < L ? squareOf(n, ref.s, p) : -1 };
 }
 
 /** Recule un pion de k pas (uniquement sur le parcours, jamais en maison). */

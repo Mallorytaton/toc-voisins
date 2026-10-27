@@ -1,6 +1,6 @@
 import {
-  GameState, HOME_SIZE, PAWNS_PER_SEAT, PawnRef, inBase, inHome, homeIndex, onTrack, sameRef, squareOf,
-  trackLen,
+  GameState, HOME_ENTRY_OFFSET, HOME_SIZE, PAWNS_PER_SEAT, PawnRef, inBase, inHome, homeIndex, onTrack, sameRef,
+  squareOf, stepForward, trackLen,
 } from '../engine';
 import { COLORS, shapePath } from './colors';
 import { h, s } from './dom';
@@ -133,8 +133,9 @@ export class Board {
     return [Math.cos(ca) * inner + Math.cos(a) * corner, Math.sin(ca) * inner + Math.sin(a) * corner];
   }
 
+  /** Case absolue → point ; la case d'entrée en maison de chaque joueur est au milieu de son côté. */
   private squarePos(sq: number): Pt {
-    return this.trackPoint((sq * (this.n * (this.edgeLen + this.arcLen))) / this.L);
+    return this.trackPoint(((sq + HOME_ENTRY_OFFSET) * (this.n * (this.edgeLen + this.arcLen))) / this.L);
   }
 
   private homePos(seat: number, h: number): Pt {
@@ -143,15 +144,15 @@ export class Board {
     return [Math.cos(nk) * r, Math.sin(nk) * r];
   }
 
-  /** Centre du nid de base : coin qui précède la case de départ. */
+  /** Centre du nid de base : coin qui suit la case de départ. */
   private nestCenter(seat: number): Pt {
-    const a = this.normal(seat) - Math.PI / this.n;
+    const a = this.normal(seat) + Math.PI / this.n;
     return [Math.cos(a) * this.g.nest, Math.sin(a) * this.g.nest];
   }
 
   private basePos(seat: number, i: number): Pt {
     const [cx, cy] = this.nestCenter(seat);
-    const a = this.normal(seat) - Math.PI / this.n;
+    const a = this.normal(seat) + Math.PI / this.n;
     const d = this.g.nestR * 0.42;
     const off: Pt[] = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
     const [ox, oy] = off[i];
@@ -209,7 +210,7 @@ export class Board {
     for (let seat = 0; seat < n; seat++) {
       const col = COLORS[this.colors[seat]]?.fill ?? '#999';
       const pts: Pt[] = [];
-      for (let k = -2; k <= 14; k++) pts.push(this.trackPoint(seat * per + (k * per) / 18));
+      for (let k = -6; k <= 9; k++) pts.push(this.trackPoint(seat * per + (k * per) / 18));
       svg.append(s('path', {
         d: 'M' + pts.map((p) => p.map((v) => v.toFixed(1)).join(' ')).join('L'),
         fill: 'none', stroke: col, 'stroke-width': sp * 1.25, 'stroke-linecap': 'round', opacity: 0.22,
@@ -324,8 +325,10 @@ export class Board {
   private path(ref: PawnRef, from: number, to: number): Pt[] {
     const L = this.L;
     if (from >= 0 && to >= 0) {
-      const fwd = to - from;
-      if (fwd > 0 && fwd <= 13) return Array.from({ length: fwd + 1 }, (_, k) => this.pos(ref.s, from + k, ref.i));
+      // Rejoue les pas un par un (entrée en maison, passage par le départ).
+      const steps = [from];
+      while (steps.length <= 14 && steps[steps.length - 1] !== to) steps.push(stepForward(this.n, steps[steps.length - 1]));
+      if (steps[steps.length - 1] === to && steps.length > 1) return steps.map((p) => this.pos(ref.s, p, ref.i));
       if (onTrack(this.n, from) && onTrack(this.n, to)) {
         const back = (from - to + L) % L;
         if (back > 0 && back <= 4) return Array.from({ length: back + 1 }, (_, k) => this.pos(ref.s, (from - k + L) % L, ref.i));

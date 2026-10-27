@@ -11,9 +11,24 @@ export const partner = (n: number, s: number) => (s + n / 2) % n;
 export const teamOf = (n: number, s: number) => s % (n / 2);
 export const teamCount = (n: number) => n / 2;
 
+/**
+ * Comme sur un vrai plateau de Toc, la maison s'ouvre deux trous AVANT la case de départ :
+ * le pion y entre après un tour complet sans repasser par son départ.
+ */
+export const HOME_ENTRY_OFFSET = 2;
+export const homeEntry = (n: number) => trackLen(n) - HOME_ENTRY_OFFSET;
+
 export const inBase = (p: number) => p < 0;
-export const onTrack = (n: number, p: number) => p >= 0 && p <= trackLen(n);
+export const onTrack = (n: number, p: number) => p >= 0 && p < trackLen(n);
 export const inHome = (n: number, p: number) => p > trackLen(n);
+/** Progression après un pas en avant (entrée forcée en maison depuis la case d'entrée). */
+export function stepForward(n: number, p: number): number {
+  const L = trackLen(n);
+  if (p === homeEntry(n)) return L + 1;
+  if (p > L) return p + 1;
+  return (p + 1) % L;
+}
+
 /** Index de case maison (0..3) pour une progression en maison. */
 export const homeIndex = (n: number, p: number) => p - trackLen(n) - 1;
 
