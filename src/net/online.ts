@@ -307,12 +307,21 @@ export class OnlineSession {
     this.myCards = [];
     this.received = '';
     if (seat < 0) return;
-    this.handOff = onValue(ref(firebase(), `hands/${this.code}/${seat}`), (snap) => {
-      const v = snap.val() ?? {};
-      this.myCards = list<Card>(v.cards);
-      this.received = v.received ?? '';
-      this.emit();
-    });
+    this.handOff = onValue(
+      ref(firebase(), `hands/${this.code}/${seat}`),
+      (snap) => {
+        const v = snap.val() ?? {};
+        this.myCards = list<Card>(v.cards);
+        this.received = v.received ?? '';
+        this.emit();
+      },
+      () => {
+        // Lecture refusée : la place n'est pas encore confirmée par le serveur. On réessaie.
+        this.handOff = null;
+        this.handSeat = -1;
+        setTimeout(() => this.watchHand(), 800);
+      },
+    );
   }
 
   online(uid: string) {
