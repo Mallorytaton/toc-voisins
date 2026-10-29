@@ -9,8 +9,11 @@ function append(el: Element, children: Child[]) {
   }
 }
 
-/** Propriétés CSS sans unité : un nombre reste un nombre (zIndex 38, et non « 38px », ignoré par le navigateur). */
-const UNITLESS = new Set(['zIndex', 'opacity', 'flex', 'flexGrow', 'flexShrink', 'fontWeight', 'lineHeight', 'order', 'zoom', 'aspectRatio']);
+/**
+ * Propriétés CSS sans unité : un nombre reste un nombre (zIndex 38, et non « 38px », ignoré par le navigateur).
+ * Pas `flex` : « flex: 1 » donne « 1px », une base fixe qui laisse les listes défiler dans leur cadre.
+ */
+const UNITLESS = new Set(['zIndex', 'opacity', 'flexGrow', 'flexShrink', 'fontWeight', 'lineHeight', 'order', 'zoom', 'aspectRatio']);
 
 function setProps(el: Element, props: Props) {
   if (!props) return;
@@ -28,7 +31,7 @@ function setProps(el: Element, props: Props) {
 }
 
 /** Crée un élément HTML : h('button', { class: 'btn', onclick }, 'Texte').
- *  Dans style, un nombre vaut des px (sauf zIndex, opacity, flex…) et les clés « --x » posent des variables CSS. */
+ *  Dans style, un nombre vaut des px (sauf zIndex, opacity…) et les clés « --x » posent des variables CSS. */
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props, ...children: Child[]) {
   const el = document.createElement(tag);
   setProps(el, props);
