@@ -1,13 +1,13 @@
-// 04 Accueil : profil, choix 4/6 joueurs, partie privée, code de salle, tournoi.
+// 04 Accueil : profil, choix 4/6 joueurs, partie privée, code de salle.
 import { XP_PER_LEVEL, draftProfile, levelOf } from '../../app/profile';
-import { cupKey, setCup, watchCup, watchFriends } from '../../net/social';
+import { watchFriends } from '../../net/social';
 import { openAccountSheet } from './account';
 import { DEMO, DEMO_FRIENDS, type Friend } from '../demo';
 import { h, toast } from '../dom';
 import { avatar, avatarRing, bille, button, segmented, tabbar } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 
-const fmt = (n: number) => n.toLocaleString('fr-CA');
+const fmt = (n: number) => n.toLocaleString('fr-FR');
 const MODE_KEY = 'toc.mode';
 
 export function savedMode(): 4 | 6 {
@@ -24,30 +24,10 @@ export function parseRoomCode(raw: string): string | null {
   return m ? m[1] : null;
 }
 
-/** Prochain vendredi 20 h (heure locale) : la Coupe du Vendredi. */
-function nextCup(now: Date): Date {
-  const d = new Date(now);
-  d.setHours(20, 0, 0, 0);
-  d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7));
-  if (d <= now) d.setDate(d.getDate() + 7);
-  return d;
-}
-
-function clockParts(ms: number): [string, string][] {
-  const p2 = (v: number) => String(v).padStart(2, '0');
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const days = Math.floor(s / 86400);
-  if (days > 0) return [[p2(days), 'j'], [p2(Math.floor(s / 3600) % 24), 'h'], [p2(Math.floor(s / 60) % 60), 'min']];
-  return [[p2(Math.floor(s / 3600)), 'h'], [p2(Math.floor(s / 60) % 60), 'min'], [p2(s % 60), 's']];
-}
-
 export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   const p = draftProfile();
   const { level, inLevel } = levelOf(p.xp);
   let mode = savedMode();
-  let registered = DEMO;
-  const capacity = 64;
-  const baseCount = DEMO ? 41 : 0;
 
   // En-tête : avatar + niveau, salut + XP, jetons
   const head = h('div', { class: 'home-head' },
@@ -72,15 +52,15 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   };
   setMode(mode);
 
-  // Amis en ligne (« Mimi, Coco pis 2 autres en ligne »)
+  // Amis en ligne (« Mimi, Coco et 2 autres en ligne »)
   const friendsLine = h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 34 } });
   const drawFriends = (all: Pick<Friend, 'name' | 'char' | 'color' | 'presence'>[]) => {
     const online = all.filter((f) => f.presence !== 'off');
     friendsLine.replaceChildren(...(online.length
       ? [h('div', { class: 'stack' }, ...online.slice(0, 3).map((f) => h('div', { class: 'avatar-ring' }, avatar(f.char, f.color, 30)))),
         h('span', { style: { font: '700 13px var(--text)' } },
-          online.length > 2 ? `${online[0].name}, ${online[1].name} pis ${online.length - 2} autres en ligne` : online.map((f) => f.name).join(' pis ') + ' en ligne')]
-      : [h('span', { style: { font: '700 13px var(--text)', opacity: 0.9 } }, 'Partage le code de ta salle à ta gang.')]));
+          online.length > 2 ? `${online[0].name}, ${online[1].name} et ${online.length - 2} autres en ligne` : online.map((f) => f.name).join(' et ') + ' en ligne')]
+      : [h('span', { style: { font: '700 13px var(--text)', opacity: 0.9 } }, 'Partage le code de ta salle à tes amis.')]));
   };
   drawFriends(DEMO ? DEMO_FRIENDS : []);
   const stopFriends = DEMO || !navigator.onLine ? () => {} : watchFriends(drawFriends);
@@ -92,7 +72,7 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
     h('span', { class: 'tag', style: { position: 'relative' } }, 'ENTRE AMIS'),
     h('div', { style: { position: 'relative', display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 250 } },
       h('span', { class: 'hero__title' }, 'Partie privée'),
-      h('span', { style: { font: '600 15px/1.4 var(--text)', textWrap: 'pretty' } }, 'Crée ta salle, invite ta gang pis placez-vous en équipes.')),
+      h('span', { style: { font: '600 15px/1.4 var(--text)', textWrap: 'pretty' } }, 'Crée ta salle, invite tes amis et formez les équipes.')),
     friendsLine,
     createBtn);
 
@@ -107,59 +87,12 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   };
   code.addEventListener('keydown', (e) => e.key === 'Enter' && join());
 
-  // Tournoi
-  const clock = h('div', { class: 'countdown' });
-  const regText = h('span');
-  const regFill = h('div');
-  let count = baseCount + (registered ? 1 : 0);
-  const cupId = cupKey(nextCup(new Date()));
-  const regBtn = button('', 'dark', () => {
-    if (DEMO) { registered = !registered; count += registered ? 1 : -1; return drawReg(); }
-    if (!registered && count >= capacity) return toast('Le tournoi est complet !');
-    setCup(cupId, !registered).catch(() => toast('Inscription impossible pour l’instant.'));
-  }, { size: 'md' });
-  regBtn.style.flex = '1';
-  regBtn.style.padding = '3px 12px 0';
-  const drawReg = () => {
-    const n = count;
-    regText.textContent = `${n} / ${capacity} inscrits`;
-    regFill.style.width = `${Math.round((n / capacity) * 100)}%`;
-    regBtn.textContent = registered ? 'T’es inscrit !' : 'M’inscrire';
-    regBtn.style.background = registered ? 'var(--teal-d)' : '';
-    regBtn.style.boxShadow = registered ? '0 5px 0 var(--ok-ink)' : '';
-  };
-  const tick = () => {
-    const now = new Date();
-    clock.replaceChildren(...clockParts(nextCup(now).getTime() - now.getTime()).map(([v, u]) => h('div', null, h('b', null, v), h('span', null, u))));
-  };
-  drawReg();
-  tick();
-  const timer = setInterval(tick, 1000);
-
-  const cup = h('div', { class: 'hero hero--yellow hero--tight' },
-    h('div', { class: 'blob', style: { right: -40, bottom: -50, width: 150, height: 150, background: 'rgba(255,255,255,.25)' } }),
-    h('div', { style: { position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-      h('span', { class: 'tag tag--dark' }, 'TOURNOI · 4 JOUEURS'),
-      h('span', { style: { font: '800 13px var(--text)' } }, 'Gros lot : 5 000')),
-    h('span', { style: { position: 'relative', font: '800 28px/1 var(--display)' } }, 'La Coupe du Vendredi'),
-    // Compte à rebours et inscription sur une ligne : l'accueil tient dans l'écran sans défiler.
-    h('div', { style: { display: 'flex', alignItems: 'flex-end', gap: 10 } },
-      h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
-        h('span', { style: { font: '800 12px var(--text)', letterSpacing: '.08em', textTransform: 'uppercase', color: '#5a4300' } }, 'Commence dans'),
-        clock),
-      regBtn),
-    h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
-      h('div', { style: { display: 'flex', justifyContent: 'space-between', font: '800 13px var(--text)' } }, regText, h('span', null, `${capacity / 2} équipes`)),
-      h('div', { class: 'reg-bar' }, regFill)));
-
   const el = h('div', { class: 'screen screen--tabs home', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 10px)' } },
     head,
     h('span', { class: 't-screen' }, 'On joue ?'),
     segmented<4 | 6>([{ value: 4, label: '4 joueurs', sub: '2 équipes de 2' }, { value: 6, label: '6 joueurs', sub: '3 équipes de 2' }], mode, setMode),
     privateCard,
     h('div', { style: { display: 'flex', gap: 10 } }, code, button('Rejoindre', 'dark', join, { size: 'md' })),
-    cup,
     tabbar('home', (t) => go(t === 'home' ? ROUTES.home : t === 'friends' ? ROUTES.friends : ROUTES.ranking)));
-  const stopCup = DEMO || !navigator.onLine ? () => {} : watchCup(cupId, (n, mine) => { count = n; registered = mine; drawReg(); });
-  return { el, cleanup: () => { clearInterval(timer); stopFriends(); stopCup(); } };
+  return { el, cleanup: () => stopFriends() };
 }

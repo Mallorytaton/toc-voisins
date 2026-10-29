@@ -9,6 +9,6 @@ export const ROUTES = {
   onboard: '/bienvenue',
   pick: '/perso',
   home: '/accueil',
-  friends: '/gang',
+  friends: '/amis',
   ranking: '/classement',
 } as const;

@@ -93,15 +93,6 @@
 .stack { display: flex; }
 .stack > .avatar-ring { padding: 2px; }
 .stack > .avatar-ring + .avatar-ring { margin-left: -8px; }
-.countdown { display: flex; align-items: center; gap: 6px; }
-.countdown > div {
-  display: flex; flex-direction: column; align-items: center; width: 56px; padding: 7px 0 5px; border-radius: 16px;
-  background: #fff; box-shadow: 0 4px 0 #e6b52a;
-}
-.countdown b { font: 800 26px/1 var(--display); font-variant-numeric: tabular-nums; }
-.countdown span { font: 800 10px var(--text); color: var(--ink-2); text-transform: uppercase; }
-.reg-bar { height: 10px; border-radius: 5px; background: rgba(43, 42, 61, .14); overflow: hidden; }
-.reg-bar > div { height: 100%; border-radius: 5px; background: var(--ink); transition: width .5s; }
 
 /* ---- 05 Salle privée ---- */
 .seat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -126,6 +117,12 @@
   box-shadow: 0 6px 0 var(--clay-2), 0 16px 30px rgba(70, 40, 20, .2); animation: tocIn .3s ease-out both;
 }
 .invite-banner > span { flex: 1; font: 800 15px/1.25 var(--display); }
+/* Proposition d'installation (iPhone) : étapes et icône « Partager » */
+.install-steps { margin: 0 0 6px; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font: 700 15px/1.4 var(--text); color: var(--ink); }
+.ios-share { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; vertical-align: -7px; border-radius: 8px; background: #fff; box-shadow: 0 2px 0 var(--clay); }
+.ios-share > i { position: relative; width: 11px; height: 11px; border: 2px solid #2f7cf6; border-top: none; border-radius: 0 0 2px 2px; margin-top: 5px; }
+.ios-share > i::before { content: ''; position: absolute; left: 50%; top: -9px; width: 2px; height: 11px; background: #2f7cf6; transform: translateX(-50%); }
+.ios-share > i::after { content: ''; position: absolute; left: 50%; top: -10px; width: 6px; height: 6px; border-left: 2px solid #2f7cf6; border-top: 2px solid #2f7cf6; transform: translateX(-50%) rotate(45deg); }
 .count-overlay > span { font: 800 16px var(--text); letter-spacing: .18em; text-transform: uppercase; color: var(--ink-2); }
 .count-ball {
   width: 190px; height: 190px; border-radius: 50%; background: linear-gradient(180deg, var(--primary-top), var(--primary-bottom));
@@ -135,7 +132,7 @@
 }
 .count-ball--word { font-size: 52px; }
 
-/* ---- 07 Ta gang ---- */
+/* ---- 07 Amis ---- */
 .friend-code { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 22px; background: var(--ink); color: #fff; }
 .friend-code__label { font: 800 11px var(--text); letter-spacing: .12em; text-transform: uppercase; color: #c9c4d6; }
 .friend-code__value { font: 800 21px/1.1 var(--display); letter-spacing: .04em; }

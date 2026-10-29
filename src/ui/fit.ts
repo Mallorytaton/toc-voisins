@@ -3,7 +3,7 @@
 // ou réduit, et qui va jusqu'aux bords (comme la maquette, les marges d'encoche et de barre du bas
 // sont dans l'écran lui-même) :
 //   « fit »  : l'écran tient en entier (on réduit si besoin) — splash, présentation, perso, salle ;
-//   « tabs » : Jouer, Ta gang et Classement partagent la même échelle (mêmes tailles d'un onglet
+//   « tabs » : Jouer, Amis et Classement partagent la même échelle (mêmes tailles d'un onglet
 //              à l'autre) ; leurs listes défilent à l'intérieur.
 import { h } from './dom';
 
@@ -11,7 +11,7 @@ const BASE_W = 393;
 const MAX_W = 480;
 const MAX_SCALE = 1.25;
 /** Hauteur de référence des onglets : celle de l'accueil, le plus haut des trois (marges sûres minimales). */
-const TABS_H = 900;
+const TABS_H = 760;
 /** Marges sûres minimales comptées dans TABS_H (14 en haut, 12 en bas). */
 const MIN_SAFE = 26;
 

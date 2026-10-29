@@ -1,7 +1,7 @@
-// 07 Ta gang (amis, chat d'équipe) et 08 Classement.
-import { draftProfile, saveProfile } from '../../app/profile';
+// 07 Amis (liste, chat d'équipe) et 08 Classement.
+import { draftProfile } from '../../app/profile';
 import {
-  type FriendView, type RankEntry, addFriend, currentUid, friendIds, sendChat, setTyping, syncProfile, topPlayers,
+  type FriendView, type RankEntry, addFriend, currentUid, friendIds, sendChat, setTyping, topPlayers,
   watchChat, watchFriends,
 } from '../../net/social';
 import {
@@ -14,7 +14,7 @@ import { ROUTES, go } from '../nav';
 import { savedMode } from './home';
 
 type View = { el: HTMLElement; cleanup: () => void };
-const fmt = (n: number) => n.toLocaleString('fr-CA');
+const fmt = (n: number) => n.toLocaleString('fr-FR');
 const goTab = (t: Tab) => go(t === 'home' ? ROUTES.home : t === 'friends' ? ROUTES.friends : ROUTES.ranking);
 
 function friendRow(f: Omit<FriendView, 'uid'> & { uid?: string }, invited: Set<string>): HTMLElement {
@@ -69,14 +69,14 @@ function friendsPane(): View {
         ...on.map((f) => friendRow(f, invited)),
         ...(off.length ? [h('span', { class: 't-label', style: { marginTop: 8 } }, 'Hors ligne'), ...off.map((f) => friendRow(f, invited))] : []),
       ]
-      : [h('p', { class: 'empty' }, 'Ta gang est vide pour l’instant. Partage ton code ami, ou ajoute celui d’un chum.')]));
+      : [h('p', { class: 'empty' }, 'Pas encore d’amis. Partage ton code ami, ou ajoute celui d’un ami.')]));
   };
   const field = h('input', { class: 'field', placeholder: 'Code ami (ex. MIMI#4821)', 'aria-label': 'Code ami à ajouter', autocapitalize: 'characters', style: { flex: 1 } });
   const add = async () => {
     try {
       const name = await addFriend(field.value);
       field.value = '';
-      toast(`${name} est dans ta gang !`);
+      toast(`${name} fait partie de tes amis !`);
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Ajout impossible.', 2400);
     }
@@ -151,7 +151,7 @@ function chatPane(): { head: HTMLElement; body: HTMLElement; foot: HTMLElement |
   });
   draw();
   const foot = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-    h('div', { class: 'quick' }, ...['J’arrive !', 'Une autre ?', 'Bien joué partner', 'Garde ton 7'].map((t) => h('button', { type: 'button', onclick: () => send(t) }, t))),
+    h('div', { class: 'quick' }, ...['J’arrive !', 'Une autre ?', 'Bien joué partenaire', 'Garde ton 7'].map((t) => h('button', { type: 'button', onclick: () => send(t) }, t))),
     h('div', { style: { display: 'flex', gap: 8 } }, input,
       h('button', { class: 'send', type: 'button', 'aria-label': 'Envoyer', onclick: () => send(input.value) }, h('i'))));
   return { head, body: scroller, foot, cleanup: () => { stop(); if (!DEMO && wasTyping) void setTyping(partner.uid, false); } };
@@ -176,40 +176,24 @@ export function friendsScreen(): View {
   };
   show('amis');
   const el = h('div', { class: 'screen screen--tabs', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 12px)' } },
-    h('span', { class: 't-screen' }, 'Ta gang'),
+    h('span', { class: 't-screen' }, 'Tes amis'),
     segmented([{ value: 'amis' as const, label: 'Amis' }, { value: 'chat' as const, label: 'Chat d’équipe' }], 'amis', show),
     content,
     tabbar('friends', goTab));
   return { el, cleanup: () => stop() };
 }
 
-/** « D'où tu joues ? » : pour le classement Québec et la ville sous le nom. */
-function regionCard(onDone: () => void): HTMLElement {
-  const city = h('input', { class: 'field', placeholder: 'Ta ville (facultatif)', 'aria-label': 'Ta ville', maxlength: 24, style: { flex: 1, height: 46 } });
-  const pick = (qc: boolean) => {
-    saveProfile({ ...draftProfile(), qc, city: city.value.trim() });
-    void syncProfile().catch(() => undefined);
-    onDone();
-  };
-  return h('div', { class: 'card', style: { padding: 16, display: 'flex', flexDirection: 'column', gap: 10 } },
-    h('span', { style: { font: '800 18px/1.1 var(--display)' } }, 'D’où tu joues ?'),
-    city,
-    h('div', { style: { display: 'flex', gap: 8 } },
-      button('Québec', 'primary', () => pick(true), { size: 'sm' }), button('Ailleurs', 'white', () => pick(false), { size: 'sm' })));
-}
-
 export function rankingScreen(): View {
   // Le podium et la liste défilent à l'intérieur de l'écran.
   const body = h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14 } });
   const me = h('div', { class: 'rank-row rank-me' });
-  let scope: RankScope = 'quebec';
+  let scope: RankScope = 'monde';
   let real: { all: RankEntry[]; friends: Set<string> } | null = null;
 
   const render = (rk: RankRow[], mine: [string, number, string] | null) => {
     const p = draftProfile();
-    const ask = !DEMO && p.qc === undefined ? regionCard(() => show(scope)) : null;
     if (!rk.length) {
-      body.replaceChildren(...(ask ? [ask] : []), h('p', { class: 'empty' }, real ? 'Personne au classement ici pour l’instant. Gagne une partie en ligne pour y entrer !' : 'Chargement du classement…'));
+      body.replaceChildren(h('p', { class: 'empty' }, real ? 'Personne au classement pour l’instant. Gagne une partie en ligne pour y entrer !' : 'Chargement du classement…'));
       me.hidden = true;
       return;
     }
@@ -217,7 +201,6 @@ export function rankingScreen(): View {
       [1, COL.blue.c, COL.blue.d, 96, '#fff', 56], [0, COL.yellow.c, COL.yellow.d, 128, 'var(--ink)', 66], [2, COL.coral.c, COL.coral.d, 76, '#fff', 56],
     ];
     body.replaceChildren(
-      ...(ask ? [ask] : []),
       h('div', { class: 'podium' }, ...steps.filter(([i]) => rk[i]).map(([i, c, d, ht, nc, size]) => {
         const r = rk[i];
         return h('div', null,
@@ -246,12 +229,12 @@ export function rankingScreen(): View {
     if (DEMO) return render(DEMO_RANKS[s], DEMO_ME_RANK[s]);
     if (!real) return render([], null);
     const uid = currentUid();
-    const list = real.all.filter((e) => s === 'monde' || (s === 'quebec' ? e.qc : real!.friends.has(e.uid) || e.uid === uid));
-    const rows: RankRow[] = list.map((e) => ({ name: e.nick, region: e.city || (e.qc ? 'Québec' : ''), pts: e.points, trend: '—', char: e.char, color: e.color }));
+    const list = real.all.filter((e) => s === 'monde' || real!.friends.has(e.uid) || e.uid === uid);
+    const rows: RankRow[] = list.map((e) => ({ name: e.nick, region: e.city ?? '', pts: e.points, trend: '—', char: e.char, color: e.color }));
     const i = list.findIndex((e) => e.uid === uid);
     const pts = draftProfile().points ?? 0;
     const mine: [string, number, string] = i < 0 ? ['—', pts, 'Gagne une partie en ligne pour entrer au classement']
-      : [`#${i + 1}`, list[i].points, i === 0 ? 'Tu mènes la gang !' : `Encore ${list[i - 1].points - list[i].points + 1} pts pour dépasser ${list[i - 1].nick}`];
+      : [`#${i + 1}`, list[i].points, i === 0 ? 'Tu es en tête !' : `Encore ${list[i - 1].points - list[i].points + 1} pts pour dépasser ${list[i - 1].nick}`];
     render(rows, mine);
   };
 
@@ -265,7 +248,7 @@ export function rankingScreen(): View {
     h('div', { style: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 } },
       h('span', { class: 't-screen' }, 'Classement'),
       h('span', { class: 'pill' }, DEMO ? 'Saison 4 · finit dans 12 j' : 'Saison 1')),
-    segmented<RankScope>([{ value: 'amis', label: 'Amis' }, { value: 'quebec', label: 'Québec' }, { value: 'monde', label: 'Monde' }], 'quebec', show),
+    segmented<RankScope>([{ value: 'amis', label: 'Amis' }, { value: 'monde', label: 'Monde' }], 'monde', show),
     body,
     me,
     tabbar('ranking', goTab));

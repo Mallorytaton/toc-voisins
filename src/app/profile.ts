@@ -12,7 +12,7 @@ export interface Profile {
   tokens: number;
   /** Points de classement */
   points?: number;
-  /** Ville affichée au classement, et « joue du Québec » */
+  /** Ville affichée au classement (qc : ancien champ, plus utilisé) */
   city?: string;
   qc?: boolean;
   /** Partenaire de la dernière partie en ligne (chat d'équipe). */

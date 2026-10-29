@@ -11,7 +11,7 @@ import { h } from '../dom';
 import { COL, EMOTES, SEAT_COLORS, TEAM_NAMES, cardLook } from '../kit/data';
 import { avatar, bille, button, cardBack, pauseButton, playingCard } from '../kit/kit';
 
-const REPLIES = ['Ayoye !', 'Tu vas voir…', 'Hahaha', 'Pas pire pantoute', 'Bin voyons'];
+const REPLIES = ['Aïe !', 'Tu vas voir…', 'Hahaha', 'Pas mal du tout', 'Sérieux ?'];
 const TURN_MS = 30_000;
 const STAGE_W = 393;
 const STAGE_H = 750;
@@ -367,7 +367,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     roundEl.textContent = `Manche ${Math.floor(view.dealNo / 3) + 1} · Donne ${(view.dealNo % 3) + 1}`;
     turnEl.textContent = view.phase === 'over' ? 'Partie terminée'
       : view.phase === 'deal' ? 'On distribue…'
-        : view.phase === 'exchange' ? (view.exchange[me] ? 'On attend la gang…' : `Une carte pour ${nameOf(partner(N, me))}`)
+        : view.phase === 'exchange' ? (view.exchange[me] ? 'On attend les autres…' : `Une carte pour ${nameOf(partner(N, me))}`)
           : view.turn === me ? `À toi de jouer, ${nick}` : `Tour de ${nameOf(view.turn)}`;
     const myTeam = teamOf(N, me);
     const teams = [myTeam, ...Array.from({ length: N / 2 }, (_, t) => t).filter((t) => t !== myTeam)];
@@ -482,7 +482,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     renderChoice(pl);
     // Carte d'indice et bouton
     let t: string, sub: string, label = '';
-    if (view.phase === 'over') { t = 'Partie terminée'; sub = 'Bien joué, la gang !'; }
+    if (view.phase === 'over') { t = 'Partie terminée'; sub = 'Bien joué, tout le monde !'; }
     else if (view.phase === 'exchange') {
       if (view.exchange[me]) { t = 'Carte donnée'; sub = 'On attend que tout le monde échange.'; }
       else if (sel === null) { t = 'Échange'; sub = `Choisis une carte à passer à ${nameOf(partner(N, me))}.`; }
@@ -585,7 +585,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     flyCard(seat, move.card, prev);
     if (mine) {
       const victim = next.lastCaptures.find((c) => teamOf(N, c.s) !== teamOf(N, me));
-      toast(move.kind === 'exit' ? 'Un pion de sorti. Envoye !'
+      toast(move.kind === 'exit' ? 'Un pion de sorti. En avant !'
         : move.kind === 'swap' ? (move.target.s === me ? 'Échange !' : `Échange ! Désolé, ${nameOf(move.target.s)}.`)
           : move.kind === 'step' && move.steps < 0 ? 'Recule pour mieux sauter !'
             : victim ? 'BOUM ! Bien visé.' : move.kind === 'step' && move.steps >= 10 ? 'Grosse avance !' : 'Beau coup !');
@@ -633,7 +633,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       board.classList.add('board--shake');
       await sleep(200);
       const names = [...new Set(next.lastCaptures.map((v) => nameOf(v.s)))];
-      setTimeout(() => toast(`Retour à la réserve, ${names.join(' pis ')} !`, 1900), 100);
+      setTimeout(() => toast(`Retour à la réserve, ${names.join(' et ')} !`, 1900), 100);
       await Promise.all(next.lastCaptures.map((v) => flyTo(v.s, v.i, -1, 36)));
     }
     await sleep(mine ? 500 : 350);
@@ -707,7 +707,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const openPause = () => openSheet(
     h('span', { class: 'sheet__title' }, 'Pause'),
-    h('span', { class: 'sheet__text' }, 'La gang t’attend, fais ça vite !'),
+    h('span', { class: 'sheet__text' }, 'Les autres t’attendent, fais vite !'),
     button('Reprendre', 'primary', closeSheet, { size: 'md', block: true }),
     src.local ? button('Recommencer la donne', 'white', () => { closeSheet(); src.restartDeal(); }, { size: 'md', block: true }) : h('span'),
     button('Quitter la partie', 'danger', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
@@ -717,7 +717,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     for (let k = 0; k < 3; k++) setTimeout(() => fx('board', { kind: 'confetti', x: 120 + k * 60, y: 160 + (k % 2) * 40, ms: 1200 }), k * 250);
     setTimeout(() => openSheet(
       h('span', { class: 'sheet__title' }, won ? 'Victoire !' : 'Partie perdue'),
-      h('span', { class: 'sheet__text' }, `L’équipe ${TEAM_NAMES[st.winner]} a rentré toutes ses billes${won ? '. Bravo la gang !' : '. Revanche ?'}`),
+      h('span', { class: 'sheet__text' }, `L’équipe ${TEAM_NAMES[st.winner]} a rentré toutes ses billes${won ? '. Bravo l’équipe !' : '. Revanche ?'}`),
       button('Revanche', 'primary', () => { closeSheet(); src.rematch(); }, { size: 'md', block: true }),
       button('Retour à l’accueil', 'white', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
     ), 900);

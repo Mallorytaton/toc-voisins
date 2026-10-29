@@ -1,6 +1,6 @@
 # TOC
 
-Le jeu de TOC en équipes, sur ton téléphone : crée ta salle, invite ta gang pis jouez ensemble. Aucun compte à créer pour jouer.
+Le jeu de TOC en équipes, sur ton téléphone : crée ta salle, invite tes amis et jouez ensemble. Aucun compte à créer pour jouer.
 
 ## Jouer
 
@@ -58,7 +58,7 @@ npm run test:e2e     # tests Playwright (iPhone, Android, petit écran)
 npm run icons        # régénère les icônes à partir de public/favicon.svg
 ```
 
-Ajouter `?demo` à l'adresse montre les données de la maquette (amis, classement, chat) ; `#/vitrine` montre tous les composants.
+Ajouter `?demo` à l'adresse montre des données de démonstration (amis, classement, chat) ; `#/vitrine` montre tous les composants.
 
 Scripts de vérification (serveur `npx vite --port 5180` lancé avant) :
 

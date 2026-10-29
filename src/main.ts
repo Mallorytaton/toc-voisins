@@ -13,6 +13,7 @@ import { DEMO } from './ui/demo';
 import { h } from './ui/dom';
 import { fitScreen } from './ui/fit';
 import { blockZoom, lockPortrait } from './ui/orientation';
+import { maybeOfferInstall, watchInstall } from './ui/install';
 import { button } from './ui/kit/kit';
 import { ROUTES, go } from './ui/nav';
 import { gameScreen } from './ui/screens/game';
@@ -26,6 +27,7 @@ import { vitrineScreen } from './ui/screens/vitrine';
 registerSW({ immediate: true });
 lockPortrait();
 blockZoom();
+watchInstall();
 
 /** Partie en cours (une seule à la fois) et salle en ligne associée. */
 let currentGame: GameSource | null = null;
@@ -134,6 +136,9 @@ function router() {
     case ROUTES.ranking:
       return setView(rankingScreen());
     case ROUTES.home:
+      // Sur un téléphone, dans le navigateur : on propose d'installer l'app.
+      // (seulement si on est encore sur l'accueil : jamais au milieu d'une salle ou d'une partie)
+      setTimeout(() => { if (location.hash.startsWith('#' + ROUTES.home)) maybeOfferInstall(); }, 1500);
       return setView(homeScreen());
     default:
       return go(ROUTES.home);
@@ -164,7 +169,7 @@ async function openOnlineRoom(code: string, n: 4 | 6) {
     // L'adresse montre le vrai code : on peut la partager ou y revenir.
     if (code === 'nouvelle') {
       history.replaceState(null, '', '#/salle/' + currentSession.code);
-      // « Inviter » depuis Ta gang : la salle est créée, l'ami reçoit l'invitation.
+      // « Inviter » depuis Amis : la salle est créée, l'ami reçoit l'invitation.
       const friend = new URLSearchParams(hash.split('?')[1] ?? '').get('invite');
       if (friend) inviteFriend(friend, currentSession.code).catch((e) => console.warn('invitation', e));
     }

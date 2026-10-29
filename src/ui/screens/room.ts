@@ -11,7 +11,7 @@ async function shareInvite(room: Room) {
   try {
     if (navigator.share) return await navigator.share({ title: 'TOC', text, url });
     await navigator.clipboard.writeText(`${text} : ${url}`);
-    toast('Lien copié, envoie-le à ta gang !');
+    toast('Lien copié, envoie-le à tes amis !');
   } catch {
     // Partage annulé : rien à faire.
   }
@@ -78,7 +78,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     const full = joined === s.n;
     const host = !!s.seats[s.mySeat]?.host;
     status.textContent = s.status === 'playing' && s.mySeat < 0 ? 'Partie en cours. Reprends la place d’un joueur déconnecté.'
-      : full ? 'Tout le monde est là. On y va ?' : `${joined} / ${s.n} joueurs · on attend la gang…`;
+      : full ? 'Tout le monde est là. On y va ?' : `${joined} / ${s.n} joueurs · on attend les autres…`;
     launch.textContent = full ? (host ? 'Lancer la partie' : 'L’hôte lance la partie…') : 'En attente…';
     launch.className = 'btn btn--lg btn--block ' + (full && host ? 'btn--primary' : 'btn--off');
     launch.disabled = !full || !host;

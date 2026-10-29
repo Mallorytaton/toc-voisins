@@ -38,10 +38,10 @@ export function splashScreen(): HTMLElement {
     h('div', { class: 'splash__hero' },
       h('span', { class: 'splash__kicker' }, 'Le jeu de'),
       logo(),
-      h('span', { class: 'splash__tagline' }, 'Le jeu qui brise des amitiés… pis qui en crée.')),
+      h('span', { class: 'splash__tagline' }, 'Le jeu qui brise des amitiés… et qui en crée.')),
     h('div', { class: 'spacer' }),
     h('div', { class: 'splash__actions' },
-      button('Embarque !', 'primary', () => go(ROUTES.onboard), { size: 'lg', block: true }),
+      button('C’est parti !', 'primary', () => go(ROUTES.onboard), { size: 'lg', block: true }),
       // Compte Google : on retrouve son perso et sa progression ; sinon on le crée.
       button('J’ai déjà un compte', 'text', async () => {
         if (await googleThenGo()) go(getProfile() ? ROUTES.home : ROUTES.pick);
@@ -50,7 +50,7 @@ export function splashScreen(): HTMLElement {
 }
 
 const SLIDES = [
-  { t: 'Tu joues jamais tout seul', x: 'Ton partenaire est assis en face de toi. Vous gagnez ensemble quand tous vos pions sont rentrés.', bg: 'var(--coral-l)' },
+  { t: 'Tu ne joues jamais seul', x: 'Ton partenaire est assis en face de toi. Vous gagnez ensemble quand tous vos pions sont rentrés.', bg: 'var(--coral-l)' },
   { t: 'Des cartes, pas de dés', x: 'Chaque carte a son pouvoir : le 4 recule, le 7 se divise, le Valet échange. Pas de chance, juste de la stratégie.', bg: 'var(--yellow-l)' },
   { t: 'Rentre tes pions à la maison', x: 'Fais le tour du plateau et rentre tes 4 pions avant les autres. Attention : on peut te renvoyer dans ta réserve !', bg: 'var(--teal-l)' },
 ];

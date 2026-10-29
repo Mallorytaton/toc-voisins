@@ -34,12 +34,12 @@ export const AV_COL: Record<ColorName, [string, string]> = {
 };
 
 export const CHARS: { id: CharId; name: string }[] = [
-  { id: 'tuque', name: 'Ti-Loup' },
+  { id: 'tuque', name: 'Loulou' },
   { id: 'lunettes', name: 'Mimi' },
   { id: 'couronne', name: 'Le Boss' },
   { id: 'casquette', name: 'Coco' },
   { id: 'chignon', name: 'Ginette' },
-  { id: 'bandeau', name: 'Pinotte' },
+  { id: 'bandeau', name: 'Praline' },
 ];
 
 export interface CardLook {
@@ -105,13 +105,13 @@ export function cardLook(card: string, o: CardOptions = {}): CardLook {
 
 /**
  * Couleur de chaque place, dans l'ordre des places du moteur (sens horaire, partenaire en face).
- * Reprend la maquette vue depuis la place 0 : Soleil = corail + jaune, Bleuets = bleu + turquoise,
+ * Reprend la maquette vue depuis la place 0 : Soleil = corail + jaune, Myrtilles = bleu + turquoise,
  * Framboises = rose + violet.
  */
 export const SEAT_COLORS: Record<4 | 6, ColorName[]> = {
   4: ['coral', 'blue', 'yellow', 'teal'],
   6: ['coral', 'blue', 'rose', 'yellow', 'teal', 'violet'],
 };
-export const TEAM_NAMES = ['Soleil', 'Bleuets', 'Framboises'];
+export const TEAM_NAMES = ['Soleil', 'Myrtilles', 'Framboises'];
 
-export const EMOTES =['Envoye donc !', 'Tabarnouche !', 'Bien joué !', 'Ayoye…', 'Bin voyons donc', 'GG la gang'];
+export const EMOTES =['Allez, vas-y !', 'Oh là là !', 'Bien joué !', 'Aïe…', 'Mais non !', 'GG l’équipe'];

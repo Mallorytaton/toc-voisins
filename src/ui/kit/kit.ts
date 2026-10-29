@@ -170,7 +170,7 @@ const i = (style: string) => {
   return el;
 };
 
-/** Barre d'onglets flottante : Jouer · Ta gang · Classement. */
+/** Barre d'onglets flottante : Jouer · Amis · Classement. */
 export function tabbar(current: Tab, go: (t: Tab) => void): HTMLElement {
   const icons: Record<Tab, () => HTMLElement> = {
     home: () => h('span', { class: 'tabbar__icon', style: { width: 22 } },
@@ -187,7 +187,7 @@ export function tabbar(current: Tab, go: (t: Tab) => void): HTMLElement {
         return b;
       })),
   };
-  const labels: Record<Tab, string> = { home: 'Jouer', friends: 'Ta gang', ranking: 'Classement' };
+  const labels: Record<Tab, string> = { home: 'Jouer', friends: 'Amis', ranking: 'Classement' };
   return h('nav', { class: 'tabbar', 'aria-label': 'Navigation' },
     (Object.keys(labels) as Tab[]).map((t) =>
       h('button', {

@@ -1,12 +1,11 @@
 // Social en ligne (sous v2/) : profil public, code ami, amis, présence, invitations, chat d'équipe,
-// classement et inscription au tournoi. Chaque joueur n'écrit que ses propres données.
-//   users/<uid>            profil public (surnom, perso, couleur, XP, jetons, points, ville, au Québec)
+// et classement. Chaque joueur n'écrit que ses propres données.
+//   users/<uid>            profil public (surnom, perso, couleur, XP, jetons, points, ville)
 //   codes/<CODE>           uid du propriétaire du code ami
 //   friends/<uid>/<ami>    true (les deux côtés sont écrits à l'ajout)
 //   status/<uid>           { state: online | game | offline, at }
 //   invites/<uid>/<de>     { code, name, at }
 //   chats/<a_b>/msgs/<id>  { from, t, at } ; chats/<a_b>/typing/<uid> = true
-//   cups/<semaine>/<uid>   true
 import {
   get, limitToLast, onDisconnect, onValue, orderByChild, push, query, ref, remove, serverTimestamp, set, update,
 } from 'firebase/database';
@@ -234,26 +233,3 @@ export async function awardGame(key: string, won: boolean) {
   await syncProfile().catch(() => undefined);
 }
 
-// ---------- Tournoi ----------
-
-/** Clé de la Coupe du Vendredi visée (date du vendredi). */
-export function cupKey(friday: Date) {
-  return friday.toISOString().slice(0, 10);
-}
-
-export function watchCup(key: string, cb: (count: number, mine: boolean) => void): () => void {
-  let off = () => {};
-  void uid().catch(() => '').then((me) => {
-    if (!me) return;
-    off = onValue(node('cups', key), (s) => {
-      const v = (s.val() ?? {}) as Record<string, boolean>;
-      cb(Object.keys(v).length, !!v[me]);
-    });
-  });
-  return () => off();
-}
-
-export async function setCup(key: string, on: boolean) {
-  const me = await uid();
-  await set(node('cups', key, me), on ? true : null);
-}

@@ -4,6 +4,8 @@ const PROFILE = { nick: 'Frédo', char: 'tuque', color: 'coral', level: 1, xp: 0
 
 /** Ces tests n'écrivent rien dans la vraie base : Firebase est bloqué (le jeu reste jouable sans réseau). */
 test.beforeEach(async ({ page }) => {
+  // La proposition d'installation ne doit pas couvrir l'écran pendant les tests.
+  await page.addInitScript(() => localStorage.setItem('toc.install.later', String(Date.now())));
   await page.route(/(googleapis\.com|firebasedatabase\.app|firebaseio\.com)/, (r) => r.abort());
 });
 
@@ -24,9 +26,9 @@ async function expectNoSideScroll(page: Page) {
 test('premier lancement : splash, présentation, perso, accueil', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('./');
-  await expect(page.getByText('Le jeu qui brise des amitiés… pis qui en crée.')).toBeVisible();
-  await page.getByRole('button', { name: 'Embarque !' }).click();
-  await expect(page.getByText('Tu joues jamais tout seul')).toBeVisible();
+  await expect(page.getByText('Le jeu qui brise des amitiés… et qui en crée.')).toBeVisible();
+  await page.getByRole('button', { name: 'C’est parti !' }).click();
+  await expect(page.getByText('Tu ne joues jamais seul')).toBeVisible();
   await page.getByRole('button', { name: 'Suivant' }).click();
   await page.getByRole('button', { name: 'Suivant' }).click();
   await page.getByRole('button', { name: 'Choisir mon perso' }).click();
@@ -36,8 +38,8 @@ test('premier lancement : splash, présentation, perso, accueil', async ({ page 
   await expect(page.getByText('Salut Ginette !')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Créer une salle · 4 joueurs' })).toBeVisible();
   await expectNoSideScroll(page);
-  // Les onglets mènent à Ta gang et au classement.
-  await page.getByRole('button', { name: 'Ta gang' }).click();
+  // Les onglets mènent aux amis et au classement.
+  await page.getByRole('button', { name: 'Amis', exact: true }).click();
   await expect(page.getByText('Ton code ami', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Classement' }).click();
   await expect(page.locator('.t-screen')).toHaveText('Classement');

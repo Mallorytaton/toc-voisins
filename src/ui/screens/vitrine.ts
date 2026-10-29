@@ -41,12 +41,12 @@ export function vitrineScreen(): HTMLElement {
       h('div', { class: 'card', style: { padding: 18, display: 'flex', flexDirection: 'column', gap: 8 } },
         h('span', { class: 't-screen' }, 'On joue ?'),
         h('span', { class: 't-card' }, 'Partie privée'),
-        h('span', { style: { font: "600 22px/1.3 var(--display)" } }, 'Le jeu qui brise des amitiés… pis qui en crée.'),
-        h('span', { class: 't-body' }, 'Crée ta salle, invite ta gang pis placez-vous en équipes.'),
+        h('span', { style: { font: "600 22px/1.3 var(--display)" } }, 'Le jeu qui brise des amitiés… et qui en crée.'),
+        h('span', { class: 't-body' }, 'Crée ta salle, invite tes amis et formez les équipes.'),
         h('span', { class: 't-label' }, 'Ton surnom'))),
 
     section('Boutons',
-      button('Embarque !', 'primary', () => toast('Envoye !'), { size: 'lg', block: true }),
+      button('C’est parti !', 'primary', () => toast('C’est parti !'), { size: 'lg', block: true }),
       row(button('Suivant', 'primary'), button('Rejoindre', 'dark', undefined, { size: 'md' })),
       button('Recommencer la donne', 'white', undefined, { size: 'md', block: true }),
       button('Quitter la partie', 'danger', undefined, { size: 'md', block: true }),
@@ -70,7 +70,7 @@ export function vitrineScreen(): HTMLElement {
         h('span', { class: 'tag' }, 'ENTRE AMIS'),
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 250 } },
           h('span', { class: 'hero__title' }, 'Partie privée'),
-          h('span', { style: { font: '600 15px/1.4 var(--text)' } }, 'Crée ta salle, invite ta gang pis placez-vous en équipes.')),
+          h('span', { style: { font: '600 15px/1.4 var(--text)' } }, 'Crée ta salle, invite tes amis et formez les équipes.')),
         button('Créer une salle · 4 joueurs', 'on-blue', undefined, { size: 'md' })),
       h('div', { class: 'card', style: { padding: '14px 14px 14px 18px', display: 'flex', alignItems: 'center', gap: 12 } },
         h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } },
@@ -78,7 +78,7 @@ export function vitrineScreen(): HTMLElement {
           h('span', { style: { font: '800 28px/1.05 var(--display)', letterSpacing: '.06em' } }, 'TOC-4821')),
         button('Copier', 'dark', undefined, { size: 'sm' })),
       row(h('span', { class: 'pill' }, '4 joueurs · 2 équipes'), h('span', { class: 'pill' }, duo('coral', 'yellow', 12), 'Équipe Soleil'),
-        h('span', { class: 'tag tag--dark' }, 'TOURNOI · 4 JOUEURS'), h('span', { class: 'badge-count' }, '14'))),
+        h('span', { class: 'tag tag--dark' }, 'NOUVEAU'), h('span', { class: 'badge-count' }, '14'))),
 
     section('Personnages',
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 } },
@@ -95,6 +95,6 @@ export function vitrineScreen(): HTMLElement {
       row(cardBack(), h('span', { class: 't-body' }, 'Touche une carte pour la sélectionner.')),
       handRow),
 
-    tabbar('home', (t) => toast(t === 'home' ? 'Jouer' : t === 'friends' ? 'Ta gang' : 'Classement')),
+    tabbar('home', (t) => toast(t === 'home' ? 'Jouer' : t === 'friends' ? 'Amis' : 'Classement')),
   );
 }

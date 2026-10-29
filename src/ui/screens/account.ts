@@ -57,7 +57,7 @@ export function openAccountSheet() {
   account().then((a) => {
     if (a.google) status.textContent = `Connecté·e avec Google${a.email ? ' · ' + a.email : ''}. Ta progression te suit sur tous tes téléphones.`;
     else {
-      status.textContent = 'Retrouve ton perso, tes points pis ta gang sur un autre téléphone.';
+      status.textContent = 'Retrouve ton perso, tes points et tes amis sur un autre téléphone.';
       googleBtn.hidden = false;
     }
   }).catch(() => { status.textContent = 'Compte indisponible pour l’instant.'; });
