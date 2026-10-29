@@ -29,8 +29,10 @@ import { maybeOfferPush } from './ui/push-offer';
 import { refreshPush } from './net/push';
 import { setBadge } from './net/badge';
 import { watchMyGames } from './net/slow';
+import { unlockAudio } from './ui/sound';
 
 registerSW({ immediate: true });
+document.addEventListener('pointerdown', unlockAudio, { passive: true });
 lockPortrait();
 blockZoom();
 watchInstall();

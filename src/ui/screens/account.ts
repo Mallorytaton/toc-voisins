@@ -6,6 +6,7 @@ import { h, toast } from '../dom';
 import { avatarRing, button } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { pushSetting } from '../push-offer';
+import { soundSettings } from '../sound';
 
 /** Connexion Google puis suite logique : profil retrouvé → accueil, sinon → choix du perso. */
 export async function googleThenGo(): Promise<boolean> {
@@ -49,6 +50,7 @@ export function openAccountSheet() {
       status,
       googleBtn,
       pushSetting(),
+      soundSettings(),
       button('Changer de perso', 'white', () => { close(); go(ROUTES.pick); }, { size: 'md', block: true }),
       button('Fermer', 'text', close)));
   (document.getElementById('app') ?? document.body).append(wrap);

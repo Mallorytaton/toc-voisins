@@ -11,6 +11,7 @@ import { h } from '../dom';
 import { COL, EMOTES, SEAT_COLORS, TEAM_NAMES, cardLook } from '../kit/data';
 import { avatar, bille, button, cardBack, pauseButton, playingCard } from '../kit/kit';
 import { openRulesSheet } from './rules';
+import { buzz, sfx, soundSettings } from '../sound';
 
 const REPLIES = ['Aïe !', 'Tu vas voir…', 'Hahaha', 'Pas mal du tout', 'Sérieux ?'];
 const TURN_MS = 30_000;
@@ -632,6 +633,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const center2 = (s: number, i: number, p: number) => xy(s, i, p);
   const land = (s: number, i: number, p: number, label: string, n: number) => {
     const [x, y] = center2(s, i, p), c = tint(s).c;
+    if (inHome(N, p)) sfx('maison');
     fx('board', { kind: 'ring', x, y, c, ms: 550 });
     fx('board', { kind: 'burst', x, y, c, ms: 650 });
     fx('board', { kind: 'float', x, y: y - 12, c, t: label, fs: Math.abs(n) >= 10 ? 26 : 20, ms: 950 });
@@ -653,6 +655,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const [x, y] = center2(s, i, p);
       fx('board', { kind: 'puff', x, y, c: tint(s).c, s: 12, ms: 380 });
       p = next;
+      sfx('toc');
       place(s, i, p, Math.round(sp * 0.87), Z.lift, 500);
       await sleep(sp / 2);
       unlift(s, i);
@@ -672,6 +675,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
     const col = card.startsWith('X') ? '#9b7bff' : c.red ? '#e5482a' : '#2b2a3d';
     fx('screen', { kind: 'card', x0, y0, x1: 16 + 180 + 34 * ds, y1: 262, r0, r1: 6, s0, s1: 0.68 * ds, r: c.r, su: c.s, col, ms: 460 });
+    sfx('carte');
     setTimeout(() => { shown = card; renderDiscard(true); }, 450);
   };
 
@@ -703,6 +707,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       await flyTo(move.pawn.s, move.pawn.i, 0, 32);
       const [x, y] = center2(move.pawn.s, move.pawn.i, 0);
       fx('board', { kind: 'confetti', x, y, ms: 1000 });
+      sfx('sortie');
       land(move.pawn.s, move.pawn.i, 0, 'SORTI !', 0);
     } else if (move.kind === 'step') {
       const p = await hop(move.pawn.s, move.pawn.i, prev.pawns[move.pawn.s][move.pawn.i].p, move.steps, sp);
@@ -710,6 +715,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     } else if (move.kind === 'swap') {
       const a = move.pawn, b = move.target;
       const pa = next.pawns[a.s][a.i].p, pb = next.pawns[b.s][b.i].p;
+      sfx('echange');
       await Promise.all([flyTo(a.s, a.i, pa, 26), flyTo(b.s, b.i, pb, 26)]);
       for (const [r, p] of [[a, pa], [b, pb]] as const) {
         const [x, y] = center2(r.s, r.i, p);
@@ -739,6 +745,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       board.classList.remove('board--shake');
       void board.offsetWidth;
       board.classList.add('board--shake');
+      sfx('boum');
+      // Une de tes billes renvoyée dans ta réserve : le téléphone vibre.
+      if (next.lastCaptures.some((v) => v.s === me)) buzz(220);
       await sleep(200);
       const names = [...new Set(next.lastCaptures.map((v) => nameOf(v.s)))];
       setTimeout(() => toast(`Retour à la réserve, ${names.join(' et ')} !`, 1900), 100);
@@ -773,6 +782,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       render();
       dealing = false;
       const size = next.hands[me].length;
+      sfx('donne');
       if (next.dealNo === 0) fx('screen', { kind: 'banner', y: 262, t: 'C’EST PARTI !', ms: 1500 });
       else toast(`Nouvelle donne : ${size} cartes !`);
       await sleep(1300);
@@ -781,7 +791,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       toast(`${nameOf(partner(N, me))} t’a passé une carte`);
       await sleep(600);
     }
-    if (next.phase === 'play' && next.turn === me && (!wasMyTurn || moved)) fx('screen', { kind: 'banner', y: 262, t: 'À TOI DE JOUER !', ms: 1500 });
+    if (next.phase === 'play' && next.turn === me && (!wasMyTurn || moved)) {
+      fx('screen', { kind: 'banner', y: 262, t: 'À TOI DE JOUER !', ms: 1500 });
+      sfx('tour');
+      buzz([60, 40, 60]);
+    }
     if (next.phase === 'over' && prev.phase !== 'over') showEnd(next);
   };
 
@@ -824,12 +838,15 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const openPause = () => openSheet(
     h('span', { class: 'sheet__title' }, 'Pause'),
     h('span', { class: 'sheet__text' }, src.slow ? 'Partie à ton rythme : elle t’attend sur l’accueil, reviens quand tu veux.' : 'Les autres t’attendent, fais vite !'),
+    soundSettings(),
     button('Reprendre', 'primary', closeSheet, { size: 'md', block: true }),
     src.local ? button('Recommencer la donne', 'white', () => { closeSheet(); src.restartDeal(); }, { size: 'md', block: true }) : h('span'),
     button(src.slow ? 'Revenir à l’accueil' : 'Quitter la partie', src.slow ? 'white' : 'danger', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
   );
   const showEnd = (st: GameState) => {
     const won = teamOf(N, me) === st.winner;
+    sfx(won ? 'victoire' : 'defaite');
+    if (won) buzz([80, 60, 80, 60, 200]);
     for (let k = 0; k < 3; k++) setTimeout(() => fx('board', { kind: 'confetti', x: 120 + k * 60, y: 160 + (k % 2) * 40, ms: 1200 }), k * 250);
     setTimeout(() => openSheet(
       h('span', { class: 'sheet__title' }, won ? 'Victoire !' : 'Partie perdue'),
