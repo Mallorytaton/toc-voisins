@@ -137,6 +137,8 @@ interface Message {
   tag: string;
   /** Faire sonner à nouveau quand un message du même sujet remplace le précédent */
   renotify: boolean;
+  /** Partie à ton rythme : son code s'ajoute à la pastille de l'icône */
+  badge?: string;
   ttl: number;
   urgency: 'normal' | 'high';
 }
@@ -177,7 +179,7 @@ async function notify(env: Env, db: Db, me: string, b: Record<string, unknown>) 
     allowed = (u) => seats.includes(u);
     // À ton rythme : chaque tour compte, le message attend quelques jours ; en direct, il ne vaut que deux minutes.
     msg = meta?.slow
-      ? { title: 'À toi de jouer !', body: `${(meta.title ?? `Partie TOC-${code}`).slice(0, 30)} : c’est ton tour, joue quand tu veux.`, url: `${app}?g=${code}`, tag: `turn-${code}`, renotify: true, ttl: 3 * 86_400, urgency: 'normal' }
+      ? { title: 'À toi de jouer !', body: `${(meta.title ?? `Partie TOC-${code}`).slice(0, 30)} : c’est ton tour, joue quand tu veux.`, url: `${app}?g=${code}`, tag: `turn-${code}`, renotify: true, ttl: 3 * 86_400, urgency: 'normal', badge: code }
       : { title: 'C’est ton tour !', body: `Ta partie TOC-${code} t’attend.`, url: `${app}?g=${code}`, tag: `turn-${code}`, renotify: false, ttl: 120, urgency: 'high' };
   } else {
     if (!code) return { sent: 0 };
@@ -228,7 +230,7 @@ async function pushTo(env: Env, u: string, msg: Message, kind: string) {
   const dead: string[] = [];
   for (const s of subs) {
     tried++;
-    const status = await sendPush(s, { title: msg.title, body: msg.body, url: msg.url, tag: msg.tag, renotify: msg.renotify }, vapid,
+    const status = await sendPush(s, { title: msg.title, body: msg.body, url: msg.url, tag: msg.tag, renotify: msg.renotify, badge: msg.badge }, vapid,
       { ttl: msg.ttl, urgency: msg.urgency, topic: msg.tag.replace(/[^\w-]/g, '').slice(0, 32) })
       .catch((e) => { console.log(kind, 'échec d’envoi :', String(e)); return 0; });
     console.log(kind, `« ${msg.title} »`, 'envoyé à', new URL(s.endpoint).host, '→', status);

@@ -27,6 +27,8 @@ import { friendsScreen, rankingScreen } from './ui/screens/social';
 import { vitrineScreen } from './ui/screens/vitrine';
 import { maybeOfferPush } from './ui/push-offer';
 import { refreshPush } from './net/push';
+import { setBadge } from './net/badge';
+import { watchMyGames } from './net/slow';
 
 registerSW({ immediate: true });
 lockPortrait();
@@ -45,6 +47,8 @@ function startSocial() {
   syncProfile().catch((e) => console.warn('profil', e));
   startPresence().catch((e) => console.warn('présence', e));
   refreshPush().catch((e) => console.warn('notifications', e));
+  // Pastille de l'icône : les parties à ton rythme où c'est ton tour.
+  watchMyGames((list) => void setBadge(list.filter((g) => g.status === 'mine').map((g) => g.code)));
   watchInvites((inv) => {
     const target = (inv.league ? '/tournoi/' : '/salle/') + inv.code;
     if (location.hash === '#' + target || location.hash === '#/partie') return;

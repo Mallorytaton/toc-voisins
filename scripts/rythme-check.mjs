@@ -17,6 +17,10 @@ async function player(name, profile) {
     localStorage.setItem('toc.install.later', String(Date.now()));
     localStorage.setItem('toc.notifs.later', String(Date.now()));
     if (!localStorage.getItem('toc.profile')) localStorage.setItem('toc.profile', JSON.stringify(p));
+    // Pastille de l'icône : on note ce que l'app demande (le navigateur de test n'en affiche pas).
+    window.__badges = [];
+    navigator.setAppBadge = (n) => { window.__badges.push(n); return Promise.resolve(); };
+    navigator.clearAppBadge = () => { window.__badges.push(0); return Promise.resolve(); };
   }, profile);
   return { name, page };
 }
@@ -96,6 +100,8 @@ await shot(host, '02-attente');
 await guest.page.waitForSelector('.slow-row', { timeout: 15000 });
 console.log('Accueil de Mimi :', (await guest.page.locator('.slow-card').innerText()).replace(/\n/g, ' | '));
 await shot(guest, '02-accueil');
+const badge = await guest.page.evaluate(() => window.__badges.at(-1));
+console.log('Pastille de Mimi :', badge, badge === 1 ? '✔' : '✘');
 // Mimi revient et joue
 await guest.page.locator('.slow-row').first().click();
 await guest.page.waitForSelector('.game', { timeout: 20000 });
