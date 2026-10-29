@@ -9,6 +9,9 @@ function append(el: Element, children: Child[]) {
   }
 }
 
+/** Propriétés CSS sans unité : un nombre reste un nombre (zIndex 38, et non « 38px », ignoré par le navigateur). */
+const UNITLESS = new Set(['zIndex', 'opacity', 'flex', 'flexGrow', 'flexShrink', 'fontWeight', 'lineHeight', 'order', 'zoom', 'aspectRatio']);
+
 function setProps(el: Element, props: Props) {
   if (!props) return;
   for (const [k, v] of Object.entries(props)) {
@@ -17,7 +20,7 @@ function setProps(el: Element, props: Props) {
     else if (k === 'style' && typeof v === 'object') {
       for (const [p, val] of Object.entries(v as Record<string, string | number>)) {
         if (p.startsWith('--')) (el as HTMLElement).style.setProperty(p, String(val));
-        else ((el as HTMLElement).style as unknown as Record<string, string>)[p] = typeof val === 'number' ? val + 'px' : val;
+        else ((el as HTMLElement).style as unknown as Record<string, string>)[p] = typeof val === 'number' && !UNITLESS.has(p) ? val + 'px' : String(val);
       }
     } else if (k === 'value' && el instanceof HTMLInputElement) el.value = String(v);
     else el.setAttribute(k, v === true ? '' : String(v));
@@ -25,7 +28,7 @@ function setProps(el: Element, props: Props) {
 }
 
 /** Crée un élément HTML : h('button', { class: 'btn', onclick }, 'Texte').
- *  Dans style, un nombre vaut des px et les clés « --x » posent des variables CSS. */
+ *  Dans style, un nombre vaut des px (sauf zIndex, opacity, flex…) et les clés « --x » posent des variables CSS. */
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props, ...children: Child[]) {
   const el = document.createElement(tag);
   setProps(el, props);

@@ -102,13 +102,17 @@ export function doStep(ctx: Ctx, ref: PawnRef, steps: number): PawnRef[] | null 
   return caps;
 }
 
+/** Bille qu'on peut viser avec le Valet : sur le parcours, et pas protégée sur son départ. */
 function swappable(ctx: Ctx, r: PawnRef) {
   const pw = ctx.pawns[r.s][r.i];
   return onTrack(ctx.n, pw.p) && !isBlocker(ctx.v, pw);
 }
 
+/** Sa propre bille, celle qui échange : il suffit qu'elle soit sur le parcours, même tout juste sortie. */
+const canSwapOwn = (ctx: Ctx, r: PawnRef) => onTrack(ctx.n, ctx.pawns[r.s][r.i].p);
+
 export function doSwap(ctx: Ctx, a: PawnRef, b: PawnRef): boolean {
-  if (sameRef(a, b) || !swappable(ctx, a) || !swappable(ctx, b)) return false;
+  if (sameRef(a, b) || !canSwapOwn(ctx, a) || !swappable(ctx, b)) return false;
   const { n, pawns } = ctx;
   const sqA = squareOf(n, a.s, pawns[a.s][a.i].p);
   const sqB = squareOf(n, b.s, pawns[b.s][b.i].p);
@@ -238,7 +242,7 @@ export function movesForRank(st: GameState, seat: number, rank: Rank, cap?: numb
   if (rank === 'J' && !v.jackEleven) {
     for (let i = 0; i < PAWNS_PER_SEAT; i++) {
       const a = { s: cs, i };
-      if (!swappable(ctx, a)) continue;
+      if (!canSwapOwn(ctx, a)) continue;
       for (let s = 0; s < n; s++) {
         for (let j = 0; j < PAWNS_PER_SEAT; j++) {
           const b = { s, i: j };

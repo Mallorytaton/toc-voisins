@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_VARIANTS, GameState, Move, Variants, applyMove, deal, giveCard, homeEntry, legalMoves, legalMovesFor,
-  newGame, progressAt, seededRng, trackLen,
+  newGame, progressAt, sameRef, seededRng, trackLen,
 } from '../src/engine';
 
 const L = trackLen(4); // 64
@@ -333,6 +333,22 @@ describe('le Valet', () => {
     const after = applyMove(st, m);
     expect(after.pawns[0][0].p).toBe(40);
     expect(after.pawns[1][0].p).toBe(progressAt(4, 1, 10));
+  });
+
+  it('sa propre bille tout juste sortie peut échanger', () => {
+    const st = mk(['JS0']);
+    put(st, 0, 0, 0, true);
+    putSq(st, 1, 0, 40);
+    const m = find(st, 'JS0', (x) => x.kind === 'swap' && sameRef(x.pawn, { s: 0, i: 0 }) && x.target.s === 1);
+    const after = applyMove(st, m);
+    expect(after.pawns[0][0]).toEqual({ p: 40, fresh: false });
+  });
+
+  it('une bille adverse tout juste sortie reste protégée', () => {
+    const st = mk(['JS0']);
+    put(st, 0, 0, 10);
+    put(st, 1, 0, 0, true);
+    expect(movesOf(st, 'JS0').some((x) => x.kind === 'swap' && x.target.s === 1)).toBe(false);
   });
 
   it('échange aussi avec un pion de son partenaire', () => {
