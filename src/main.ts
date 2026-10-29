@@ -16,7 +16,7 @@ import { fitScreen } from './ui/fit';
 import { blockZoom, lockPortrait } from './ui/orientation';
 import { maybeOfferInstall, watchInstall } from './ui/install';
 import { button } from './ui/kit/kit';
-import { ROUTES, go } from './ui/nav';
+import { ROUTES, go, rememberLink } from './ui/nav';
 import { gameScreen } from './ui/screens/game';
 import './ui/screens/game.css';
 import { homeScreen, savedMode } from './ui/screens/home';
@@ -90,18 +90,21 @@ function setView(v: View) {
   window.scrollTo(0, 0);
 }
 
+const SHARED_LINKS: [string, RegExp, (v: string) => string][] = [
+  ['g', /^\d{4}$/, (v) => '/salle/' + v],
+  ['t', /^\d{4}$/, (v) => '/tournoi/' + v],
+  ['ami', /^[A-Za-z]+[#-]\d{4}$/, (v) => '/amis?ajout=' + encodeURIComponent(v)],
+];
+
 function router() {
-  // Lien d'invitation de la forme ?g=4821
-  const q = new URLSearchParams(location.search).get('g');
-  if (q && /^\d{4}$/.test(q)) {
-    history.replaceState(null, '', location.pathname);
-    return go('/salle/' + q);
-  }
-  // Lien de tournoi de la forme ?t=4821
-  const tq = new URLSearchParams(location.search).get('t');
-  if (tq && /^\d{4}$/.test(tq)) {
-    history.replaceState(null, '', location.pathname);
-    return go('/tournoi/' + tq);
+  // Liens partagés : ?g=4821 (salle), ?t=4821 (tournoi), ?ami=FREDO%232741 (ajouter un ami).
+  const search = new URLSearchParams(location.search);
+  for (const [k, re, to] of SHARED_LINKS) {
+    const v = search.get(k);
+    if (v && re.test(v)) {
+      history.replaceState(null, '', location.pathname);
+      return go(to(v));
+    }
   }
   const [path, query = ''] = (location.hash.replace(/^#/, '') || '/').split('?');
   const params = new URLSearchParams(query);
@@ -118,8 +121,11 @@ function router() {
   if (path === '/splash') return setView(splashScreen());
   if (path === ROUTES.onboard) return setView(onboardScreen());
   if (path === ROUTES.pick) return setView(pickScreen());
-  // Sans perso, on commence par l'accueil du jeu.
-  if (!hasProfile) return path === '/' ? setView(splashScreen()) : go('/');
+  // Sans perso, on commence par l'accueil du jeu ; la salle, le tournoi ou l'ami du lien attendent la fin de l'inscription.
+  if (!hasProfile) {
+    if (/^\/(salle\/\d{4}|tournoi\/\d{4}|amis\?ajout=)/.test(location.hash.slice(1))) rememberLink(location.hash.slice(1));
+    return path === '/' ? setView(splashScreen()) : go('/');
+  }
 
   const room = /^\/salle\/(nouvelle|\d{4})$/.exec(path);
   if (room) {
@@ -153,7 +159,7 @@ function router() {
   }
   switch (path) {
     case ROUTES.friends:
-      return setView(friendsScreen());
+      return setView(friendsScreen(params.get('ajout')));
     case ROUTES.ranking:
       return setView(rankingScreen());
     case ROUTES.home:

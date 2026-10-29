@@ -96,6 +96,21 @@ function ago(at: number) {
   return d === 1 ? 'Vu·e hier' : `Vu·e il y a ${d} jours`;
 }
 
+/** Lien à partager : l'ouvrir propose d'ajouter ce joueur en ami. */
+export const friendLink = (code: string) => `${location.origin}${location.pathname}?ami=${encodeURIComponent(code)}`;
+
+/** Le joueur derrière un code ami (lien partagé), sans l'ajouter. null si le code n'existe pas. */
+export async function lookupFriendCode(raw: string): Promise<{ uid: string; nick: string; char: CharId; color: ColorName; mine: boolean; already: boolean } | null> {
+  const me = await uid();
+  const code = raw.trim().toUpperCase().replace(/\s+/g, '');
+  if (!/^[A-Z]+[#-]\d{4}$/.test(code)) return null;
+  const other = (await get(node('codes', codeKey(code)))).val() as string | null;
+  if (!other) return null;
+  const [p, f] = await Promise.all([get(node('users', other)), get(node('friends', me, other))]);
+  const pub = p.val() as PublicProfile | null;
+  return { uid: other, nick: pub?.nick ?? code.split(/[#-]/)[0], char: pub?.char ?? 'tuque', color: pub?.color ?? 'coral', mine: other === me, already: !!f.val() };
+}
+
 /** Ajoute un ami par son code (ex. FREDO#2741). Renvoie son surnom. */
 export async function addFriend(raw: string): Promise<string> {
   const me = await uid();

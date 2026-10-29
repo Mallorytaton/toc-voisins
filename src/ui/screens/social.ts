@@ -1,9 +1,6 @@
 // 07 Amis (liste, chat d'équipe) et 08 Classement.
 import { draftProfile } from '../../app/profile';
-import {
-  type FriendView, type RankEntry, addFriend, currentUid, friendIds, sendChat, setTyping, topPlayers,
-  watchChat, watchFriends,
-} from '../../net/social';
+import { addFriend, currentUid, friendIds, friendLink, lookupFriendCode, sendChat, setTyping, topPlayers, watchChat, watchFriends, type FriendView, type RankEntry } from '../../net/social';
 import {
   DEMO, DEMO_CHAT, DEMO_FRIENDS, DEMO_ME_RANK, DEMO_RANKS, PARTNER_REPLIES, type RankRow, type RankScope,
 } from '../demo';
@@ -53,10 +50,12 @@ function friendsPane(): View {
   const invited = new Set<string>();
   const code = DEMO ? 'FREDO#2741' : p.friendCode ?? '—';
   const share = async () => {
-    const text = `Ajoute-moi sur TOC : ${code}`;
+    // Le lien ouvre l'app sur la fenêtre « Ajouter … à tes amis ? » ; le code reste dans le texte, au cas où.
+    const text = `Ajoute-moi en ami sur TOC ! (code ami ${code})`;
+    const url = friendLink(code);
     try {
-      if (navigator.share) await navigator.share({ title: 'TOC', text });
-      else { await navigator.clipboard.writeText(code); toast('Code ami copié !'); }
+      if (navigator.share) await navigator.share({ title: 'TOC', text, url });
+      else { await navigator.clipboard.writeText(`${text} : ${url}`); toast('Lien copié, envoie-le à tes amis !'); }
     } catch { /* partage annulé */ }
   };
   const list = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } });
@@ -157,7 +156,42 @@ function chatPane(): { head: HTMLElement; body: HTMLElement; foot: HTMLElement |
   return { head, body: scroller, foot, cleanup: () => { stop(); if (!DEMO && wasTyping) void setTyping(partner.uid, false); } };
 }
 
-export function friendsScreen(): View {
+/** Ouvert depuis un lien ami : on montre le joueur et on l'ajoute d'un toucher. */
+async function offerFriend(code: string) {
+  history.replaceState(null, '', '#' + ROUTES.friends);
+  let p: Awaited<ReturnType<typeof lookupFriendCode>>;
+  try {
+    p = await lookupFriendCode(code);
+  } catch {
+    return toast('Impossible de trouver ce joueur pour l’instant. Vérifie ta connexion.', 2600);
+  }
+  if (!p) return toast('Ce lien ami ne correspond à aucun joueur.', 2400);
+  if (p.mine) return toast('C’est ton propre lien d’ami !');
+  if (p.already) return toast(`${p.nick} fait déjà partie de tes amis.`);
+  const close = () => wrap.remove();
+  const add = button(`Ajouter ${p.nick}`, 'primary', async () => {
+    add.disabled = true;
+    try {
+      const name = await addFriend(code);
+      close();
+      toast(`${name} fait partie de tes amis !`);
+    } catch (e) {
+      add.disabled = false;
+      toast(e instanceof Error ? e.message : 'Ajout impossible.', 2400);
+    }
+  }, { size: 'md', block: true });
+  const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': `Ajouter ${p.nick} à tes amis`, style: { alignItems: 'center', textAlign: 'center' } },
+      avatarRing(p.char, p.color, 96, COL[p.color].c, 4, 3, null),
+      h('span', { class: 'sheet__title' }, `Ajouter ${p.nick} à tes amis00a0?`),
+      h('span', { class: 'sheet__text' }, 'Vous pourrez vous inviter dans vos salles et discuter.'),
+      add,
+      button('Plus tard', 'text', close)));
+  (document.getElementById('app') ?? document.body).append(wrap);
+}
+
+export function friendsScreen(addCode: string | null = null): View {
+  if (addCode && !DEMO) void offerFriend(addCode);
   const content = h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 14 } });
   // La liste d'amis défile à l'intérieur de l'écran.
   let stop = () => {};

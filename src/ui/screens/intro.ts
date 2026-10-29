@@ -6,7 +6,7 @@ import { DEMO } from '../demo';
 import { h } from '../dom';
 import { CHARS, COL, COLOR_NAMES, type CharId, type ColorName } from '../kit/data';
 import { avatar, backButton, bille, button } from '../kit/kit';
-import { ROUTES, go } from '../nav';
+import { ROUTES, go, takeLink } from '../nav';
 
 const blob = (style: Record<string, string | number>) => h('div', { class: 'blob', style });
 
@@ -162,7 +162,7 @@ export function pickScreen(): HTMLElement {
   const done = () => {
     saveProfile({ char, color, nick: nick.value });
     if (!DEMO && navigator.onLine) syncProfile().catch((e) => console.warn('profil', e));
-    go(ROUTES.home);
+    go(takeLink() ?? ROUTES.home);
   };
   return h('div', { class: 'screen pick' },
     h('div', { class: 'screen__head' },

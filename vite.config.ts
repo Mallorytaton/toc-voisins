@@ -15,6 +15,8 @@ export default defineConfig({
         start_url: '/toc-voisins/',
         scope: '/toc-voisins/',
         display: 'standalone',
+        // Un lien de partage touché alors que l'app tourne déjà la réutilise au lieu d'en ouvrir une autre.
+        launch_handler: { client_mode: ['navigate-existing', 'auto'] },
         orientation: 'portrait',
         background_color: '#fbf6ef',
         theme_color: '#fbf6ef',
