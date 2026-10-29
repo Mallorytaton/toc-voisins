@@ -5,6 +5,7 @@ import { syncProfile } from '../../net/social';
 import { h, toast } from '../dom';
 import { avatarRing, button } from '../kit/kit';
 import { ROUTES, go } from '../nav';
+import { pushSetting } from '../push-offer';
 
 /** Connexion Google puis suite logique : profil retrouvé → accueil, sinon → choix du perso. */
 export async function googleThenGo(): Promise<boolean> {
@@ -47,6 +48,7 @@ export function openAccountSheet() {
           h('span', { class: 't-mini' }, `Code ami ${p.friendCode ?? '—'}`))),
       status,
       googleBtn,
+      pushSetting(),
       button('Changer de perso', 'white', () => { close(); go(ROUTES.pick); }, { size: 'md', block: true }),
       button('Fermer', 'text', close)));
   (document.getElementById('app') ?? document.body).append(wrap);

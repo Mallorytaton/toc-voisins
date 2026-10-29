@@ -185,6 +185,17 @@
 .team-pick[aria-pressed='true'] { border-color: var(--coral); background: #fff; }
 .team-pick__name { display: flex; flex-direction: column; gap: 2px; font: 800 17px/1.1 var(--display); color: var(--ink); padding-top: 2px; }
 .team-pick__name small { font: 700 13px var(--text); color: var(--ink-2); }
+/* Notifications : ligne du compte, cloche de la proposition */
+.push-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px; background: #fff; cursor: pointer; }
+.push-row b { font: 800 16px/1.1 var(--display); padding-top: 2px; }
+.push-row__text { font: 700 12.5px/1.3 var(--text); color: var(--ink-2); }
+.notif-bell { width: 52px; height: 52px; flex: none; border-radius: 18px; background: var(--yellow) center / 30px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232b2a3a'%3E%3Cpath d='M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6v-5a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-1.7 1.7A1 1 0 0 0 4 19.4h16a1 1 0 0 0 .7-1.7Z'/%3E%3C/svg%3E"); box-shadow: 0 4px 0 var(--yellow-d); }
+/* Inviter dans le tournoi : liste des amis */
+.invite-list { display: flex; flex-direction: column; gap: 8px; }
+.invite-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 18px; background: #fff; }
+.invite-row .avatar-ring { padding: 2px; }
+.invite-row__name { font: 800 16px/1.1 var(--display); padding-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.invite-row__status { font: 700 12px var(--text); color: var(--ink-2); }
 .league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {

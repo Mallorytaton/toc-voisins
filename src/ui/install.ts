@@ -44,10 +44,10 @@ export function watchInstall() {
 const shareIcon = () => h('span', { class: 'ios-share', 'aria-label': 'Partager' }, h('i'));
 
 /** Propose l'installation si on est sur un téléphone, dans le navigateur, et pas récemment refusé. */
-export function maybeOfferInstall() {
-  if (shownThisVisit || isInstalled() || !isPhone() || snoozed()) return;
+export function maybeOfferInstall(): boolean {
+  if (shownThisVisit || isInstalled() || !isPhone() || snoozed()) return false;
   const ios = isIOS();
-  if (!ios && !deferred) return;
+  if (!ios && !deferred) return false;
   shownThisVisit = true;
   const close = () => wrap.remove();
   const later = () => { snooze(); close(); };
@@ -80,4 +80,5 @@ export function maybeOfferInstall() {
       h('span', { class: 'sheet__text' }, 'Le jeu s’ouvre en plein écran comme une vraie app, sans la barre du navigateur.'),
       ...actions));
   (document.getElementById('app') ?? document.body).append(wrap);
+  return true;
 }

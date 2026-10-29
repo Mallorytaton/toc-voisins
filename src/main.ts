@@ -25,6 +25,8 @@ import { onboardScreen, pickScreen, splashScreen } from './ui/screens/intro';
 import { roomScreen } from './ui/screens/room';
 import { friendsScreen, rankingScreen } from './ui/screens/social';
 import { vitrineScreen } from './ui/screens/vitrine';
+import { maybeOfferPush } from './ui/push-offer';
+import { refreshPush } from './net/push';
 
 registerSW({ immediate: true });
 lockPortrait();
@@ -42,12 +44,14 @@ function startSocial() {
   socialStarted = true;
   syncProfile().catch((e) => console.warn('profil', e));
   startPresence().catch((e) => console.warn('présence', e));
+  refreshPush().catch((e) => console.warn('notifications', e));
   watchInvites((inv) => {
-    if (location.hash === '#/salle/' + inv.code || location.hash === '#/partie') return;
+    const target = (inv.league ? '/tournoi/' : '/salle/') + inv.code;
+    if (location.hash === '#' + target || location.hash === '#/partie') return;
     document.querySelector('.invite-banner')?.remove();
     const banner = h('div', { class: 'invite-banner', role: 'alert' },
-      h('span', null, `${inv.name} t’invite dans sa salle !`),
-      button('Rejoindre', 'primary', () => { banner.remove(); go('/salle/' + inv.code); }, { size: 'xs' }),
+      h('span', null, inv.league ? `${inv.name} t’invite dans le tournoi « ${inv.league} » !` : `${inv.name} t’invite dans sa salle !`),
+      button(inv.league ? 'Voir' : 'Rejoindre', 'primary', () => { banner.remove(); go(target); }, { size: 'xs' }),
       h('button', { class: 'btn btn--text', type: 'button', 'aria-label': 'Fermer', onclick: () => banner.remove() }, '✕'));
     app.append(banner);
     setTimeout(() => banner.remove(), 20_000);
@@ -165,7 +169,8 @@ function router() {
     case ROUTES.home:
       // Sur un téléphone, dans le navigateur : on propose d'installer l'app.
       // (seulement si on est encore sur l'accueil : jamais au milieu d'une salle ou d'une partie)
-      setTimeout(() => { if (location.hash.startsWith('#' + ROUTES.home)) maybeOfferInstall(); }, 1500);
+      // Sinon (installée, ou déjà proposé), on propose les notifications.
+      setTimeout(() => { if (location.hash.startsWith('#' + ROUTES.home) && !maybeOfferInstall()) maybeOfferPush(); }, 1500);
       return setView(homeScreen());
     default:
       return go(ROUTES.home);

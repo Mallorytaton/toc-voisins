@@ -12,6 +12,7 @@ import {
 import { type Profile, draftProfile, getProfile, saveProfile } from '../app/profile';
 import type { CharId, ColorName } from '../ui/kit/data';
 import { database, ensureAuth, node, serverNow } from './firebase';
+import { notifyPlayers } from './push';
 
 export interface PublicProfile {
   nick: string;
@@ -76,14 +77,18 @@ export async function startPresence() {
   onValue(ref(database(), '.info/connected'), (s) => {
     if (s.val() !== true) return;
     onDisconnect(mine).set({ state: 'offline', at: serverTimestamp() });
-    set(mine, { state: inGame ? 'game' : 'online', at: serverTimestamp() });
+    set(mine, { state: inGame ? 'game' : 'online', at: serverTimestamp(), away: document.hidden });
+  });
+  // App en arrière-plan : les notifications peuvent te prévenir (le service les garde pour les absents).
+  document.addEventListener('visibilitychange', () => {
+    void update(mine, { away: document.hidden }).catch(() => undefined);
   });
 }
 let inGame = false;
 export async function setInGame(on: boolean) {
   inGame = on;
   const me = await uid();
-  await set(node('status', me), { state: on ? 'game' : 'online', at: serverTimestamp() }).catch(() => undefined);
+  await set(node('status', me), { state: on ? 'game' : 'online', at: serverTimestamp(), away: document.hidden }).catch(() => undefined);
 }
 
 function ago(at: number) {
@@ -159,18 +164,35 @@ export function watchFriends(cb: (list: FriendView[]) => void): () => void {
 export async function inviteFriend(friend: string, code: string) {
   const me = await uid();
   await set(node('invites', friend, me), { code, name: draftProfile().nick || 'Un ami', at: serverTimestamp() });
+  notifyPlayers([friend], 'invite', { code });
 }
 
 /** Invitations reçues (les plus récentes, de moins de 10 minutes). */
-export function watchInvites(cb: (inv: { from: string; name: string; code: string }) => void): () => void {
+/** Invite un ami dans un tournoi : bandeau dans l'app (valable 7 jours) et notification s'il est absent. */
+export async function inviteToLeague(friend: string, code: string, league: string) {
+  const me = await uid();
+  await set(node('invites', friend, me), { code, league: league.slice(0, 30), name: draftProfile().nick || 'Un ami', at: serverTimestamp() });
+  notifyPlayers([friend], 'league', { code });
+}
+
+/** Une salle (code de salle), ou un tournoi si `league` (son nom) est présent. */
+export interface Invite {
+  from: string;
+  name: string;
+  code: string;
+  league?: string;
+}
+
+export function watchInvites(cb: (inv: Invite) => void): () => void {
   let off = () => {};
   void uid().catch(() => '').then((me) => {
     if (!me) return;
     off = onValue(node('invites', me), (snap) => {
-      const all = (snap.val() ?? {}) as Record<string, { code: string; name: string; at: number }>;
+      const all = (snap.val() ?? {}) as Record<string, { code: string; name: string; at: number; league?: string }>;
       for (const [from, v] of Object.entries(all)) {
         remove(node('invites', me, from)).catch(() => undefined);
-        if (serverNow() - v.at < 10 * 60_000) cb({ from, name: v.name, code: v.code });
+        // Une salle ne vaut que pour la partie qui commence ; un tournoi attend la semaine.
+        if (serverNow() - v.at < (v.league ? 7 * 86_400_000 : 10 * 60_000)) cb({ from, name: v.name, code: v.code, league: v.league });
       }
     });
   });
@@ -203,6 +225,7 @@ export async function sendChat(other: string, t: string) {
   const me = await uid();
   const k = chatKey(me, other);
   await push(node('chats', k, 'msgs'), { from: me, t: t.slice(0, 300), at: serverTimestamp() });
+  notifyPlayers([other], 'chat', { text: t.slice(0, 140) });
   await set(node('chats', k, 'typing', me), false).catch(() => undefined);
 }
 

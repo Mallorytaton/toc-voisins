@@ -4,3 +4,6 @@ test-results
 playwright-report
 *.log
 *.zip
+
+# Cloudflare (fichiers locaux de wrangler)
+notify/.wrangler/

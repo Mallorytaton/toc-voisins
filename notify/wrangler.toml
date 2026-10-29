@@ -1,0 +1,16 @@
+# Service de notifications de TOC (Cloudflare Workers, offre gratuite).
+# Mise en ligne : npx wrangler deploy (depuis ce dossier). La clé privée VAPID est un secret :
+#   npx wrangler secret put VAPID_PRIVATE
+name = "toc-notifs"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+[vars]
+VAPID_PUBLIC = "BM9d9hBE1XQtrwchuyk3Bcd9rUuBd82tMvdxoKTCzHiw0gUR55j3Hbtu5POpraCFQg-il82FWO4xQC35i8bH9A8"
+SUBJECT = "https://mallorytaton.github.io/toc-voisins/"
+DB_URL = "https://toc-voisins-default-rtdb.europe-west1.firebasedatabase.app"
+APP_URL = "https://mallorytaton.github.io/toc-voisins/"
+
+[[kv_namespaces]]
+binding = "SUBS"
+id = "d0b552a63da1448d8bf35c2b3e220f69"

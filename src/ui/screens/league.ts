@@ -3,7 +3,7 @@ import {
   type League, type OfflineClaim, type Rsvp, answerSoiree, cancelSoiree, claimApproved, createLeague, dropOffline, leagueLink,
   proposeOffline, proposeSoiree, refusedBy, settleOffline, takeLeagueSeat, voteOffline, watchLeague,
 } from '../../net/league';
-import { currentUid } from '../../net/social';
+import { type FriendView, currentUid, inviteToLeague, watchFriends } from '../../net/social';
 import { h, toast } from '../dom';
 import { COL, SEAT_COLORS, TEAM_NAMES } from '../kit/data';
 import { avatarRing, backButton, button, duo, segmented } from '../kit/kit';
@@ -333,6 +333,50 @@ export function newLeagueScreen(): View {
   return { el, cleanup: () => {} };
 }
 
+/** « Inviter » : le lien à partager, ou directement un ami de l'app. */
+function openInviteSheet(l: League) {
+  const full = l.seats.every(Boolean);
+  const sent = new Set<string>();
+  const list = h('div', { class: 'invite-list' });
+  const draw = (friends: FriendView[]) => {
+    const others = friends.filter((f) => !l.members[f.uid] || !l.seats.includes(f.uid));
+    list.replaceChildren(...(others.length
+      ? others.map((f) => {
+        const b = button(sent.has(f.uid) ? 'Invité·e' : 'Inviter', sent.has(f.uid) ? 'ok' : 'primary', async () => {
+          if (sent.has(f.uid)) return;
+          b.disabled = true;
+          try {
+            await inviteToLeague(f.uid, l.code, l.name);
+            sent.add(f.uid);
+            b.textContent = 'Invité·e';
+            b.className = 'btn btn--xs btn--ok';
+          } catch {
+            toast('Invitation non envoyée. Réessaie.');
+          }
+          b.disabled = false;
+        }, { size: 'xs' });
+        return h('div', { class: 'invite-row' },
+          avatarRing(f.char, f.color, 34, 'transparent', 2, 0, null),
+          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
+            h('span', { class: 'invite-row__name' }, f.name), h('span', { class: 'invite-row__status' }, f.status)),
+          b);
+      })
+      : [h('span', { class: 't-body' }, friends.length ? 'Tous tes amis sont déjà dans ce tournoi.' : 'Ajoute des amis depuis l’onglet Amis : tu pourras les inviter d’ici.')]));
+  };
+  draw([]);
+  const stop = full ? () => {} : watchFriends(draw);
+  const close = () => { stop(); wrap.remove(); };
+  const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Inviter dans le tournoi' },
+      h('span', { class: 'sheet__title' }, 'Inviter dans le tournoi'),
+      h('span', { class: 'sheet__text' }, full ? 'Le tournoi est complet : le lien permet seulement de le suivre.' : 'Envoie le lien à qui tu veux, ou invite directement un ami de l’app.'),
+      button('Partager le lien', 'primary', () => shareLeague(l), { size: 'md', block: true }),
+      !full && h('span', { class: 't-label' }, 'Tes amis'),
+      !full && h('div', { class: 'scroll-y', style: { maxHeight: '40vh' } }, list),
+      button('Fermer', 'text', close)));
+  (document.getElementById('app') ?? document.body).append(wrap);
+}
+
 async function shareLeague(l: League) {
   const url = leagueLink(l.code);
   const text = `Rejoins le tournoi « ${l.name} » sur TOC (code T-${l.code})`;
@@ -359,7 +403,7 @@ export function leagueScreen(code: string): View {
   const rules = variantsCard(() => league?.variants ?? DEFAULT_VARIANTS, () => false, () => undefined);
   const status = h('span', { class: 'status-line' });
   const play = button('Jouer une partie', 'primary', () => undefined, { size: 'lg', block: true });
-  const invite = button('Inviter', 'dark', () => league && shareLeague(league), { size: 'sm' });
+  const invite = button('Inviter', 'dark', () => league && openInviteSheet(league), { size: 'sm' });
 
   const draw = (l: League | null) => {
     league = l;

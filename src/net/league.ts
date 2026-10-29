@@ -10,6 +10,7 @@ import { draftProfile } from '../app/profile';
 import { DEFAULT_VARIANTS, type Variants, cryptoRng } from '../engine';
 import type { CharId, ColorName } from '../ui/kit/data';
 import { arr, ensureAuth, node } from './firebase';
+import { notifyPlayers } from './push';
 
 export interface LeagueMember {
   name: string;
@@ -135,6 +136,7 @@ export async function proposeOffline(code: string, winner: number, playedAt: num
   const uid = await ensureAuth();
   const id = 'o' + Date.now().toString(36);
   await set(node('leagues', code, 'offline', id), { winner, by: uid, at: Date.now(), playedAt, votes: { [uid]: 'oui' } });
+  void notifyOthers(code, uid, 'offline');
 }
 
 export async function voteOffline(code: string, id: string, vote: Vote) {
@@ -168,6 +170,13 @@ export async function proposeSoiree(code: string, at: number, place: string) {
     soiree: { id, at, place: place.trim().slice(0, 40), by: uid },
     [`rsvp/${id}/${uid}`]: 'oui',
   });
+  void notifyOthers(code, uid, 'soiree');
+}
+
+/** Prévient les autres joueurs du tournoi (le service n'envoie qu'à ceux qui n'ont pas l'app sous les yeux). */
+async function notifyOthers(code: string, uid: string, kind: 'soiree' | 'offline') {
+  const l = await getLeagueOnce(code).catch(() => null);
+  if (l) notifyPlayers(l.seats.filter((u) => u && u !== uid), kind, { code });
 }
 
 export async function cancelSoiree(code: string) {

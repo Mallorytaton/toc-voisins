@@ -26,6 +26,7 @@ import { type CharId, type ColorName, SEAT_COLORS } from '../ui/kit/data';
 import { WEEK, arr, database, ensureAuth, list, node, serverNow } from './firebase';
 import { recordLeagueGame } from './league';
 import { awardGame } from './social';
+import { notifyPlayers } from './push';
 
 type Status = 'waiting' | 'countdown' | 'playing';
 
@@ -441,11 +442,16 @@ export class RoomSession implements Room {
   // ---------- Écritures ----------
 
   private async write(next: GameState, extra: Record<string, unknown> = {}) {
+    const before = this.room?.state;
     await update(ref(database()), {
       [`v2/rooms/${this.code}/state`]: toPublic(next),
       [`v2/rooms/${this.code}/turnAt`]: serverTimestamp(),
       ...extra,
     });
+    // Le tour passe à un autre joueur humain : s'il n'a pas l'app sous les yeux, le service le prévient.
+    const uid = this.room?.seats[next.turn];
+    if (next.phase === 'play' && (before?.phase !== 'play' || before.turn !== next.turn) && uid && uid !== BOT && uid !== this.uid)
+      notifyPlayers([uid], 'turn', { code: this.code });
   }
 
   private handsUpdate(next: GameState, seats: number[]) {
