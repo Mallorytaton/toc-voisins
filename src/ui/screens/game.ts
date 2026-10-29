@@ -10,6 +10,7 @@ import { armOf, geom, pawnXY, trackIndex } from '../board/geom';
 import { h } from '../dom';
 import { COL, EMOTES, SEAT_COLORS, TEAM_NAMES, cardLook } from '../kit/data';
 import { avatar, bille, button, cardBack, pauseButton, playingCard } from '../kit/kit';
+import { openRulesSheet } from './rules';
 
 const REPLIES = ['Aïe !', 'Tu vas voir…', 'Hahaha', 'Pas mal du tout', 'Sérieux ?'];
 const TURN_MS = 30_000;
@@ -59,7 +60,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const roundEl = h('span', { class: 'g-top__round' });
   const turnEl = h('span', { class: 'g-top__turn' });
   const scoreEl = h('div', { class: 'g-score', 'aria-label': 'Billes rentrées par équipe' });
-  stage.append(h('div', { class: 'g-top' }, pauseButton(() => openPause()), h('div', { class: 'g-top__mid' }, roundEl, turnEl), scoreEl));
+  const rulesBtn = h('button', { class: 'btn-round g-rules', type: 'button', 'aria-label': 'Règles', onclick: () => openRulesSheet(view.variants) }, '?');
+  stage.append(h('div', { class: 'g-top' }, pauseButton(() => openPause()), rulesBtn, h('div', { class: 'g-top__mid' }, roundEl, turnEl), scoreEl));
 
   // ---------- Plateau ----------
   const board = h('div', { class: 'board' });
@@ -197,9 +199,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // ---------- Barre d'action, minuteur, main ----------
   const hintT = h('b');
   const hintS = h('span');
+  // « Une astuce ? » : propose un bon coup (le robot le choisit) sans le jouer à la place du joueur.
+  const tipBtn = h('button', { class: 'g-tip', type: 'button', onclick: () => suggest() }, 'Une astuce ?');
   const playBtn = button('Jouer', 'primary', () => commit());
   playBtn.classList.add('g-play');
-  const actions = h('div', { class: 'g-actions' }, emoteBtn, h('div', { class: 'g-hint', 'aria-live': 'polite' }, hintT, hintS), playBtn);
+  const actions = h('div', { class: 'g-actions' }, emoteBtn, h('div', { class: 'g-hint', 'aria-live': 'polite' }, hintT, hintS, tipBtn), playBtn);
   const timerBar = h('div');
   const timerEl = h('div', { class: 'g-timer', 'aria-hidden': 'true' }, timerBar);
   const hand = h('div', { class: 'hand' });
@@ -211,7 +215,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let pick: PawnRef | null = null;
   let target: PawnRef | null = null;
   let split = new Map<string, number>();
-  const clearSel = () => { sel = null; jokerAs = null; pick = null; target = null; split = new Map(); };
+  /** Explication de l'astuce affichée tant que sa sélection est en place. */
+  let tip: string | null = null;
+  const clearSel = () => { sel = null; jokerAs = null; pick = null; target = null; split = new Map(); tip = null; };
 
   const myHand = () => view.hands[me] ?? [];
   const myTurn = () => !busy && view.phase === 'play' && view.turn === me;
@@ -270,6 +276,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
 
   const onPawn = (r: PawnRef) => {
     const pl = plan();
+    tip = null; // le joueur choisit lui-même : l'explication de l'astuce ne vaut plus
     if (pl.targets.some((t) => sameRef(t, r))) target = r;
     else if (pl.cands.some((c) => sameRef(c, r))) {
       if (pl.sevenPawns.length && pick) {
@@ -336,6 +343,44 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     clearSel();
     stopTimer();
     src.play(pl.chosen);
+  };
+
+  /** « ton As », « ta Dame », « ton 8 »… */
+  const cardName = (c: Card) => {
+    const r = rankOf(c);
+    return r === 'Q' ? 'ta Dame' : 'ton ' + (({ A: 'As', K: 'Roi', J: 'Valet', X: 'Joker' } as Record<string, string>)[r] ?? r);
+  };
+  const suggest = () => {
+    if (!myTurn()) return;
+    const m = botMove(view, () => 0.5, 0);
+    if (!m) return;
+    clearSel();
+    const hand = myHand();
+    if (m.kind === 'discard') {
+      sel = Math.max(0, m.card ? hand.indexOf(m.card) : 0);
+      tip = m.card ? 'Aucun coup possible : défausse cette carte.' : 'Aucun coup possible : tu passes la donne.';
+      return render();
+    }
+    sel = hand.indexOf(m.card);
+    if (rankOf(m.card) === 'X') jokerAs = m.as;
+    if (m.kind === 'seven') {
+      pick = m.parts[0].pawn;
+      split = new Map(m.parts.map((p) => [key(p.pawn), p.steps]));
+    } else {
+      pick = m.pawn;
+      if (m.kind === 'swap') target = m.target;
+    }
+    const after = applyMove(view, m);
+    const victims = [...new Set(after.lastCaptures.filter((c) => teamOf(N, c.s) !== teamOf(N, me)).map((c) => nameOf(c.s)))];
+    const home = m.kind !== 'seven' && inHome(N, after.pawns[m.pawn.s][m.pawn.i].p) && !inHome(N, view.pawns[m.pawn.s][m.pawn.i].p);
+    let text = m.kind === 'exit' ? `Sors une bille avec ${cardName(m.card)}.`
+      : m.kind === 'swap' ? `Échange ta bille avec celle de ${nameOf(m.target.s)}.`
+        : m.kind === 'seven' ? (m.parts.length > 1 ? `Partage ton 7 : ${m.parts.map((p) => p.steps).join(' + ')}.` : 'Avance cette bille de 7.')
+          : m.steps < 0 ? 'Recule cette bille de 4 : elle se rapproche de sa maison.' : `Avance cette bille de ${m.steps} avec ${cardName(m.card)}.`;
+    if (home) text += ' Elle rentre à la maison !';
+    if (victims.length) text += ` Ça renvoie ${victims.join(' et ')} dans sa réserve !`;
+    tip = text;
+    render();
   };
 
   // ---------- Minuteur de tour ----------
@@ -493,6 +538,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       t = view.phase === 'play' && view.turn !== me ? `${nameOf(view.turn)} réfléchit…` : 'Beau coup…';
       sub = 'Prépare ton prochain coup.';
     } else if (sel === null) { t = 'À ton tour !'; sub = 'Choisis une carte dans ta main.'; }
+    else if (tip) { t = 'Astuce'; sub = tip; label = pl.chosen ? (pl.chosen.kind === 'discard' ? 'Défausser' : 'Jouer') : ''; }
     else {
       const c = cardLook(myHand()[sel], view.variants);
       if (pl.chosen?.kind === 'discard') {
@@ -512,6 +558,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
     hintT.textContent = t;
     hintS.textContent = sub;
+    tipBtn.hidden = !(myTurn() && sel === null);
     playBtn.hidden = !label;
     if (label && playBtn.textContent !== label) {
       playBtn.textContent = label;

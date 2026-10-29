@@ -1,6 +1,7 @@
 // Règles de la partie : les variantes proposées à la création d'une salle ou d'un tournoi.
 import { DEFAULT_VARIANTS, type Variants } from '../../engine';
 import { h } from '../dom';
+import { cardLook } from '../kit/data';
 import { button } from '../kit/kit';
 
 interface Option {
@@ -58,6 +59,45 @@ export function openVariantsSheet(current: Variants, editable: boolean, onSave: 
         ? [button('Valider', 'primary', () => { onSave(v); close(); }, { size: 'md', block: true }),
           button('Revenir aux règles de base', 'text', () => { v = { ...DEFAULT_VARIANTS }; draw(); })]
         : button('Fermer', 'white', close, { size: 'md', block: true })));
+  (document.getElementById('app') ?? document.body).append(wrap);
+}
+
+/** Rappel des règles pendant la partie : le but, chaque carte (selon les variantes), les variantes actives. */
+export function openRulesSheet(current: Variants) {
+  const v = withDefaults(current);
+  const ranks = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2', ...(v.jokers > 0 ? ['X'] : [])];
+  const cards = ranks.map((r) => {
+    const c = cardLook(r + (r === 'X' ? 'J0' : 'S0'), v);
+    return h('div', { class: 'rule-card' },
+      h('span', { class: 'rule-card__rank' }, c.r),
+      h('div', { class: 'rule-card__text' },
+        h('span', { class: 'rule-card__badge', style: { background: c.bg, color: c.bc } }, c.badge),
+        h('span', null, c.rule)));
+  });
+  const active = OPTIONS.filter((o) => o.get(v) !== o.get(DEFAULT_VARIANTS));
+  const game = [
+    'Le but : rentrer les 4 billes de chaque joueur de ton équipe dans sa maison, avant les autres équipes.',
+    'Tes billes partent de ta réserve et sortent sur ton trou de départ (As ou Roi).',
+    'On fait un tour complet, puis on entre dans sa maison depuis le trou juste avant son départ, au compte exact.',
+    'S’arrêter sur une bille la renvoie dans sa réserve, même celle de ton partenaire.',
+    ...(v.startBlocks ? ['Une bille qui vient de sortir bloque son trou de départ : personne ne la dépasse ni ne la prend.'] : []),
+    v.discardOne ? 'Sans coup possible, tu défausses une carte de ton choix.' : 'Sans coup possible, tu défausses ta main et tu attends la donne suivante.',
+    'Quand tes 4 billes sont rentrées, tu joues celles de ton partenaire.',
+  ];
+  const close = () => wrap.remove();
+  const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+    h('div', { class: 'sheet sheet--tall', role: 'dialog', 'aria-label': 'Règles du TOC' },
+      h('span', { class: 'sheet__title' }, 'Règles du TOC'),
+      h('div', { class: 'scroll-y', style: { maxHeight: '58vh', display: 'flex', flexDirection: 'column', gap: 12 } },
+        h('span', { class: 't-label' }, 'Les cartes'),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } }, ...cards),
+        h('span', { class: 't-label' }, 'Le jeu'),
+        h('ul', { class: 'rule-list' }, ...game.map((t) => h('li', null, t))),
+        h('span', { class: 't-label' }, 'Variantes de cette partie'),
+        active.length
+          ? h('ul', { class: 'rule-list' }, ...active.map((o) => h('li', null, h('b', null, o.label), ' : ', o.desc)))
+          : h('span', { class: 't-body' }, 'Aucune : on joue avec les règles de base.')),
+      button('Fermer', 'primary', close, { size: 'md', block: true })));
   (document.getElementById('app') ?? document.body).append(wrap);
 }
 

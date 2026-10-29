@@ -108,6 +108,8 @@
 }
 .g-hint > b { font: 800 16px/1.1 var(--display); }
 .g-hint > span { font: 600 12px/1.3 var(--text); color: var(--ink-2); text-wrap: pretty; }
+.g-tip { align-self: flex-start; border: none; background: none; padding: 2px 0 0; cursor: pointer; font: 800 12px var(--text); color: var(--primary-bottom); text-decoration: underline; text-underline-offset: 3px; }
+.g-rules { font: 800 24px/1 var(--display); padding: 3px 0 0; }
 .g-play { animation: tocPop .35s cubic-bezier(.3, 1.5, .5, 1) both; flex: none; height: 54px; padding: 3px 18px 0; font-size: 18px; border-radius: 20px; }
 .emote-btn { position: relative; }
 .emote-btn > i { position: relative; width: 26px; height: 20px; border-radius: 9px; background: var(--ink); display: flex; align-items: center; justify-content: center; gap: 3px; }

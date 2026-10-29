@@ -132,6 +132,12 @@
 .variant__text > b { font: 800 15px/1.2 var(--display); }
 .variant__text > span { font: 600 12px/1.35 var(--text); color: var(--ink-2); }
 .sheet--tall { gap: 10px; }
+/* Rappel des règles */
+.rule-card { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 14px; background: #fff; }
+.rule-card__rank { width: 34px; height: 46px; flex: none; border-radius: 9px; display: grid; place-items: center; font: 800 18px/1 var(--display); padding-top: 3px; background: var(--app); box-shadow: 0 3px 0 var(--clay-2); }
+.rule-card__text { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; font: 700 13px/1.35 var(--text); color: var(--ink-2); }
+.rule-card__badge { font: 900 10px/1 var(--text); padding: 4px 7px; border-radius: 999px; }
+.rule-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font: 700 14px/1.4 var(--text); color: var(--ink); }
 /* Tournoi : prochaine soirée */
 .soiree__when { font: 800 26px/1.05 var(--display); }
 .soiree__list { display: flex; flex-direction: column; gap: 6px; }
