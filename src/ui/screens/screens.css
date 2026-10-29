@@ -117,6 +117,15 @@
   box-shadow: 0 6px 0 var(--clay-2), 0 16px 30px rgba(70, 40, 20, .2); animation: tocIn .3s ease-out both;
 }
 .invite-banner > span { flex: 1; font: 800 15px/1.25 var(--display); }
+/* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
+.league-row {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; border: none; border-radius: 16px;
+  background: #fff; color: var(--ink); cursor: pointer; text-align: left; box-shadow: 0 4px 0 #e6b52a;
+}
+.league-row:active { transform: translateY(2px); box-shadow: 0 2px 0 #e6b52a; }
+.league-row__name { flex: 1; min-width: 0; font: 800 16px/1.15 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 2px; }
+.league-row__score { display: flex; align-items: center; gap: 6px; font: 800 16px/1 var(--display); }
+.league-row__score b { font: inherit; padding-top: 2px; }
 /* Proposition d'installation (iPhone) : étapes et icône « Partager » */
 .install-steps { margin: 0 0 6px; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font: 700 15px/1.4 var(--text); color: var(--ink); }
 .ios-share { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; vertical-align: -7px; border-radius: 8px; background: #fff; box-shadow: 0 2px 0 var(--clay); }

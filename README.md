@@ -11,6 +11,17 @@ Le jeu de TOC en équipes, sur ton téléphone : crée ta salle, invite tes amis
 
 Si un joueur ferme l'app ou perd le réseau, son tour est joué à sa place au bout de 30 s, et il retrouve sa place en rouvrant le lien. Depuis un autre téléphone, on peut « Prendre sa place ». Sans réseau, la salle reste sur le téléphone et on joue contre les robots.
 
+### Tournois (mêmes équipes, victoires cumulées)
+
+Pour jouer souvent avec les mêmes personnes (entre voisins, par exemple) :
+
+1. **Accueil → Tes tournois → Créer** : un nom (« Les voisins du 12 ») et 4 ou 6 joueurs.
+2. **Inviter** : chacun ouvre le lien (ou tape `T-4821` dans le champ code de l'accueil) et prend sa place. Les places forment les duos ; une fois tout le monde assis, les équipes ne changent plus.
+3. **Jouer une partie** : une salle s'ouvre, chacun y retrouve sa place, les autres membres reçoivent une invitation.
+4. À chaque fin de partie, la victoire s'ajoute à l'équipe gagnante. La page du tournoi montre le score et les dernières parties.
+
+Contre des robots seulement, il n'y a pas de minuteur : les robots t'attendent. Si l'app a été fermée pendant une partie en ligne, l'accueil propose « Reprendre ».
+
 ### Installer sur l'écran d'accueil
 
 - **iPhone** (Safari) : bouton Partager, puis « Sur l'écran d'accueil ».
@@ -44,7 +55,7 @@ Si un joueur ferme l'app ou perd le réseau, son tour est joué à sa place au b
 - `src/engine/` : moteur de règles pur (aucune dépendance), testé avec Vitest. `legalMovesFor(state, place, carte)` donne les coups d'une carte ; `applyMove` valide et applique.
 - `src/ui/kit/` : couleurs, composants (boutons, avatars, billes, cartes). `src/ui/screens/` : les écrans. `src/ui/board/geom.ts` : la géométrie du plateau de la maquette (`geom(N)`).
 - `src/app/game-source.ts` : source de partie commune ; `LocalGame` (robots, sans réseau) et `OnlineGame` (`src/net/session.ts`).
-- Firebase Realtime Database + connexion anonyme, offre gratuite, sans Cloud Functions. Les données sont sous `v2/` (l'ancienne version du jeu garde les siennes à la racine). Chaque coup est validé par le moteur puis écrit en une seule mise à jour ; les règles refusent toute écriture dont la version n'est pas `version + 1`. Les mains sont sous `v2/hands/<salle>/<place>`, lisibles par le joueur assis, ou par la table si la place est un robot ou un joueur déconnecté (le téléphone « meneur », celui de l'hôte, joue pour eux).
+- Firebase Realtime Database + connexion anonyme (et Google pour garder sa progression), offre gratuite, sans Cloud Functions. Les deux fournisseurs, Anonyme et Google, doivent rester activés dans la console Firebase. Les données sont sous `v2/` (l'ancienne version du jeu garde les siennes à la racine). Chaque coup est validé par le moteur puis écrit en une seule mise à jour ; les règles refusent toute écriture dont la version n'est pas `version + 1`. Les mains sont sous `v2/hands/<salle>/<place>`, lisibles par le joueur assis, ou par la table si la place est un robot ou un joueur déconnecté (le téléphone « meneur », celui de l'hôte, joue pour eux).
 - PWA (vite-plugin-pwa), hébergée sur GitHub Pages.
 
 ## Développer et mettre à jour
@@ -65,6 +76,7 @@ Scripts de vérification (serveur `npx vite --port 5180` lancé avant) :
 - `node scripts/capture.mjs <dossier> /accueil=nom …` : captures d'écran au format téléphone (`TOC_DEMO=1` pour les données de démo).
 - `node scripts/partie-check.mjs <dossier> 4|6` : joue un début de partie contre les robots.
 - `node scripts/online-check.mjs <dossier>` : vraie partie en ligne entre deux navigateurs (`TOC_ABSENT=1` : un joueur part en cours de partie).
+- `node scripts/social-check.mjs`, `scripts/tournoi-check.mjs`, `scripts/reprise-check.mjs` : amis et chat, tournoi à quatre, partie interrompue puis reprise.
 
 Tout push sur `main` relance les tests puis redéploie le site sur GitHub Pages (`.github/workflows/deploy.yml`).
 

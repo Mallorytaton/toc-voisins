@@ -24,6 +24,7 @@ import { toast } from '../ui/dom';
 import { DEMO_GUESTS } from '../ui/demo';
 import { type CharId, type ColorName, SEAT_COLORS } from '../ui/kit/data';
 import { WEEK, arr, database, ensureAuth, list, node, serverNow } from './firebase';
+import { recordLeagueGame } from './league';
 import { awardGame } from './social';
 
 type Status = 'waiting' | 'countdown' | 'playing';
@@ -34,6 +35,17 @@ interface Meta {
   n: 4 | 6;
   status: Status;
   variants: Variants;
+  /** Partie d'un tournoi : son code, son nom, et la place réservée à chaque membre. */
+  league?: string;
+  title?: string;
+  reserved?: Record<string, string>;
+}
+
+export interface RoomOptions {
+  league: string;
+  title: string;
+  /** uid par place (places fixes du tournoi) */
+  reserved: string[];
 }
 
 interface PlayerInfo {
@@ -162,7 +174,7 @@ export class RoomSession implements Room {
   private constructor(readonly code: string, readonly uid: string) {}
 
   /** Crée une salle (l'appelant devient l'hôte, assis à la place 0). */
-  static async create(n: 4 | 6, variants: Variants = DEFAULT_VARIANTS): Promise<RoomSession> {
+  static async create(n: 4 | 6, variants: Variants = DEFAULT_VARIANTS, opts?: RoomOptions): Promise<RoomSession> {
     const uid = await ensureAuth();
     await purgeExpired().catch((e) => console.warn('nettoyage', e));
     for (let attempt = 0; attempt < 20; attempt++) {
@@ -174,11 +186,13 @@ export class RoomSession implements Room {
         await purge(code);
       }
       const meta: Meta = { host: uid, createdAt: Date.now(), n, status: 'waiting', variants };
+      if (opts) Object.assign(meta, { league: opts.league, title: opts.title, reserved: Object.fromEntries(opts.reserved.map((u, k) => [k, u])) });
       const res = await runTransaction(metaRef, (cur) => (cur ? undefined : meta));
       if (!res.committed) continue;
       await set(node('index', code), meta.createdAt);
       await set(node('rooms', code, 'players', uid), me());
-      await set(node('rooms', code, 'seats', 0), uid);
+      // Tournoi : l'hôte s'assoit à sa place du tournoi.
+      await set(node('rooms', code, 'seats', Math.max(0, opts?.reserved.indexOf(uid) ?? 0)), uid);
       const s = new RoomSession(code, uid);
       await s.start();
       return s;
@@ -194,7 +208,10 @@ export class RoomSession implements Room {
     await set(node('rooms', code, 'players', uid), me());
     const seats = arr<string>((await get(node('rooms', code, 'seats'))).val(), meta.n, () => '');
     if (!seats.includes(uid) && meta.status === 'waiting') {
-      for (const k of JOIN_ORDER[meta.n]) {
+      // Tournoi : chacun retrouve sa place (donc son duo) ; sinon, l'ordre d'arrivée habituel.
+      const mine = Object.entries(meta.reserved ?? {}).find(([, u]) => u === uid);
+      const order = mine ? [Number(mine[0])] : JOIN_ORDER[meta.n];
+      for (const k of order) {
         if (seats[k]) continue;
         const res = await runTransaction(node('rooms', code, 'seats', k), (cur) => (cur ? undefined : uid));
         if (res.committed) break;
@@ -245,11 +262,21 @@ export class RoomSession implements Room {
     });
   }
 
+  /** Partie en cours où ce joueur est assis (pour « Reprendre » depuis l'accueil). */
+  static async resumable(code: string): Promise<boolean> {
+    const uid = await ensureAuth();
+    const meta = (await get(node('rooms', code, 'meta'))).val() as Meta | null;
+    if (!meta || meta.status !== 'playing' || meta.createdAt < Date.now() - WEEK) return false;
+    const seats = arr<string>((await get(node('rooms', code, 'seats'))).val(), meta.n, () => '');
+    const st = (await get(node('rooms', code, 'state', 'phase'))).val();
+    return seats.includes(uid) && st !== 'over';
+  }
+
   /** Quitte la salle : libère la place si la partie n'a pas commencé. */
   quit() {
     const r = this.room;
-    if (r && r.meta.status === 'waiting' && this.mySeat >= 0) set(node('rooms', this.code, 'seats', this.mySeat), null).catch(() => undefined);
-    set(node('rooms', this.code, 'presence', this.uid), false).catch(() => undefined);
+    const seat = this.mySeat;
+    // On arrête d'écouter d'abord : sinon l'écran se redessinerait une fois sans notre place.
     this.offs.forEach((f) => f());
     this.offs = [];
     this.handOff?.();
@@ -257,6 +284,8 @@ export class RoomSession implements Room {
     this.subs.clear();
     clearTimeout(this.startTimer);
     clearTimeout(this.driveTimer);
+    if (r && r.meta.status === 'waiting' && seat >= 0) set(node('rooms', this.code, 'seats', seat), null).catch(() => undefined);
+    set(node('rooms', this.code, 'presence', this.uid), false).catch(() => undefined);
   }
 
   // ---------- Room (écran de la salle) ----------
@@ -284,6 +313,7 @@ export class RoomSession implements Room {
       }),
       mySeat: this.mySeat,
       status: r.meta.status,
+      title: r.meta.title,
     };
   }
 
@@ -485,7 +515,11 @@ export class RoomSession implements Room {
     if (!r || !st || r.meta.status !== 'playing' || this.driving || !this.isDriver()) return;
     const run = (f: () => Promise<void>) => {
       this.driving = true;
-      f().catch((e) => console.warn('meneur', e)).finally(() => { this.driving = false; });
+      f().catch((e) => console.warn('meneur', e)).finally(() => {
+        this.driving = false;
+        // L'écran a pu finir d'animer pendant l'écriture (et être ignoré) : on relance si besoin.
+        if (this.online_?.isIdle) this.drive();
+      });
     };
     if (st.phase === 'deal') {
       if (this.dealtV === st.v) return;
@@ -535,6 +569,9 @@ export class OnlineGame implements GameSource {
   private seenEmote: Record<string, number> = {};
   /** L'écran a fini d'animer le dernier état reçu. */
   private idle = false;
+  get isIdle() {
+    return this.idle;
+  }
 
   constructor(private s: RoomSession) {
     this.state = this.view();
@@ -582,6 +619,10 @@ export class OnlineGame implements GameSource {
     // Fin de partie : XP, jetons et points de classement (une fois par partie).
     if (next.phase === 'over' && prev.phase !== 'over' && this.mySeat >= 0)
       void awardGame(`${this.code}:${next.v}`, teamOf(next.n, this.mySeat) === next.winner);
+    // Partie d'un tournoi : la victoire de l'équipe s'ajoute au score du tournoi (une seule fois).
+    const league = this.s.room?.meta.league;
+    if (league && next.phase === 'over' && prev.phase !== 'over')
+      void recordLeagueGame(league, `${this.code}-${next.v}`, next.winner).catch((e) => console.warn('tournoi', e));
     this.subs.forEach((cb) => cb(prev, reset));
   }
 

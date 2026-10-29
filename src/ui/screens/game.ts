@@ -342,8 +342,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let turnTimer = 0;
   let timerFor = '';
   const stopTimer = () => { clearTimeout(turnTimer); timerFor = ''; timerBar.style.animation = 'none'; timerBar.style.visibility = 'hidden'; };
+  /** Un autre humain attend à la table ? Contre des robots seulement, personne n'attend : pas de minuteur. */
+  const othersWaiting = () => src.players.some((p, k) => k !== me && !p.bot);
   const syncTimer = () => {
-    const active = myTurn() || giving();
+    const active = (myTurn() || giving()) && othersWaiting();
     // Un seul minuteur par échange, et un par tour de jeu.
     const id = view.phase === 'exchange' ? `ex|${view.dealNo}` : `play|${view.v}`;
     if (!active) return stopTimer();
@@ -683,6 +685,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     busy = true;
     stopTimer();
     while (queue.length && !disposed) {
+      // Retour dans l'app (ou gros retard) : on ne rejoue pas chaque coup en retard, on saute au dernier état.
+      if (document.hidden || queue.length > 2) {
+        const first = queue[0], last = queue[queue.length - 1];
+        queue.length = 0;
+        await animate(first.prev, last.next, true);
+        if (last.next.phase === 'over' && first.prev.phase !== 'over') showEnd(last.next);
+        continue;
+      }
       const e = queue.shift()!;
       await animate(e.prev, e.next, e.reset);
     }

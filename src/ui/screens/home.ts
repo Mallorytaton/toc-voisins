@@ -1,10 +1,13 @@
-// 04 Accueil : profil, choix 4/6 joueurs, partie privée, code de salle.
+// 04 Accueil : profil, choix 4/6 joueurs, partie privée, code de salle ou de tournoi, tes tournois.
 import { XP_PER_LEVEL, draftProfile, levelOf } from '../../app/profile';
+import { type League, parseLeagueCode, watchMyLeagues } from '../../net/league';
+import { RoomSession } from '../../net/session';
 import { watchFriends } from '../../net/social';
 import { openAccountSheet } from './account';
 import { DEMO, DEMO_FRIENDS, type Friend } from '../demo';
+import { SEAT_COLORS, TEAM_NAMES } from '../kit/data';
 import { h, toast } from '../dom';
-import { avatar, avatarRing, bille, button, segmented, tabbar } from '../kit/kit';
+import { avatar, avatarRing, bille, button, duo, segmented, tabbar } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 
 const fmt = (n: number) => n.toLocaleString('fr-FR');
@@ -77,22 +80,64 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
     createBtn);
 
   const code = h('input', {
-    class: 'field', placeholder: 'Code de salle (ex. TOC-4821)', 'aria-label': 'Code de salle',
+    class: 'field', placeholder: 'Code (ex. TOC-4821)', 'aria-label': 'Code de salle ou de tournoi',
     inputmode: 'text', autocapitalize: 'characters', enterkeyhint: 'go', style: { flex: 1 },
   });
   const join = () => {
+    // Code de salle (TOC-4821) ou de tournoi (T-4821)
+    const t = parseLeagueCode(code.value);
+    if (t) return go('/tournoi/' + t);
     const c = parseRoomCode(code.value);
-    if (!c) return toast('Le code ressemble à TOC-4821');
+    if (!c) return toast('Le code ressemble à TOC-4821 (salle) ou T-4821 (tournoi)');
     go('/salle/' + c);
   };
+
+  // Tes tournois : mêmes équipes, victoires cumulées
+  const leagueList = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } });
+  const drawLeagues = (list: League[]) => {
+    leagueList.replaceChildren(...(list.length
+      ? list.slice(0, 2).map((l) => h('button', {
+        class: 'league-row', type: 'button', onclick: () => go('/tournoi/' + l.code),
+      },
+        h('span', { class: 'league-row__name' }, l.name),
+        h('span', { class: 'league-row__score' }, ...l.wins.flatMap((w, t) => [
+          ...(t ? [h('span', { style: { opacity: 0.5 } }, '·')] : []),
+          duo(SEAT_COLORS[l.n][t], SEAT_COLORS[l.n][t + l.n / 2], 10), h('b', { 'aria-label': `${TEAM_NAMES[t]} ${w}` }, w),
+        ]))))
+      : [h('span', { style: { font: '600 14px/1.4 var(--text)', color: '#5a4300' } }, 'Mêmes équipes à chaque partie, et les victoires s’additionnent.')]));
+  };
+  drawLeagues([]);
+  const stopLeagues = DEMO || !navigator.onLine ? () => {} : watchMyLeagues(drawLeagues);
+  const leagues = h('div', { class: 'hero hero--yellow hero--tight' },
+    h('div', { class: 'blob', style: { right: -40, bottom: -50, width: 150, height: 150, background: 'rgba(255,255,255,.25)' } }),
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+      h('span', { class: 'hero__title', style: { fontSize: 26 } }, 'Tes tournois'),
+      button('Créer', 'dark', () => go('/tournoi/nouveau'), { size: 'xs' })),
+    leagueList);
   code.addEventListener('keydown', (e) => e.key === 'Enter' && join());
+
+  // Partie en ligne interrompue (app fermée) : on propose de la reprendre.
+  const resume = h('div', { class: 'friend-code', hidden: true },
+    h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } },
+      h('span', { class: 'friend-code__label' }, 'Partie en cours'),
+      h('span', { class: 'friend-code__value', style: { fontSize: 18 } }, 'Ta partie t’attend')),
+    button('Reprendre', 'yellow', () => go('/salle/' + lastRoom), { size: 'xs' }));
+  let lastRoom = '';
+  try { lastRoom = localStorage.getItem('toc.lastRoom') ?? ''; } catch { /* sans stockage */ }
+  if (lastRoom && !DEMO && navigator.onLine)
+    RoomSession.resumable(lastRoom).then((ok) => {
+      resume.hidden = !ok;
+      if (!ok) try { localStorage.removeItem('toc.lastRoom'); } catch { /* sans stockage */ }
+    }).catch(() => undefined);
 
   const el = h('div', { class: 'screen screen--tabs home', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 10px)' } },
     head,
+    resume,
     h('span', { class: 't-screen' }, 'On joue ?'),
     segmented<4 | 6>([{ value: 4, label: '4 joueurs', sub: '2 équipes de 2' }, { value: 6, label: '6 joueurs', sub: '3 équipes de 2' }], mode, setMode),
     privateCard,
     h('div', { style: { display: 'flex', gap: 10 } }, code, button('Rejoindre', 'dark', join, { size: 'md' })),
+    leagues,
     tabbar('home', (t) => go(t === 'home' ? ROUTES.home : t === 'friends' ? ROUTES.friends : ROUTES.ranking)));
-  return { el, cleanup: () => stopFriends() };
+  return { el, cleanup: () => { stopFriends(); stopLeagues(); } };
 }

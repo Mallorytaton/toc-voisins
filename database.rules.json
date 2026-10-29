@@ -181,6 +181,54 @@
             }
           }
         }
+      },
+      "leagues": {
+        "$code": {
+          ".read": "auth != null",
+          "name": {
+            ".write": "auth != null && !data.exists()",
+            ".validate": "newData.isString() && newData.val().length <= 30"
+          },
+          "n": {
+            ".write": "auth != null && !data.exists()",
+            ".validate": "newData.val() === 4 || newData.val() === 6"
+          },
+          "host": {
+            ".write": "auth != null && !data.exists() && newData.val() === auth.uid"
+          },
+          "createdAt": {
+            ".write": "auth != null && !data.exists()"
+          },
+          "members": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid",
+              ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 20"
+            }
+          },
+          "seats": {
+            "$seat": {
+              ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()))"
+            }
+          },
+          "wins": {
+            "$team": {
+              ".write": "auth != null && root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists()",
+              ".validate": "(!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1)"
+            }
+          },
+          "games": {
+            "$key": {
+              ".write": "auth != null && root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists() && !data.exists()",
+              ".validate": "newData.hasChildren(['winner', 'at']) && newData.child('winner').isNumber()"
+            }
+          }
+        }
+      },
+      "myLeagues": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
       }
     }
   }

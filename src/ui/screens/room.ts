@@ -63,7 +63,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
   const draw = () => {
     const s = room.snapshot();
     // L'équipe du joueur d'abord, lui en premier.
-    const myTeam = s.mySeat % half;
+    const myTeam = s.mySeat >= 0 ? s.mySeat % half : 0;
     const order = [myTeam, ...Array.from({ length: half }, (_, t) => t).filter((t) => t !== myTeam)];
     teams.replaceChildren(...order.map((t) => {
       const seats = [t, t + half];
@@ -108,8 +108,9 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
   const el = h('div', { class: 'screen', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 8px)' } },
     h('div', { class: 'screen__head' },
       backButton(() => go(ROUTES.home)),
-      h('span', { style: { flex: 1, font: '800 26px/1 var(--display)', paddingTop: 3 } }, 'Salle privée'),
-      h('span', { class: 'pill' }, s0.n === 4 ? '4 joueurs · 2 équipes' : '6 joueurs · 3 équipes')),
+      // Partie de tournoi : le nom du tournoi remplace « Salle privée ».
+      h('span', { style: { flex: 1, minWidth: 0, font: '800 26px/1 var(--display)', paddingTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, s0.title ?? 'Salle privée'),
+      h('span', { class: 'pill' }, s0.title ? 'Tournoi' : s0.n === 4 ? '4 joueurs · 2 équipes' : '6 joueurs · 3 équipes')),
     h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px 14px 18px' } },
       h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } },
         h('span', { class: 't-mini' }, 'Code de la salle'),

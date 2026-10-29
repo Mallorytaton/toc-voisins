@@ -20,6 +20,8 @@ export interface RoomSnapshot {
   seats: (RoomPlayer | null)[];
   mySeat: number;
   status: 'waiting' | 'countdown' | 'playing';
+  /** Partie de tournoi : son nom. */
+  title?: string;
 }
 
 export interface Room {

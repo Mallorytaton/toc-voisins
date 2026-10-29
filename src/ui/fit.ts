@@ -11,7 +11,7 @@ const BASE_W = 393;
 const MAX_W = 480;
 const MAX_SCALE = 1.25;
 /** Hauteur de référence des onglets : celle de l'accueil, le plus haut des trois (marges sûres minimales). */
-const TABS_H = 760;
+const TABS_H = 860;
 /** Marges sûres minimales comptées dans TABS_H (14 en haut, 12 en bas). */
 const MIN_SAFE = 26;
 

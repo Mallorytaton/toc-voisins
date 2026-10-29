@@ -1,0 +1,137 @@
+// Tournois : une série de parties entre les mêmes joueurs, équipes fixes, victoires cumulées.
+//   leagues/<code>          name, n, host, createdAt, seats/<place> = uid, members/<uid> = { name, char, color },
+//                           wins/<équipe> = nombre de victoires, games/<partie> = { winner, at }
+//   myLeagues/<uid>/<code>  true (tournois dont on fait partie)
+// L'équipe t réunit les places t et t + n/2, comme au jeu : les duos restent les mêmes de partie en partie.
+import { get, onValue, runTransaction, serverTimestamp, set, update } from 'firebase/database';
+import { draftProfile } from '../app/profile';
+import { cryptoRng } from '../engine';
+import type { CharId, ColorName } from '../ui/kit/data';
+import { arr, ensureAuth, node } from './firebase';
+
+export interface LeagueMember {
+  name: string;
+  char: CharId;
+  color: ColorName;
+}
+
+export interface LeagueGame {
+  key: string;
+  winner: number;
+  at: number;
+}
+
+export interface League {
+  code: string;
+  name: string;
+  n: 4 | 6;
+  host: string;
+  /** Une entrée par place ; '' = libre. */
+  seats: string[];
+  members: Record<string, LeagueMember>;
+  /** Victoires par équipe */
+  wins: number[];
+  /** Parties, de la plus récente à la plus ancienne */
+  games: LeagueGame[];
+}
+
+const me = (): LeagueMember => {
+  const p = draftProfile();
+  return { name: (p.nick || 'Toi').slice(0, 20), char: p.char, color: p.color };
+};
+
+function normalize(code: string, raw: Record<string, unknown> | null): League | null {
+  if (!raw?.name) return null;
+  const n = (raw.n as number) === 6 ? 6 : 4;
+  const games = Object.entries((raw.games ?? {}) as Record<string, { winner: number; at: number }>)
+    .map(([key, g]) => ({ key, winner: g.winner, at: g.at ?? 0 }))
+    .sort((a, b) => b.at - a.at);
+  return {
+    code, name: raw.name as string, n, host: raw.host as string,
+    seats: arr<string>(raw.seats, n, () => ''),
+    members: (raw.members ?? {}) as Record<string, LeagueMember>,
+    wins: arr<number>(raw.wins, n / 2, () => 0),
+    games,
+  };
+}
+
+/** Code du tournoi saisi (« T-4821 », « t4821 ») ramené à ses 4 chiffres. */
+export function parseLeagueCode(raw: string): string | null {
+  const m = /^\s*t[\s-]*(\d{4})\s*$/i.exec(raw);
+  return m ? m[1] : null;
+}
+
+export const leagueLink = (code: string) => `${location.origin}${location.pathname}?t=${code}`;
+
+/** Crée un tournoi : l'auteur prend la première place. */
+export async function createLeague(name: string, n: 4 | 6): Promise<string> {
+  const uid = await ensureAuth();
+  for (let k = 0; k < 20; k++) {
+    const code = String(1000 + Math.floor(cryptoRng() * 9000));
+    const res = await runTransaction(node('leagues', code, 'name'), (cur) => (cur ? undefined : name.trim().slice(0, 30) || 'Notre tournoi'));
+    if (!res.committed) continue;
+    await update(node('leagues', code), { n, host: uid, createdAt: serverTimestamp(), [`members/${uid}`]: me(), 'seats/0': uid });
+    await set(node('myLeagues', uid, code), true);
+    return code;
+  }
+  throw new Error('Impossible de créer le tournoi, réessaie.');
+}
+
+/** Prend une place libre (rejoindre le tournoi, ou changer de place tant qu'il n'est pas complet). */
+export async function takeLeagueSeat(code: string, seat: number) {
+  const uid = await ensureAuth();
+  const l = normalize(code, (await get(node('leagues', code))).val());
+  if (!l) throw new Error('Ce tournoi n’existe plus.');
+  if (l.seats.every(Boolean) && !l.seats.includes(uid)) throw new Error('Ce tournoi est complet.');
+  await set(node('leagues', code, 'members', uid), me());
+  const res = await runTransaction(node('leagues', code, 'seats', seat), (cur) => (cur ? undefined : uid));
+  if (!res.committed) throw new Error('Cette place vient d’être prise.');
+  const old = l.seats.indexOf(uid);
+  if (old >= 0 && old !== seat) await set(node('leagues', code, 'seats', old), null);
+  // Les membres d'un tournoi deviennent amis : invitations et chat possibles.
+  const friends: Record<string, boolean> = {};
+  for (const other of Object.keys(l.members)) if (other !== uid) Object.assign(friends, { [`${uid}/${other}`]: true, [`${other}/${uid}`]: true });
+  if (Object.keys(friends).length) await update(node('friends'), friends).catch(() => undefined);
+  await set(node('myLeagues', uid, code), true);
+}
+
+export async function getLeagueOnce(code: string): Promise<League | null> {
+  return normalize(code, (await get(node('leagues', code))).val());
+}
+
+export function watchLeague(code: string, cb: (l: League | null) => void): () => void {
+  // On attend la connexion : sans elle, la lecture est refusée (nouveau joueur arrivé par le lien).
+  let off = () => {};
+  let stopped = false;
+  void ensureAuth().then(() => {
+    if (!stopped) off = onValue(node('leagues', code), (s) => cb(normalize(code, s.val())), () => cb(null));
+  }).catch(() => cb(null));
+  return () => { stopped = true; off(); };
+}
+
+/** Mes tournois (mis à jour en direct). */
+export function watchMyLeagues(cb: (list: League[]) => void): () => void {
+  const per = new Map<string, () => void>();
+  const data = new Map<string, League>();
+  let off = () => {};
+  const emit = () => cb([...data.values()].sort((a, b) => (b.games[0]?.at ?? 0) - (a.games[0]?.at ?? 0)));
+  void ensureAuth().catch(() => '').then((uid) => {
+    if (!uid) return;
+    off = onValue(node('myLeagues', uid), (s) => {
+      const codes = Object.keys(s.val() ?? {});
+      for (const c of codes) {
+        if (per.has(c)) continue;
+        per.set(c, watchLeague(c, (l) => { if (l) data.set(c, l); else data.delete(c); emit(); }));
+      }
+      emit();
+    });
+  });
+  return () => { off(); per.forEach((f) => f()); };
+}
+
+/** Résultat d'une partie du tournoi : compté une seule fois, même si tous les téléphones l'envoient. */
+export async function recordLeagueGame(code: string, key: string, winner: number) {
+  const res = await runTransaction(node('leagues', code, 'games', key), (cur) => (cur ? undefined : { winner, at: Date.now() }));
+  if (!res.committed) return;
+  await runTransaction(node('leagues', code, 'wins', winner), (cur) => (Number(cur) || 0) + 1);
+}

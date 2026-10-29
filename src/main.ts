@@ -8,6 +8,7 @@ import { getProfile } from './app/profile';
 import { type GameSource, LocalGame } from './app/game-source';
 import { LocalRoom, type RoomSnapshot } from './app/room';
 import { RoomSession } from './net/session';
+import { getLeagueOnce, recordLeagueGame } from './net/league';
 import { inviteFriend, setInGame, startPresence, syncProfile, watchInvites } from './net/social';
 import { DEMO } from './ui/demo';
 import { h } from './ui/dom';
@@ -19,6 +20,7 @@ import { ROUTES, go } from './ui/nav';
 import { gameScreen } from './ui/screens/game';
 import './ui/screens/game.css';
 import { homeScreen, savedMode } from './ui/screens/home';
+import { leagueScreen, newLeagueScreen } from './ui/screens/league';
 import { onboardScreen, pickScreen, splashScreen } from './ui/screens/intro';
 import { roomScreen } from './ui/screens/room';
 import { friendsScreen, rankingScreen } from './ui/screens/social';
@@ -58,7 +60,7 @@ function quitSession() {
 }
 
 // Accès de test automatisé (?debug dans l'adresse).
-if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __toc: { game: () => currentGame } });
+if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __toc: { game: () => currentGame, recordLeagueGame } });
 
 function startLocalGame(s: RoomSnapshot) {
   const p = getProfile()!;
@@ -95,6 +97,12 @@ function router() {
     history.replaceState(null, '', location.pathname);
     return go('/salle/' + q);
   }
+  // Lien de tournoi de la forme ?t=4821
+  const tq = new URLSearchParams(location.search).get('t');
+  if (tq && /^\d{4}$/.test(tq)) {
+    history.replaceState(null, '', location.pathname);
+    return go('/tournoi/' + tq);
+  }
   const [path, query = ''] = (location.hash.replace(/^#/, '') || '/').split('?');
   const params = new URLSearchParams(query);
   const hasProfile = !!getProfile();
@@ -121,12 +129,25 @@ function router() {
       const r = new LocalRoom(n, room[1] === 'nouvelle' ? undefined : room[1]);
       return setView(roomScreen(r, () => startLocalGame(r.snapshot())));
     }
-    return void openOnlineRoom(room[1], n);
+    return void openOnlineRoom(room[1], n, params.get('ligue'));
+  }
+  if (path === '/tournoi/nouveau') return setView(newLeagueScreen());
+  const lg = /^\/tournoi\/(\d{4})$/.exec(path);
+  if (lg) {
+    if (!navigator.onLine) return message('Pas de réseau', 'Les tournois se jouent en ligne. Réessaie quand tu es connecté.');
+    return setView(leagueScreen(lg[1]));
   }
   if (path === '/partie') {
     if (!currentGame) return go(ROUTES.home);
     const game = currentGame;
-    const v = gameScreen(game, { onQuit: () => { currentGame = null; quitSession(); go(ROUTES.home); } });
+    // Partie en ligne : on la retient pour pouvoir la reprendre si l'app est fermée.
+    if (!game.local) try { localStorage.setItem('toc.lastRoom', game.code); } catch { /* sans stockage */ }
+    const v = gameScreen(game, { onQuit: () => {
+      currentGame = null;
+      quitSession();
+      try { localStorage.removeItem('toc.lastRoom'); } catch { /* sans stockage */ }
+      go(ROUTES.home);
+    } });
     if (!game.local) void setInGame(true);
     return setView({ el: v.el, cleanup: () => { v.cleanup(); if (!game.local) void setInGame(false); } });
   }
@@ -153,14 +174,22 @@ function message(title: string, text: string) {
 }
 
 /** Salle en ligne : création (« nouvelle ») ou arrivée par code. */
-async function openOnlineRoom(code: string, n: 4 | 6) {
+async function openOnlineRoom(code: string, n: 4 | 6, ligue: string | null = null) {
   const hash = location.hash;
   if (currentSession?.code !== code) {
     quitSession();
     setView(h('div', { class: 'screen', style: { justifyContent: 'center', alignItems: 'center' } },
       h('span', { class: 't-body' }, code === 'nouvelle' ? 'On prépare ta salle…' : `Connexion à la salle TOC-${code}…`)));
     try {
-      currentSession = code === 'nouvelle' ? await RoomSession.create(n) : await RoomSession.join(code);
+      if (code !== 'nouvelle') currentSession = await RoomSession.join(code);
+      else if (ligue) {
+        // Partie de tournoi : places fixes de chaque membre, invitation envoyée aux autres.
+        const l = await getLeagueOnce(ligue);
+        if (!l) throw new Error('Ce tournoi n’existe plus.');
+        currentSession = await RoomSession.create(l.n, undefined, { league: l.code, title: l.name, reserved: l.seats });
+        const me = currentSession.uid;
+        for (const u of l.seats) if (u && u !== me) inviteFriend(u, currentSession.code).catch((e) => console.warn('invitation', e));
+      } else currentSession = await RoomSession.create(n);
     } catch (e) {
       console.error(e);
       return message('Salle introuvable', e instanceof Error ? e.message : 'Vérifie ta connexion puis réessaie.');
