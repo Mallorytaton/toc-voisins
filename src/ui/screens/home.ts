@@ -4,6 +4,7 @@ import { type League, parseLeagueCode, watchMyLeagues } from '../../net/league';
 import { RoomSession } from '../../net/session';
 import { watchFriends } from '../../net/social';
 import { openAccountSheet } from './account';
+import { soireeLabel } from './league';
 import { DEMO, DEMO_FRIENDS, type Friend } from '../demo';
 import { SEAT_COLORS, TEAM_NAMES } from '../kit/data';
 import { h, toast } from '../dom';
@@ -99,7 +100,8 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
       ? list.slice(0, 2).map((l) => h('button', {
         class: 'league-row', type: 'button', onclick: () => go('/tournoi/' + l.code),
       },
-        h('span', { class: 'league-row__name' }, l.name),
+        h('span', { class: 'league-row__name' }, l.name,
+          l.soiree && h('span', { class: 'league-row__when' }, 'Soirée : ' + soireeLabel(l.soiree.at))),
         h('span', { class: 'league-row__score' }, ...l.wins.flatMap((w, t) => [
           ...(t ? [h('span', { style: { opacity: 0.5 } }, '·')] : []),
           duo(SEAT_COLORS[l.n][t], SEAT_COLORS[l.n][t + l.n / 2], 10), h('b', { 'aria-label': `${TEAM_NAMES[t]} ${w}` }, w),

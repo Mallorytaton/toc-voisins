@@ -132,6 +132,22 @@
 .variant__text > b { font: 800 15px/1.2 var(--display); }
 .variant__text > span { font: 600 12px/1.35 var(--text); color: var(--ink-2); }
 .sheet--tall { gap: 10px; }
+/* Tournoi : prochaine soirée */
+.soiree__when { font: 800 26px/1.05 var(--display); }
+.soiree__list { display: flex; flex-direction: column; gap: 6px; }
+.soiree__row { display: flex; align-items: center; gap: 8px; }
+.soiree__row .avatar-ring { padding: 2px; }
+.soiree__name { flex: 1; min-width: 0; font: 800 15px/1.1 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 2px; }
+.soiree__pill { font: 900 11px var(--text); padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+.rsvp { display: flex; gap: 6px; }
+.rsvp > button {
+  flex: 1 1 0; min-width: 0; height: 42px; border: none; border-radius: 14px; cursor: pointer; padding-top: 2px;
+  font: 800 14px/1 var(--display); color: #fff; background: rgba(255, 255, 255, .18); transition: background .2s, color .2s;
+}
+.rsvp > button[aria-pressed='true'] { background: #fff; color: var(--private-edge); box-shadow: 0 4px 0 #c9d6ff; }
+.rsvp > button:active { transform: translateY(2px); }
+.soiree__link { border: none; background: none; color: #fff; opacity: .85; font: 800 13px var(--text); padding: 4px 6px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; border: none; border-radius: 16px;

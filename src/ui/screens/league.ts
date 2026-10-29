@@ -1,5 +1,7 @@
 // Tournois : création, page du tournoi (équipes fixes, score cumulé, dernières parties).
-import { type League, createLeague, leagueLink, takeLeagueSeat, watchLeague } from '../../net/league';
+import {
+  type League, type Rsvp, answerSoiree, cancelSoiree, createLeague, leagueLink, proposeSoiree, takeLeagueSeat, watchLeague,
+} from '../../net/league';
 import { currentUid } from '../../net/social';
 import { h, toast } from '../dom';
 import { COL, SEAT_COLORS, TEAM_NAMES } from '../kit/data';
@@ -12,6 +14,99 @@ import { DEFAULT_VARIANTS, type Variants } from '../../engine';
 type View = { el: HTMLElement; cleanup: () => void };
 
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
+
+const dayFmt = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' });
+const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+
+/** « Ce soir · 20 h 30 », « Demain · 20 h », « Jeudi 31 oct. · 20 h 30 ». */
+export function soireeLabel(at: number): string {
+  const d = new Date(at), now = new Date(), tomorrow = new Date(now.getTime() + 86_400_000);
+  const day = sameDay(d, now) ? (d.getHours() >= 17 ? 'Ce soir' : 'Aujourd’hui') : sameDay(d, tomorrow) ? 'Demain' : dayFmt.format(d);
+  const m = d.getMinutes();
+  return `${day.charAt(0).toUpperCase() + day.slice(1)} · ${d.getHours()} h${m ? ' ' + String(m).padStart(2, '0') : ''}`;
+}
+
+const ANSWERS: [Rsvp, string][] = [['oui', 'Je viens'], ['peut', 'Peut-être'], ['non', 'Je ne peux pas']];
+const PILLS: Record<Rsvp | 'none', [string, string, string]> = {
+  oui: ['Présent·e', '#d4f4eb', '#16705a'], peut: ['Peut-être', '#fff1c9', '#7a5600'],
+  non: ['Absent·e', '#ffe3da', '#c9401f'], none: ['Pas encore répondu', 'rgba(255,255,255,.22)', '#fff'],
+};
+
+/** Formulaire « Proposer une soirée » : date, heure, lieu. */
+function openSoireeSheet(code: string) {
+  const d = new Date(Date.now() + 86_400_000);
+  const p2 = (v: number) => String(v).padStart(2, '0');
+  const date = h('input', { class: 'field', type: 'date', id: 'soiree-date', value: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`, 'aria-label': 'Date' });
+  const time = h('input', { class: 'field', type: 'time', id: 'soiree-heure', value: '20:30', 'aria-label': 'Heure' });
+  const place = h('input', { class: 'field', id: 'soiree-lieu', placeholder: 'Ex. chez Mallo', maxlength: 40, 'aria-label': 'Lieu (facultatif)' });
+  const close = () => wrap.remove();
+  const send = button('Proposer la soirée', 'primary', async () => {
+    const at = new Date(`${date.value}T${time.value || '20:30'}`).getTime();
+    if (!date.value || Number.isNaN(at)) return toast('Choisis une date.');
+    if (at < Date.now() - 3600_000) return toast('Cette date est déjà passée.');
+    send.disabled = true;
+    try {
+      await proposeSoiree(code, at, place.value);
+      close();
+      toast('Soirée proposée !');
+    } catch {
+      send.disabled = false;
+      toast('Soirée non enregistrée. Réessaie.');
+    }
+  }, { size: 'md', block: true });
+  const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Proposer une soirée' },
+      h('span', { class: 'sheet__title' }, 'Proposer une soirée'),
+      h('span', { class: 'sheet__text' }, 'Les autres joueurs du tournoi la verront et pourront répondre.'),
+      h('div', { style: { display: 'flex', gap: 8 } }, h('label', { style: { flex: 1.4, display: 'flex', flexDirection: 'column', gap: 6 } }, h('span', { class: 't-label' }, 'Date'), date),
+        h('label', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 6 } }, h('span', { class: 't-label' }, 'Heure'), time)),
+      h('label', { style: { display: 'flex', flexDirection: 'column', gap: 6 } }, h('span', { class: 't-label' }, 'Lieu (facultatif)'), place),
+      send,
+      button('Annuler', 'text', close)));
+  (document.getElementById('app') ?? document.body).append(wrap);
+}
+
+/** Carte « Prochaine soirée » du tournoi. */
+function soireeCard(l: League, me: string): HTMLElement {
+  const member = !!l.members[me];
+  const s = l.soiree;
+  if (!s)
+    return h('div', { class: 'card', style: { padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 } },
+      h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } },
+        h('span', { class: 't-label' }, 'Prochaine soirée'),
+        h('span', { class: 't-body' }, 'Aucune soirée prévue.')),
+      member && button('Proposer', 'primary', () => openSoireeSheet(l.code), { size: 'xs' }));
+  const people = l.seats.filter(Boolean);
+  const mine = s.rsvp[me];
+  const yes = people.filter((u) => s.rsvp[u] === 'oui').length;
+  return h('div', { class: 'hero hero--blue soiree' },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 } },
+      h('span', { class: 'tag' }, 'PROCHAINE SOIRÉE'),
+      h('span', { style: { font: '800 13px var(--text)' } }, `${yes} / ${people.length} présents`)),
+    h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
+      h('span', { class: 'soiree__when' }, soireeLabel(s.at)),
+      h('span', { style: { font: '700 13px var(--text)', opacity: 0.9 } },
+        [s.place, l.members[s.by] ? `proposée par ${s.by === me ? 'toi' : l.members[s.by].name}` : ''].filter(Boolean).join(' · '))),
+    h('div', { class: 'soiree__list' }, ...people.map((u) => {
+      const m = l.members[u];
+      const [label, bg, fg] = PILLS[s.rsvp[u] ?? 'none'];
+      return h('div', { class: 'soiree__row' },
+        avatarRing(m.char, m.color, 26, 'transparent', 2, 0, null),
+        h('span', { class: 'soiree__name' }, u === me ? `${m.name} (toi)` : m.name),
+        h('span', { class: 'soiree__pill', style: { background: bg, color: fg } }, label));
+    })),
+    member && h('div', { class: 'rsvp', role: 'group', 'aria-label': 'Ta réponse' }, ...ANSWERS.map(([v, label]) =>
+      h('button', {
+        type: 'button', 'aria-pressed': String(mine === v),
+        onclick: () => answerSoiree(l.code, s.id, v).catch(() => toast('Réponse non enregistrée. Réessaie.')),
+      }, label))),
+    member && h('div', { style: { display: 'flex', justifyContent: 'center', gap: 6 } },
+      h('button', { class: 'soiree__link', type: 'button', onclick: () => openSoireeSheet(l.code) }, 'Changer la date'),
+      (s.by === me || l.host === me) && h('button', {
+        class: 'soiree__link', type: 'button',
+        onclick: () => cancelSoiree(l.code).then(() => toast('Soirée annulée.')).catch(() => toast('Annulation impossible.')),
+      }, 'Annuler la soirée')));
+}
 
 /** Équipe t : places t et t + n/2. */
 const teamSeats = (n: number, t: number) => [t, t + n / 2];
@@ -63,6 +158,7 @@ export function leagueScreen(code: string): View {
   const pill = h('span', { class: 'pill' });
   const codeVal = h('span', { style: { font: '800 26px/1.05 var(--display)', letterSpacing: '.06em' } }, 'T-' + code);
   const teams = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
+  const soiree = h('div');
   const hist = h('div', { class: 'card', style: { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 } });
   // Déclaré avant la carte « Règles », qui lit le tournoi dès sa création.
   let league: League | null = null;
@@ -111,6 +207,7 @@ export function leagueScreen(code: string): View {
         })));
     }));
     hist.hidden = false;
+    soiree.replaceChildren(soireeCard(l, me));
     rules.refresh();
     hist.replaceChildren(h('span', { class: 't-label' }, 'Dernières parties'),
       ...(l.games.length
@@ -133,15 +230,17 @@ export function leagueScreen(code: string): View {
   };
 
   const stop = watchLeague(code, draw);
-  const el = h('div', { class: 'screen', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 8px)' } },
+  // Le milieu (soirée, équipes, parties, règles) défile ; le bouton « Jouer une partie » reste en bas.
+  const el = h('div', { class: 'screen', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 8px)' } },
     h('div', { class: 'screen__head' }, backButton(() => go(ROUTES.home)), title, pill),
-    h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px 14px 18px' } },
-      h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('span', { class: 't-mini' }, 'Code du tournoi'), codeVal),
-      invite),
-    teams,
-    rules.el,
-    hist,
-    h('div', { class: 'spacer' }),
+    h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14, margin: '0 -20px', padding: '4px 20px 10px' } },
+      h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px 14px 18px' } },
+        h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('span', { class: 't-mini' }, 'Code du tournoi'), codeVal),
+        invite),
+      soiree,
+      teams,
+      hist,
+      rules.el),
     status,
     play);
   return { el, cleanup: stop };

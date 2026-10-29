@@ -1,6 +1,7 @@
 // Tournois : une série de parties entre les mêmes joueurs, équipes fixes, victoires cumulées.
 //   leagues/<code>          name, n, host, createdAt, seats/<place> = uid, members/<uid> = { name, char, color },
 //                           wins/<équipe> = nombre de victoires, games/<partie> = { winner, at }
+//                           soiree = { id, at, place, by } (prochaine soirée), rsvp/<soirée>/<uid> = oui | peut | non
 //   myLeagues/<uid>/<code>  true (tournois dont on fait partie)
 // L'équipe t réunit les places t et t + n/2, comme au jeu : les duos restent les mêmes de partie en partie.
 import { get, onValue, runTransaction, serverTimestamp, set, update } from 'firebase/database';
@@ -35,7 +36,24 @@ export interface League {
   games: LeagueGame[];
   /** Règles de toutes les parties du tournoi */
   variants: Variants;
+  /** Prochaine soirée prévue (null s'il n'y en a pas, ou si elle est passée) */
+  soiree: Soiree | null;
 }
+
+export type Rsvp = 'oui' | 'peut' | 'non';
+
+export interface Soiree {
+  id: string;
+  /** Date et heure (ms) */
+  at: number;
+  place: string;
+  by: string;
+  /** Réponse de chaque membre */
+  rsvp: Record<string, Rsvp>;
+}
+
+/** Une soirée reste affichée jusqu'à 4 h après son début. */
+const SOIREE_GRACE_MS = 4 * 3600_000;
 
 const me = (): LeagueMember => {
   const p = draftProfile();
@@ -55,7 +73,34 @@ function normalize(code: string, raw: Record<string, unknown> | null): League | 
     wins: arr<number>(raw.wins, n / 2, () => 0),
     games,
     variants: { ...DEFAULT_VARIANTS, ...(raw.variants as Partial<Variants>) },
+    soiree: normalizeSoiree(raw),
   };
+}
+
+function normalizeSoiree(raw: Record<string, unknown>): Soiree | null {
+  const s = raw.soiree as { id?: string; at?: number; place?: string; by?: string } | undefined;
+  if (!s?.id || !s.at || s.at < Date.now() - SOIREE_GRACE_MS) return null;
+  const rsvp = ((raw.rsvp as Record<string, Record<string, Rsvp>> | undefined)?.[s.id] ?? {});
+  return { id: s.id, at: s.at, place: s.place ?? '', by: s.by ?? '', rsvp };
+}
+
+/** Propose la prochaine soirée du tournoi (remplace la précédente). Son auteur y va, forcément. */
+export async function proposeSoiree(code: string, at: number, place: string) {
+  const uid = await ensureAuth();
+  const id = 's' + Date.now().toString(36);
+  await update(node('leagues', code), {
+    soiree: { id, at, place: place.trim().slice(0, 40), by: uid },
+    [`rsvp/${id}/${uid}`]: 'oui',
+  });
+}
+
+export async function cancelSoiree(code: string) {
+  await set(node('leagues', code, 'soiree'), null);
+}
+
+export async function answerSoiree(code: string, id: string, answer: Rsvp) {
+  const uid = await ensureAuth();
+  await set(node('leagues', code, 'rsvp', id, uid), answer);
 }
 
 /** Code du tournoi saisi (« T-4821 », « t4821 ») ramené à ses 4 chiffres. */

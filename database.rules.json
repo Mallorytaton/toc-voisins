@@ -224,6 +224,18 @@
           },
           "variants": {
             ".write": "auth != null && !data.exists()"
+          },
+          "soiree": {
+            ".write": "auth != null && root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists()",
+            ".validate": "!newData.exists() || (newData.hasChildren(['id', 'at', 'by']) && newData.child('by').val() === auth.uid && newData.child('at').isNumber() && (!newData.child('place').exists() || (newData.child('place').isString() && newData.child('place').val().length <= 40)))"
+          },
+          "rsvp": {
+            "$id": {
+              "$uid": {
+                ".write": "auth != null && auth.uid === $uid && root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists()",
+                ".validate": "newData.val() === 'oui' || newData.val() === 'peut' || newData.val() === 'non'"
+              }
+            }
           }
         }
       },
