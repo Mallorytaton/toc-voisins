@@ -14,16 +14,17 @@ import {
   ref,
 } from 'firebase/database';
 import type { GameSource, SeatPlayer } from '../app/game-source';
-import { draftProfile } from '../app/profile';
+import { draftProfile, saveProfile } from '../app/profile';
 import { type Room, type RoomPlayer, type RoomSnapshot, inviteLink } from '../app/room';
 import {
   type Card, DEFAULT_VARIANTS, type GameState, type Move, type Variants, applyMove, botGift, botMove, cryptoRng,
-  deal, giveCard, newGame, partner, rematch,
+  deal, giveCard, newGame, partner, rematch, teamOf,
 } from '../engine';
 import { toast } from '../ui/dom';
 import { DEMO_GUESTS } from '../ui/demo';
 import { type CharId, type ColorName, SEAT_COLORS } from '../ui/kit/data';
 import { WEEK, arr, database, ensureAuth, list, node, serverNow } from './firebase';
+import { awardGame } from './social';
 
 type Status = 'waiting' | 'countdown' | 'playing';
 
@@ -336,6 +337,15 @@ export class RoomSession implements Room {
     });
   }
 
+  /** Retient le partenaire humain de la partie, pour le chat d'équipe. */
+  rememberPartner() {
+    const r = this.room;
+    if (!r || this.mySeat < 0) return;
+    const uid = r.seats[partner(r.meta.n, this.mySeat)];
+    const p = r.players[uid];
+    if (uid && uid !== BOT && p) saveProfile({ ...draftProfile(), partner: { uid, name: p.name, char: p.char, color: p.color } });
+  }
+
   /** La partie en ligne (une seule par session). */
   game(): OnlineGame {
     if (!this.online_) this.online_ = new OnlineGame(this);
@@ -569,6 +579,9 @@ export class OnlineGame implements GameSource {
     this.idle = false;
     this.state = next;
     const reset = prev.phase === 'over' && next.phase !== 'over';
+    // Fin de partie : XP, jetons et points de classement (une fois par partie).
+    if (next.phase === 'over' && prev.phase !== 'over' && this.mySeat >= 0)
+      void awardGame(`${this.code}:${next.v}`, teamOf(next.n, this.mySeat) === next.winner);
     this.subs.forEach((cb) => cb(prev, reset));
   }
 

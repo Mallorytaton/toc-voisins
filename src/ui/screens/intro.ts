@@ -1,5 +1,6 @@
 // Écrans d'arrivée : 01 Splash, 02 Onboarding, 03 Choix du perso.
 import { NICK_MAX, draftProfile, getProfile, saveProfile } from '../../app/profile';
+import { syncProfile } from '../../net/social';
 import { DEMO } from '../demo';
 import { h } from '../dom';
 import { CHARS, COL, COLOR_NAMES, type CharId, type ColorName } from '../kit/data';
@@ -157,6 +158,7 @@ export function pickScreen(): HTMLElement {
 
   const done = () => {
     saveProfile({ char, color, nick: nick.value });
+    if (!DEMO && navigator.onLine) syncProfile().catch((e) => console.warn('profil', e));
     go(ROUTES.home);
   };
   return h('div', { class: 'screen pick' },

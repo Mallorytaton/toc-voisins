@@ -5,15 +5,26 @@ export interface Profile {
   nick: string;
   char: CharId;
   color: ColorName;
+  /** Ancien champ : le niveau se calcule maintenant à partir de l'XP (levelOf). */
   level: number;
+  /** XP totale depuis le début */
   xp: number;
   tokens: number;
+  /** Points de classement */
+  points?: number;
+  /** Ville affichée au classement, et « joue du Québec » */
+  city?: string;
+  qc?: boolean;
+  /** Partenaire de la dernière partie en ligne (chat d'équipe). */
+  partner?: { uid: string; name: string; char: CharId; color: ColorName };
   /** Code ami (ex. FREDO#2741), créé une fois pour toutes. */
   friendCode?: string;
 }
 
 const KEY = 'toc.profile';
 export const XP_PER_LEVEL = 1000;
+/** Niveau et XP dans le niveau en cours. */
+export const levelOf = (xp: number) => ({ level: 1 + Math.floor(xp / XP_PER_LEVEL), inLevel: xp % XP_PER_LEVEL });
 export const NICK_MAX = 14;
 
 let current: Profile | null = load();

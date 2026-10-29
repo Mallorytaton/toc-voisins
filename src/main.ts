@@ -8,6 +8,7 @@ import { getProfile } from './app/profile';
 import { type GameSource, LocalGame } from './app/game-source';
 import { LocalRoom, type RoomSnapshot } from './app/room';
 import { RoomSession } from './net/session';
+import { inviteFriend, setInGame, startPresence, syncProfile, watchInvites } from './net/social';
 import { DEMO } from './ui/demo';
 import { h } from './ui/dom';
 import { button } from './ui/kit/kit';
@@ -25,6 +26,25 @@ registerSW({ immediate: true });
 /** Partie en cours (une seule à la fois) et salle en ligne associée. */
 let currentGame: GameSource | null = null;
 let currentSession: RoomSession | null = null;
+
+/** Profil en ligne, présence et invitations : lancés une fois, dès qu'il y a un perso. */
+let socialStarted = false;
+function startSocial() {
+  if (socialStarted || DEMO || !navigator.onLine || !getProfile()) return;
+  socialStarted = true;
+  syncProfile().catch((e) => console.warn('profil', e));
+  startPresence().catch((e) => console.warn('présence', e));
+  watchInvites((inv) => {
+    if (location.hash === '#/salle/' + inv.code || location.hash === '#/partie') return;
+    document.querySelector('.invite-banner')?.remove();
+    const banner = h('div', { class: 'invite-banner', role: 'alert' },
+      h('span', null, `${inv.name} t’invite dans sa salle !`),
+      button('Rejoindre', 'primary', () => { banner.remove(); go('/salle/' + inv.code); }, { size: 'xs' }),
+      h('button', { class: 'btn btn--text', type: 'button', 'aria-label': 'Fermer', onclick: () => banner.remove() }, '✕'));
+    document.body.append(banner);
+    setTimeout(() => banner.remove(), 20_000);
+  });
+}
 
 function quitSession() {
   currentSession?.quit();
@@ -65,6 +85,7 @@ function router() {
   const [path, query = ''] = (location.hash.replace(/^#/, '') || '/').split('?');
   const params = new URLSearchParams(query);
   const hasProfile = !!getProfile();
+  startSocial();
 
   // En quittant la salle et la partie, on quitte la salle en ligne.
   const inRoom = currentSession && (path === '/partie' || path === '/salle/' + currentSession.code);
@@ -92,7 +113,9 @@ function router() {
   if (path === '/partie') {
     if (!currentGame) return go(ROUTES.home);
     const game = currentGame;
-    return setView(gameScreen(game, { onQuit: () => { currentGame = null; quitSession(); go(ROUTES.home); } }));
+    const v = gameScreen(game, { onQuit: () => { currentGame = null; quitSession(); go(ROUTES.home); } });
+    if (!game.local) void setInGame(true);
+    return setView({ el: v.el, cleanup: () => { v.cleanup(); if (!game.local) void setInGame(false); } });
   }
   switch (path) {
     case ROUTES.friends:
@@ -128,12 +151,18 @@ async function openOnlineRoom(code: string, n: 4 | 6) {
     }
     if (location.hash !== hash) return;
     // L'adresse montre le vrai code : on peut la partager ou y revenir.
-    if (code === 'nouvelle') history.replaceState(null, '', '#/salle/' + currentSession.code);
+    if (code === 'nouvelle') {
+      history.replaceState(null, '', '#/salle/' + currentSession.code);
+      // « Inviter » depuis Ta gang : la salle est créée, l'ami reçoit l'invitation.
+      const friend = new URLSearchParams(hash.split('?')[1] ?? '').get('invite');
+      if (friend) inviteFriend(friend, currentSession.code).catch((e) => console.warn('invitation', e));
+    }
   }
   const s = currentSession!;
   setView(roomScreen(s, async () => {
     await s.whenPlaying();
     if (currentSession !== s) return;
+    s.rememberPartner();
     currentGame = s.game();
     go('/partie');
   }));

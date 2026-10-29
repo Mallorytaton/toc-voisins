@@ -119,6 +119,13 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
 }
 .count-overlay[hidden] { display: none; }
+.invite-banner {
+  /* Centré par les marges : l'animation d'entrée utilise transform. */
+  position: fixed; left: 0; right: 0; margin: 0 auto; top: calc(var(--safe-top) + 8px); width: calc(min(100vw, 430px) - 32px);
+  z-index: 70; display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; border-radius: 22px; background: #fff;
+  box-shadow: 0 6px 0 var(--clay-2), 0 16px 30px rgba(70, 40, 20, .2); animation: tocIn .3s ease-out both;
+}
+.invite-banner > span { flex: 1; font: 800 15px/1.25 var(--display); }
 .count-overlay > span { font: 800 16px var(--text); letter-spacing: .18em; text-transform: uppercase; color: var(--ink-2); }
 .count-ball {
   width: 190px; height: 190px; border-radius: 50%; background: linear-gradient(180deg, var(--primary-top), var(--primary-bottom));
@@ -144,6 +151,7 @@
 .bubble { max-width: 78%; padding: 11px 15px; font: 700 15px/1.4 var(--text); animation: tocIn .25s ease-out both; }
 .bubble--me { align-self: flex-end; background: var(--coral); color: #fff; border-radius: 20px 20px 6px 20px; box-shadow: 0 3px 0 var(--coral-d); }
 .bubble--them { align-self: flex-start; background: #fff; color: var(--ink); border-radius: 20px 20px 20px 6px; box-shadow: 0 3px 0 var(--clay); }
+.bubble--old { animation: none; }
 .typing { align-self: flex-start; display: flex; gap: 4px; padding: 14px 16px; border-radius: 20px 20px 20px 6px; background: #fff; box-shadow: 0 3px 0 var(--clay); }
 .typing > i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); animation: tocDots 1s infinite; }
 .typing > i:nth-child(2) { animation-delay: .2s; }

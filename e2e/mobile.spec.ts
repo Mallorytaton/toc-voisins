@@ -2,10 +2,16 @@ import { type Page, expect, test } from '@playwright/test';
 
 const PROFILE = { nick: 'Frédo', char: 'tuque', color: 'coral', level: 1, xp: 0, tokens: 0, friendCode: 'FREDO#2741' };
 
+/** Ces tests n'écrivent rien dans la vraie base : Firebase est bloqué (le jeu reste jouable sans réseau). */
+test.beforeEach(async ({ page }) => {
+  await page.route(/(googleapis\.com|firebasedatabase\.app|firebaseio\.com)/, (r) => r.abort());
+});
+
 function watchErrors(page: Page) {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  // Les requêtes Firebase bloquées exprès par le test ne comptent pas.
+  page.on('console', (m) => m.type() === 'error' && !m.text().startsWith('Failed to load resource') && errors.push(m.text()));
   return errors;
 }
 
@@ -34,7 +40,7 @@ test('premier lancement : splash, présentation, perso, accueil', async ({ page 
   await page.getByRole('button', { name: 'Ta gang' }).click();
   await expect(page.getByText('Ton code ami', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Classement' }).click();
-  await expect(page.getByText('Le classement démarre avec ta première partie en ligne.', { exact: false })).toBeVisible();
+  await expect(page.locator('.t-screen')).toHaveText('Classement');
   expect(errors).toEqual([]);
 });
 

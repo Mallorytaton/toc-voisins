@@ -15,7 +15,7 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 if (demo)
   await page.addInitScript(() => localStorage.setItem('toc.profile', JSON.stringify(
-    { nick: 'Frédo', char: 'tuque', color: 'coral', level: 14, xp: 680, tokens: 2450, friendCode: 'FREDO#2741' })));
+    { nick: 'Frédo', char: 'tuque', color: 'coral', level: 14, xp: 13680, tokens: 2450, friendCode: 'FREDO#2741' })));
 const errors = [];
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(String(e)));

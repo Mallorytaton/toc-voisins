@@ -123,6 +123,73 @@
           ".read": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists()",
           ".write": "auth != null && (root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists() || (!newData.exists() && (!root.child('v2/rooms/' + $code).exists() || root.child('v2/rooms/' + $code + '/meta/createdAt').val() < now - 604800000)))"
         }
+      },
+      "users": {
+        ".read": "auth != null",
+        ".indexOn": [
+          "points"
+        ],
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['nick', 'char', 'color']) && newData.child('nick').isString() && newData.child('nick').val().length <= 20 && (!newData.child('points').exists() || newData.child('points').isNumber()) && (!newData.child('city').exists() || (newData.child('city').isString() && newData.child('city').val().length <= 24))"
+        }
+      },
+      "codes": {
+        "$code": {
+          ".read": "auth != null",
+          ".write": "auth != null && !data.exists() && newData.val() === auth.uid"
+        }
+      },
+      "friends": {
+        "$owner": {
+          ".read": "auth != null && auth.uid === $owner",
+          "$friend": {
+            ".write": "auth != null && (auth.uid === $owner || auth.uid === $friend)",
+            ".validate": "newData.val() === true"
+          }
+        }
+      },
+      "status": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['state', 'at']) && (newData.child('state').val() === 'online' || newData.child('state').val() === 'game' || newData.child('state').val() === 'offline')"
+        }
+      },
+      "invites": {
+        "$to": {
+          ".read": "auth != null && auth.uid === $to",
+          "$from": {
+            ".write": "auth != null && (auth.uid === $from || (auth.uid === $to && !newData.exists())) && (!newData.exists() || root.child('v2/friends/' + $to + '/' + $from).val() === true)",
+            ".validate": "newData.hasChildren(['code', 'name', 'at']) && newData.child('code').isString() && newData.child('code').val().length === 4"
+          }
+        }
+      },
+      "chats": {
+        "$key": {
+          ".read": "auth != null && $key.contains(auth.uid)",
+          "msgs": {
+            "$id": {
+              ".write": "auth != null && $key.contains(auth.uid) && !data.exists()",
+              ".validate": "newData.hasChildren(['from', 't', 'at']) && newData.child('from').val() === auth.uid && newData.child('t').isString() && newData.child('t').val().length <= 300"
+            }
+          },
+          "typing": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && $key.contains(auth.uid)",
+              ".validate": "newData.isBoolean()"
+            }
+          }
+        }
+      },
+      "cups": {
+        "$week": {
+          ".read": "auth != null",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.val() === true"
+          }
+        }
       }
     }
   }
