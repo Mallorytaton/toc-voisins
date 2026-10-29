@@ -40,6 +40,8 @@ interface Meta {
   league?: string;
   title?: string;
   reserved?: Record<string, string>;
+  /** Partie à ton rythme : on attend les absents, gardée 30 jours après le dernier coup. */
+  slow?: boolean;
 }
 
 export interface RoomOptions {
@@ -77,6 +79,14 @@ interface RoomNode {
 const BOT = 'bot';
 const COUNTDOWN_MS = 3400;
 const TURN_MS = 30_000;
+/** Une partie à ton rythme est gardée 30 jours après son dernier coup (une salle en direct : 7 jours). */
+const SLOW_KEEP_MS = 30 * 86_400_000;
+
+/** Salle périmée : 7 jours après sa création, ou 30 jours sans coup pour une partie à ton rythme. */
+function expired(meta: Meta, turnAt = 0) {
+  return meta.slow ? Math.max(meta.createdAt, turnAt) < Date.now() - SLOW_KEEP_MS : meta.createdAt < Date.now() - WEEK;
+}
+const turnAtOf = async (code: string) => Number((await get(node('rooms', code, 'turnAt'))).val()) || 0;
 const BOT_THINK_MS = 850;
 /** Ordre d'arrivée : le partenaire de l'hôte d'abord, puis les adversaires. */
 const JOIN_ORDER: Record<4 | 6, number[]> = { 4: [0, 2, 1, 3], 6: [0, 3, 1, 4, 2, 5] };
@@ -188,7 +198,7 @@ export class RoomSession implements Room {
       const metaRef = node('rooms', code, 'meta');
       const existing = (await get(metaRef)).val() as Meta | null;
       if (existing) {
-        if (existing.createdAt > Date.now() - WEEK) continue;
+        if (!expired(existing, await turnAtOf(code))) continue;
         await purge(code);
       }
       const meta: Meta = { host: uid, createdAt: Date.now(), n, status: 'waiting', variants };
@@ -210,7 +220,7 @@ export class RoomSession implements Room {
   static async join(code: string): Promise<RoomSession> {
     const uid = await ensureAuth();
     const meta = (await get(node('rooms', code, 'meta'))).val() as Meta | null;
-    if (!meta || meta.createdAt < Date.now() - WEEK) throw new Error(`Aucune salle TOC-${code}. Vérifie le code.`);
+    if (!meta || expired(meta, await turnAtOf(code))) throw new Error(`Aucune salle TOC-${code}. Vérifie le code.`);
     await set(node('rooms', code, 'players', uid), me());
     const seats = arr<string>((await get(node('rooms', code, 'seats'))).val(), meta.n, () => '');
     if (!seats.includes(uid) && meta.status === 'waiting') {
@@ -272,7 +282,8 @@ export class RoomSession implements Room {
   static async resumable(code: string): Promise<boolean> {
     const uid = await ensureAuth();
     const meta = (await get(node('rooms', code, 'meta'))).val() as Meta | null;
-    if (!meta || meta.status !== 'playing' || meta.createdAt < Date.now() - WEEK) return false;
+    // Une partie à ton rythme a sa propre liste sur l'accueil.
+    if (!meta || meta.slow || meta.status !== 'playing' || expired(meta, await turnAtOf(code))) return false;
     const seats = arr<string>((await get(node('rooms', code, 'seats'))).val(), meta.n, () => '');
     const st = (await get(node('rooms', code, 'state', 'phase'))).val();
     return seats.includes(uid) && st !== 'over';
@@ -290,7 +301,8 @@ export class RoomSession implements Room {
     this.subs.clear();
     clearTimeout(this.startTimer);
     clearTimeout(this.driveTimer);
-    if (r && r.meta.status === 'waiting' && seat >= 0) set(node('rooms', this.code, 'seats', seat), null).catch(() => undefined);
+    // Une partie à ton rythme garde ta place : tu reviens quand tu veux.
+    if (r && r.meta.status === 'waiting' && seat >= 0 && !r.meta.slow) set(node('rooms', this.code, 'seats', seat), null).catch(() => undefined);
     set(node('rooms', this.code, 'presence', this.uid), false).catch(() => undefined);
   }
 
@@ -321,6 +333,7 @@ export class RoomSession implements Room {
       status: r.meta.status,
       title: r.meta.title,
       variants: r.meta.variants,
+      slow: !!r.meta.slow,
     };
   }
 
@@ -337,6 +350,16 @@ export class RoomSession implements Room {
     const r = this.room;
     if (!r || !this.isHost || r.meta.status !== 'waiting' || r.meta.league) return;
     update(node('rooms', this.code, 'meta'), { variants: v }).catch((e) => toast('Règles non enregistrées : ' + e.message));
+  }
+
+  setSlow(on: boolean) {
+    const r = this.room;
+    if (!r || !this.isHost || r.meta.status !== 'waiting') return;
+    update(ref(database()), {
+      [`v2/rooms/${this.code}/meta/slow`]: on || null,
+      [`v2/rooms/${this.code}/turnAt`]: serverTimestamp(),
+      ...(on ? { [`v2/index/${this.code}`]: Date.now() + SLOW_KEEP_MS - WEEK } : {}),
+    }).catch((e) => toast('Rythme non enregistré : ' + e.message));
   }
 
   launch() {
@@ -402,8 +425,16 @@ export class RoomSession implements Room {
     this.online_?.refresh();
   }
 
+  private listed = false;
+
   private afterChange() {
     const r = this.room;
+    // Partie à ton rythme : elle s'ajoute à ta liste de l'accueil (et la quitte si l'hôte repasse en direct).
+    const slow = !!r?.meta.slow && this.mySeat >= 0;
+    if (slow !== this.listed) {
+      this.listed = slow;
+      set(node('myGames', this.uid, this.code), slow || null).catch(() => undefined);
+    }
     // L'hôte écrit la partie à la fin du compte à rebours.
     if (r && this.isHost && r.meta.status === 'countdown' && !this.startTimer)
       this.startTimer = window.setTimeout(() => this.startGame().catch((e) => toast('Démarrage impossible : ' + e.message)), COUNTDOWN_MS);
@@ -442,16 +473,22 @@ export class RoomSession implements Room {
   // ---------- Écritures ----------
 
   private async write(next: GameState, extra: Record<string, unknown> = {}) {
-    const before = this.room?.state;
+    const r = this.room;
+    const before = r?.state;
     await update(ref(database()), {
       [`v2/rooms/${this.code}/state`]: toPublic(next),
       [`v2/rooms/${this.code}/turnAt`]: serverTimestamp(),
+      // À ton rythme : chaque coup repousse le nettoyage de la salle.
+      ...(r?.meta.slow ? { [`v2/index/${this.code}`]: Date.now() + SLOW_KEEP_MS - WEEK } : {}),
       ...extra,
     });
-    // Le tour passe à un autre joueur humain : s'il n'a pas l'app sous les yeux, le service le prévient.
-    const uid = this.room?.seats[next.turn];
-    if (next.phase === 'play' && (before?.phase !== 'play' || before.turn !== next.turn) && uid && uid !== BOT && uid !== this.uid)
-      notifyPlayers([uid], 'turn', { code: this.code });
+    if (!r) return;
+    // Le tour passe à un autre joueur humain, ou une donne commence (chacun donne une carte) :
+    // ceux qui n'ont pas l'app sous les yeux sont prévenus par le service.
+    const human = (k: number) => { const u = r.seats[k]; return u && u !== BOT && u !== this.uid ? u : ''; };
+    const to = next.phase === 'play' && (before?.phase !== 'play' || before.turn !== next.turn) ? [human(next.turn)]
+      : next.phase === 'exchange' && before?.phase !== 'exchange' ? r.seats.map((_, k) => human(k)) : [];
+    if (to.some(Boolean)) notifyPlayers(to.filter(Boolean), 'turn', { code: this.code });
   }
 
   private handsUpdate(next: GameState, seats: number[]) {
@@ -522,10 +559,10 @@ export class RoomSession implements Room {
     return driver === this.uid;
   }
 
-  /** La place est jouée par le meneur : un robot, ou un joueur déconnecté. */
+  /** La place est jouée par le meneur : un robot, ou un joueur déconnecté (sauf à ton rythme : on l'attend). */
   private automated(seat: number) {
     const uid = this.room!.seats[seat];
-    return uid === BOT || !this.isOnline(uid);
+    return uid === BOT || (!this.room!.meta.slow && !this.isOnline(uid));
   }
 
   /** Appelé quand l'écran a fini d'animer : le meneur fait avancer la partie si besoin. */
@@ -584,6 +621,9 @@ export class RoomSession implements Room {
 /** Partie en ligne vue par l'écran du plateau. */
 export class OnlineGame implements GameSource {
   readonly local = false;
+  get slow() {
+    return !!this.s.room?.meta.slow;
+  }
   state: GameState;
   private subs = new Set<(prev: GameState, reset: boolean) => void>();
   private emoteSubs = new Set<(seat: number, t: string) => void>();

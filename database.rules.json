@@ -64,14 +64,14 @@
           ".value"
         ],
         "$code": {
-          ".write": "auth != null && (!data.exists() || data.val() < now - 604800000)",
+          ".write": "auth != null && (!data.exists() || data.val() < now - 604800000 || root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists())",
           ".validate": "newData.isNumber()"
         }
       },
       "rooms": {
         "$code": {
           ".read": "auth != null",
-          ".write": "auth != null && data.exists() && data.child('meta/createdAt').val() < now - 604800000 && !newData.exists()",
+          ".write": "auth != null && data.exists() && !newData.exists() && ((data.child('meta/slow').val() !== true && data.child('meta/createdAt').val() < now - 604800000) || (data.child('meta/slow').val() === true && data.child('turnAt').val() < now - 2592000000))",
           "meta": {
             ".write": "auth != null && (!data.exists() || data.child('host').val() === auth.uid)",
             ".validate": "newData.hasChildren(['host', 'createdAt', 'n', 'status']) && newData.child('host').val() === auth.uid && (newData.child('n').val() === 4 || newData.child('n').val() === 6) && (newData.child('status').val() === 'waiting' || newData.child('status').val() === 'countdown' || newData.child('status').val() === 'playing')"
@@ -84,7 +84,7 @@
           },
           "seats": {
             "$seat": {
-              ".write": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid && root.child('v2/rooms/' + $code + '/meta/status').val() === 'waiting') || (data.val() === auth.uid && !newData.exists()) || (data.exists() && data.val() !== 'bot' && newData.val() === auth.uid && root.child('v2/rooms/' + $code + '/presence/' + data.val()).val() !== true) || (root.child('v2/rooms/' + $code + '/meta/host').val() === auth.uid && root.child('v2/rooms/' + $code + '/meta/status').val() === 'waiting' && ((!data.exists() && newData.val() === 'bot') || (data.val() === 'bot' && !newData.exists()))))"
+              ".write": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid && root.child('v2/rooms/' + $code + '/meta/status').val() === 'waiting') || (data.val() === auth.uid && !newData.exists()) || (data.exists() && data.val() !== 'bot' && newData.val() === auth.uid && root.child('v2/rooms/' + $code + '/presence/' + data.val()).val() !== true && root.child('v2/rooms/' + $code + '/meta/slow').val() !== true) || (root.child('v2/rooms/' + $code + '/meta/host').val() === auth.uid && root.child('v2/rooms/' + $code + '/meta/status').val() === 'waiting' && ((!data.exists() && newData.val() === 'bot') || (data.val() === 'bot' && !newData.exists()))))"
             }
           },
           "presence": {
@@ -111,9 +111,9 @@
       },
       "hands": {
         "$code": {
-          ".write": "auth != null && !newData.exists() && (!root.child('v2/rooms/' + $code).exists() || root.child('v2/rooms/' + $code + '/meta/createdAt').val() < now - 604800000)",
+          ".write": "auth != null && !newData.exists() && (!root.child('v2/rooms/' + $code).exists() || ((root.child('v2/rooms/' + $code + '/meta/slow').val() !== true && root.child('v2/rooms/' + $code + '/meta/createdAt').val() < now - 604800000) || (root.child('v2/rooms/' + $code + '/meta/slow').val() === true && root.child('v2/rooms/' + $code + '/turnAt').val() < now - 2592000000)))",
           "$seat": {
-            ".read": "auth != null && (root.child('v2/rooms/' + $code + '/seats/' + $seat).val() === auth.uid || (root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists() && (root.child('v2/rooms/' + $code + '/seats/' + $seat).val() === 'bot' || root.child('v2/rooms/' + $code + '/presence/' + root.child('v2/rooms/' + $code + '/seats/' + $seat).val()).val() !== true)))",
+            ".read": "auth != null && (root.child('v2/rooms/' + $code + '/seats/' + $seat).val() === auth.uid || (root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists() && (root.child('v2/rooms/' + $code + '/seats/' + $seat).val() === 'bot' || (root.child('v2/rooms/' + $code + '/presence/' + root.child('v2/rooms/' + $code + '/seats/' + $seat).val()).val() !== true && root.child('v2/rooms/' + $code + '/meta/slow').val() !== true))))",
             ".write": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists()"
           }
         }
@@ -121,7 +121,7 @@
       "decks": {
         "$code": {
           ".read": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists()",
-          ".write": "auth != null && (root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists() || (!newData.exists() && (!root.child('v2/rooms/' + $code).exists() || root.child('v2/rooms/' + $code + '/meta/createdAt').val() < now - 604800000)))"
+          ".write": "auth != null && (root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists() || (!newData.exists() && (!root.child('v2/rooms/' + $code).exists() || ((root.child('v2/rooms/' + $code + '/meta/slow').val() !== true && root.child('v2/rooms/' + $code + '/meta/createdAt').val() < now - 604800000) || (root.child('v2/rooms/' + $code + '/meta/slow').val() === true && root.child('v2/rooms/' + $code + '/turnAt').val() < now - 2592000000)))))"
         }
       },
       "users": {
@@ -255,6 +255,15 @@
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid"
+        }
+      },
+      "myGames": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          "$code": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.val() === true"
+          }
         }
       }
     }

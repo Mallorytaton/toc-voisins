@@ -2,7 +2,7 @@
 import type { Room, RoomSnapshot } from '../../app/room';
 import { h, toast } from '../dom';
 import { COL, SEAT_COLORS, TEAM_NAMES } from '../kit/data';
-import { avatarRing, backButton, button, duo } from '../kit/kit';
+import { avatarRing, backButton, button, duo, segmented } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { variantsCard } from './rules';
 
@@ -27,7 +27,8 @@ function seatView(s: RoomSnapshot, seat: number, room: Room): HTMLElement {
       h('button', { class: 'seat__invite', type: 'button', onclick: () => shareInvite(room) },
         h('span', null, 'En attente…'), h('span', null, 'Inviter')));
   const me = seat === s.mySeat;
-  const away = !p.bot && p.online === false;
+  // À ton rythme, être absent est normal : pas de « Déconnecté·e », et personne ne prend ta place.
+  const away = !p.bot && p.online === false && !s.slow;
   const tag = me ? (p.host ? 'Toi · hôte' : 'Toi') : away ? 'Déconnecté·e' : p.host ? 'Hôte' : p.bot ? 'Robot' : 'Prêt·e';
   if (s.status === 'playing' && s.mySeat < 0 && away && room.takeSeat)
     return h('button', { class: 'seat seat__invite', type: 'button', style: { background: tint.l }, onclick: () => room.takeSeat!(seat) },
@@ -60,6 +61,22 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     () => room.snapshot().variants,
     () => { const s = room.snapshot(); return !!s.seats[s.mySeat]?.host && s.status === 'waiting' && !s.title && !!room.setVariants; },
     (v) => room.setVariants?.(v));
+  // Rythme : en direct (30 s par coup) ou à ton rythme (sur plusieurs jours) ; l'hôte choisit avant de lancer.
+  const pace = h('div', { class: 'card pace', hidden: !room.setSlow });
+  let paceFor = '';
+  const drawPace = (s: ReturnType<Room['snapshot']>) => {
+    const editable = !!s.seats[s.mySeat]?.host && s.status === 'waiting';
+    const key = `${editable}|${s.slow}`;
+    if (key === paceFor) return;
+    paceFor = key;
+    pace.replaceChildren(
+      h('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 } },
+        h('span', { class: 't-label' }, 'Rythme'),
+        !editable && h('span', { class: 'pill' }, s.slow ? 'À ton rythme' : 'En direct')),
+      editable
+        ? segmented([{ value: false, label: 'En direct', sub: '30 s par coup' }, { value: true, label: 'À ton rythme', sub: 'sur plusieurs jours' }], !!s.slow, (v) => room.setSlow?.(v))
+        : h('span', { class: 't-body' }, s.slow ? 'Chacun joue quand il peut, sur plusieurs jours. Tu seras prévenu·e quand c’est ton tour.' : 'Tout le monde joue en même temps, 30 s par coup.'));
+  };
   const status = h('span', { class: 'status-line' });
   const launch = button('', 'primary', () => room.launch(), { size: 'lg', block: true });
   const bots = button('Compléter avec des robots', 'text', () => room.fillBots?.());
@@ -83,8 +100,10 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     const joined = s.seats.filter(Boolean).length;
     const full = joined === s.n;
     const host = !!s.seats[s.mySeat]?.host;
-    status.textContent = s.status === 'playing' && s.mySeat < 0 ? 'Partie en cours. Reprends la place d’un joueur déconnecté.'
-      : full ? 'Tout le monde est là. On y va ?' : `${joined} / ${s.n} joueurs · on attend les autres…`;
+    status.textContent = s.status === 'playing' && s.mySeat < 0 ? (s.slow ? 'Partie à ton rythme déjà commencée.' : 'Partie en cours. Reprends la place d’un joueur déconnecté.')
+      : full ? 'Tout le monde est là. On y va ?'
+        : s.slow ? `${joined} / ${s.n} joueurs · chacun rejoint quand il veut` : `${joined} / ${s.n} joueurs · on attend les autres…`;
+    drawPace(s);
     launch.textContent = full ? (host ? 'Lancer la partie' : 'L’hôte lance la partie…') : 'En attente…';
     launch.className = 'btn btn--lg btn--block ' + (full && host ? 'btn--primary' : 'btn--off');
     launch.disabled = !full || !host;
@@ -124,6 +143,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
         h('span', { style: { font: '800 28px/1.05 var(--display)', letterSpacing: '.06em' } }, 'TOC-' + s0.code)),
       copyBtn),
     teams,
+    pace,
     rules.el,
     h('div', { class: 'spacer' }),
     status,

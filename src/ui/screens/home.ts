@@ -2,6 +2,7 @@
 import { XP_PER_LEVEL, draftProfile, levelOf } from '../../app/profile';
 import { type League, parseLeagueCode, refusedBy, watchMyLeagues } from '../../net/league';
 import { RoomSession } from '../../net/session';
+import { type SlowGame, watchMyGames } from '../../net/slow';
 import { currentUid, watchFriends } from '../../net/social';
 import { openAccountSheet } from './account';
 import { soireeLabel } from './league';
@@ -138,14 +139,38 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
       if (!ok) try { localStorage.removeItem('toc.lastRoom'); } catch { /* sans stockage */ }
     }).catch(() => undefined);
 
+  // Parties à ton rythme : celles où c'est ton tour d'abord.
+  const ago = (t: number) => {
+    const m = Math.max(1, Math.round((Date.now() - t) / 60_000));
+    return m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`;
+  };
+  const slowList = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } });
+  const slowCard = h('div', { class: 'card slow-card', hidden: true },
+    h('span', { class: 't-label' }, 'À ton rythme'), slowList);
+  const drawSlow = (list: SlowGame[]) => {
+    slowCard.hidden = !list.length;
+    slowList.replaceChildren(...list.slice(0, 3).map((g) => h('button', {
+      class: 'slow-row' + (g.status === 'mine' ? ' slow-row--mine' : ''), type: 'button', onclick: () => go('/salle/' + g.code),
+    },
+      h('span', { class: 'slow-row__title' }, g.title),
+      h('span', { class: 'slow-row__status' },
+        g.status === 'mine' ? 'À toi de jouer' : g.status === 'waiting' ? 'En attente des joueurs'
+          : g.status === 'over' ? 'Terminée' : g.who ? `Tour de ${g.who} · ${ago(g.at)}` : `On attend les autres · ${ago(g.at)}`))),
+    ...(list.length > 3 ? [h('span', { class: 't-mini' }, `+ ${list.length - 3} autre${list.length > 4 ? 's' : ''}`)] : []));
+  };
+  const stopSlow = DEMO || !navigator.onLine ? () => {} : watchMyGames(drawSlow);
+
+  // Le milieu défile si besoin (parties à ton rythme, tournois) ; l'en-tête et les onglets restent en place.
   const el = h('div', { class: 'screen screen--tabs home', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 10px)' } },
     head,
-    resume,
-    h('span', { class: 't-screen' }, 'On joue ?'),
-    segmented<4 | 6>([{ value: 4, label: '4 joueurs', sub: '2 équipes de 2' }, { value: 6, label: '6 joueurs', sub: '3 équipes de 2' }], mode, setMode),
-    privateCard,
-    h('div', { style: { display: 'flex', gap: 10 } }, code, button('Rejoindre', 'dark', join, { size: 'md' })),
-    leagues,
+    h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14, margin: '0 -20px', padding: '2px 20px 10px' } },
+      resume,
+      slowCard,
+      h('span', { class: 't-screen' }, 'On joue ?'),
+      segmented<4 | 6>([{ value: 4, label: '4 joueurs', sub: '2 équipes de 2' }, { value: 6, label: '6 joueurs', sub: '3 équipes de 2' }], mode, setMode),
+      privateCard,
+      h('div', { style: { display: 'flex', gap: 10 } }, code, button('Rejoindre', 'dark', join, { size: 'md' })),
+      leagues),
     tabbar('home', (t) => go(t === 'home' ? ROUTES.home : t === 'friends' ? ROUTES.friends : ROUTES.ranking)));
-  return { el, cleanup: () => { stopFriends(); stopLeagues(); } };
+  return { el, cleanup: () => { stopFriends(); stopLeagues(); stopSlow(); } };
 }

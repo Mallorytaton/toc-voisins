@@ -25,6 +25,8 @@ export interface RoomSnapshot {
   title?: string;
   /** Règles de la partie (variantes). */
   variants: Variants;
+  /** Partie à ton rythme : pas de minuteur, on attend les absents (plusieurs jours). */
+  slow?: boolean;
 }
 
 export interface Room {
@@ -39,6 +41,8 @@ export interface Room {
   takeSeat?(seat: number): Promise<void>;
   /** L'hôte choisit les règles avant de lancer. */
   setVariants?(v: Variants): void;
+  /** L'hôte choisit le rythme (en ligne seulement) : en direct ou à ton rythme. */
+  setSlow?(on: boolean): void;
   leave(): void;
 }
 

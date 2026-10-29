@@ -18,6 +18,8 @@ export interface GameSource {
   readonly mySeat: number;
   readonly local: boolean;
   readonly code: string;
+  /** Partie à ton rythme : pas de minuteur, chacun joue quand il revient. */
+  readonly slow?: boolean;
   players: SeatPlayer[];
   state: GameState;
   /** cb(prev, reset) : reset = l'état a été remplacé (donne recommencée), sans animation. */

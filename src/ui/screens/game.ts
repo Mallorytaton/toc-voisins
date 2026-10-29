@@ -446,7 +446,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let timerFor = '';
   const stopTimer = () => { clearTimeout(turnTimer); timerFor = ''; timerBar.style.animation = 'none'; timerBar.style.visibility = 'hidden'; };
   /** Un autre humain attend à la table ? Contre des robots seulement, personne n'attend : pas de minuteur. */
-  const othersWaiting = () => src.players.some((p, k) => k !== me && !p.bot);
+  // À ton rythme, jamais de minuteur : chacun joue quand il revient.
+  const othersWaiting = () => !src.slow && src.players.some((p, k) => k !== me && !p.bot);
   const syncTimer = () => {
     const active = (myTurn() || giving()) && othersWaiting();
     // Un seul minuteur par échange, et un par tour de jeu.
@@ -573,12 +574,18 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     let t: string, sub: string, label = '';
     if (view.phase === 'over') { t = 'Partie terminée'; sub = 'Bien joué, tout le monde !'; }
     else if (view.phase === 'exchange') {
-      if (view.exchange[me]) { t = 'Carte donnée'; sub = 'On attend que tout le monde échange.'; }
+      if (view.exchange[me]) { t = 'Carte donnée'; sub = src.slow ? 'On attend les autres : ils donneront leur carte en revenant.' : 'On attend que tout le monde échange.'; }
       else if (sel === null) { t = 'Échange'; sub = `Choisis une carte à passer à ${nameOf(partner(N, me))}.`; }
       else { t = cardLook(myHand()[sel]).t; sub = `Elle part chez ${nameOf(partner(N, me))}, face cachée.`; label = 'Donner'; }
     } else if (!myTurn()) {
-      t = view.phase === 'play' && view.turn !== me ? `${nameOf(view.turn)} réfléchit…` : 'Beau coup…';
-      sub = 'Prépare ton prochain coup.';
+      const p = src.players[view.turn];
+      if (src.slow && view.phase === 'play' && view.turn !== me && p && !p.bot && !p.online) {
+        t = `On attend ${nameOf(view.turn)}`;
+        sub = 'Tu seras prévenu·e quand ce sera ton tour.';
+      } else {
+        t = view.phase === 'play' && view.turn !== me ? `${nameOf(view.turn)} réfléchit…` : 'Beau coup…';
+        sub = 'Prépare ton prochain coup.';
+      }
     } else if (sel === null) { t = 'À ton tour !'; sub = 'Choisis une carte dans ta main.'; }
     else if (tip) { t = 'Astuce'; sub = tip; label = pl.chosen ? (pl.chosen.kind === 'discard' ? 'Défausser' : 'Jouer') : ''; }
     else {
@@ -816,10 +823,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const openPause = () => openSheet(
     h('span', { class: 'sheet__title' }, 'Pause'),
-    h('span', { class: 'sheet__text' }, 'Les autres t’attendent, fais vite !'),
+    h('span', { class: 'sheet__text' }, src.slow ? 'Partie à ton rythme : elle t’attend sur l’accueil, reviens quand tu veux.' : 'Les autres t’attendent, fais vite !'),
     button('Reprendre', 'primary', closeSheet, { size: 'md', block: true }),
     src.local ? button('Recommencer la donne', 'white', () => { closeSheet(); src.restartDeal(); }, { size: 'md', block: true }) : h('span'),
-    button('Quitter la partie', 'danger', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
+    button(src.slow ? 'Revenir à l’accueil' : 'Quitter la partie', src.slow ? 'white' : 'danger', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
   );
   const showEnd = (st: GameState) => {
     const won = teamOf(N, me) === st.winner;

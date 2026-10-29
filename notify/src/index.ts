@@ -161,10 +161,14 @@ async function notify(env: Env, db: Db, me: string, b: Record<string, unknown>) 
     }
   } else if (kind === 'turn') {
     if (!code) return { sent: 0 };
-    const seats = Object.values((await db.get<Record<string, string>>(`rooms/${code}/seats`)) ?? {});
+    const [seatsRaw, meta] = await Promise.all([db.get<Record<string, string>>(`rooms/${code}/seats`), db.get<{ slow?: boolean; title?: string }>(`rooms/${code}/meta`)]);
+    const seats = Object.values(seatsRaw ?? {});
     if (!seats.includes(me)) return { sent: 0 };
     allowed = (u) => seats.includes(u);
-    msg = { title: 'C’est ton tour !', body: `Ta partie TOC-${code} t’attend.`, url: `${app}?g=${code}`, tag: `turn-${code}`, renotify: false, ttl: 120, urgency: 'high' };
+    // À ton rythme : chaque tour compte, le message attend quelques jours ; en direct, il ne vaut que deux minutes.
+    msg = meta?.slow
+      ? { title: 'À toi de jouer !', body: `${(meta.title ?? `Partie TOC-${code}`).slice(0, 30)} : c’est ton tour, joue quand tu veux.`, url: `${app}?g=${code}`, tag: `turn-${code}`, renotify: true, ttl: 3 * 86_400, urgency: 'normal' }
+      : { title: 'C’est ton tour !', body: `Ta partie TOC-${code} t’attend.`, url: `${app}?g=${code}`, tag: `turn-${code}`, renotify: false, ttl: 120, urgency: 'high' };
   } else {
     if (!code) return { sent: 0 };
     const l = await db.get<League>(`leagues/${code}`);

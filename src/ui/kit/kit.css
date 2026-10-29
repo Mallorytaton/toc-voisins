@@ -236,6 +236,8 @@
 /* Éléments « fixes » de l'écran : rattachés à la scène (une scène transformée les contient). */
 .fit .tabbar, .fit .rank-me { width: calc(100% - 32px); }
 .scroll-y { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+/* Dans une zone qui défile, les cartes gardent leur taille (sinon elles s'écrasent au lieu de défiler). */
+.scroll-y > * { flex-shrink: 0; }
 /* Les ronds décoratifs restent derrière le contenu de l'écran ou de la carte. */
 .screen, .hero { isolation: isolate; }
 .screen__head { display: flex; align-items: center; gap: 12px; }
