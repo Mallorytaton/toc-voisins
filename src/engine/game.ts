@@ -125,10 +125,19 @@ export function applyMove(st0: GameState, move: Move): GameState {
   if (move.kind === 'discard') {
     if (hand.length === 0) throw new Error('Main vide');
     if (hasPlayableCard(st0)) throw new Error('Un coup est possible, défausse interdite');
-    st.hands[seat] = [];
-    st.passed[seat] = true;
-    st.lastCard = '';
-    text = `@${seat} ne peut pas jouer et défausse sa main`;
+    if (st.variants.discardOne) {
+      const idx = hand.indexOf(move.card);
+      if (idx < 0) throw new Error('Carte absente de la main');
+      hand.splice(idx, 1);
+      st.lastCard = move.card;
+      text = `@${seat} ne peut pas jouer et défausse une carte`;
+    } else {
+      if (move.card) throw new Error('Toute la main doit être défaussée');
+      st.hands[seat] = [];
+      st.passed[seat] = true;
+      st.lastCard = '';
+      text = `@${seat} ne peut pas jouer et défausse sa main`;
+    }
   } else {
     const idx = hand.indexOf(move.card);
     if (idx < 0) throw new Error('Carte absente de la main');
@@ -177,7 +186,7 @@ export function applyMove(st0: GameState, move: Move): GameState {
   }
 
   st.lastCaptures = caps;
-  st.log = pushLog(st.log, { seat, text, card: move.kind === 'discard' ? '' : move.card });
+  st.log = pushLog(st.log, { seat, text, card: move.card });
 
   // Victoire ?
   for (let t = 0; t < teamCount(st.n); t++) {

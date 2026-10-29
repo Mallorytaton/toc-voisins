@@ -46,7 +46,7 @@ export function playRandomGame(n: number, rng: Rng, variants: Variants, maxMoves
 
 const variantSets: Variants[] = [
   DEFAULT_VARIANTS,
-  { jackEleven: true, fiveOthers: true, sevenNoPassCapture: true, startBlocks: false, jokers: 0 },
+  { jackEleven: true, fiveOthers: true, sevenNoPassCapture: true, startBlocks: false, jokers: 0, discardOne: true },
   { ...DEFAULT_VARIANTS, jokers: 4, fiveOthers: true },
 ];
 

@@ -1,7 +1,7 @@
 import type { Pawn, PawnRef, Variants } from './types';
 
 /** Nombre de cases de parcours par joueur. */
-export const SQUARES_PER_SEAT = 18;
+export const SQUARES_PER_SEAT = 16;
 export const PAWNS_PER_SEAT = 4;
 export const HOME_SIZE = 4;
 
@@ -12,10 +12,11 @@ export const teamOf = (n: number, s: number) => s % (n / 2);
 export const teamCount = (n: number) => n / 2;
 
 /**
- * Comme sur un vrai plateau de Toc, la maison s'ouvre deux trous AVANT la case de départ :
- * le pion y entre après un tour complet sans repasser par son départ.
+ * Comme sur le vrai plateau (et la maquette), la maison s'ouvre sur le trou juste AVANT
+ * la case de départ, au milieu du bout du bras : le pion y entre après un tour complet
+ * sans repasser par son départ.
  */
-export const HOME_ENTRY_OFFSET = 2;
+export const HOME_ENTRY_OFFSET = 1;
 export const homeEntry = (n: number) => trackLen(n) - HOME_ENTRY_OFFSET;
 
 export const inBase = (p: number) => p < 0;

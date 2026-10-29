@@ -17,6 +17,8 @@ export interface Variants {
   startBlocks: boolean;
   /** Nombre de jokers par jeu de cartes. */
   jokers: 0 | 2 | 4;
+  /** Sans coup possible, on défausse une seule carte au choix (au lieu de toute sa main). */
+  discardOne: boolean;
 }
 
 export const DEFAULT_VARIANTS: Variants = {
@@ -25,6 +27,7 @@ export const DEFAULT_VARIANTS: Variants = {
   sevenNoPassCapture: false,
   startBlocks: true,
   jokers: 2,
+  discardOne: false,
 };
 
 /**
@@ -56,7 +59,8 @@ export type Move =
   | { kind: 'step'; card: Card; as: Rank; pawn: PawnRef; steps: number }
   | { kind: 'swap'; card: Card; as: Rank; pawn: PawnRef; target: PawnRef }
   | { kind: 'seven'; card: Card; as: Rank; parts: SevenPart[] }
-  | { kind: 'discard' };
+  /** card : la carte défaussée (variante discardOne), '' pour toute la main. */
+  | { kind: 'discard'; card: Card };
 
 export interface LogEntry {
   seat: number;

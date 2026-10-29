@@ -3,7 +3,7 @@ import {
   isBlocker, occupant, onTrack, progressAt, sameRef, squareOf, startSq, stepForward, trackLen,
 } from './board';
 import { RANKS, rankOf } from './cards';
-import type { GameState, Move, PawnRef, Rank, SevenPart, Variants } from './types';
+import type { Card, GameState, Move, PawnRef, Rank, SevenPart, Variants } from './types';
 
 /** Contexte de travail mutable : on clone les pions avant chaque essai. */
 export interface Ctx {
@@ -267,8 +267,23 @@ export function legalMoves(st: GameState): Move[] {
     const ranks = r === 'X' ? RANKS : [r];
     for (const as of ranks) for (const t of get(as)) out.push({ ...t, card, as } as Move);
   }
-  if (out.length === 0 && hand.length > 0) out.push({ kind: 'discard' });
+  if (out.length === 0 && hand.length > 0) out.push(...discardMoves(st, hand));
   return out;
+}
+
+/** Défausse faute de coup : toute la main, ou une carte au choix (variante discardOne). */
+function discardMoves(st: GameState, hand: Card[]): Move[] {
+  if (!st.variants.discardOne) return [{ kind: 'discard', card: '' }];
+  return [...new Set(hand)].map((card) => ({ kind: 'discard', card }) as Move);
+}
+
+/**
+ * Coups légaux de `seat` avec une carte précise de sa main (ce que l'interface surligne
+ * quand on touche une carte). Vide si ce n'est pas son tour ou si la carte ne joue pas.
+ */
+export function legalMovesFor(st: GameState, seat: number, card: Card): Move[] {
+  if (st.phase !== 'play' || st.turn !== seat || !st.hands[seat].includes(card)) return [];
+  return legalMoves(st).filter((m) => m.kind === 'discard' ? m.card === card || m.card === '' : m.card === card);
 }
 
 /** Version rapide : le joueur a-t-il au moins un coup jouable ? */
@@ -290,7 +305,7 @@ export function hasPlayableCard(st: GameState): boolean {
 export function moveKey(m: Move): string {
   switch (m.kind) {
     case 'discard':
-      return 'discard';
+      return `discard|${m.card}`;
     case 'exit':
       return `exit|${m.card}|${m.as}|${m.pawn.s}.${m.pawn.i}`;
     case 'step':

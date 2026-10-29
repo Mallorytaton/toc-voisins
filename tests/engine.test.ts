@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_VARIANTS, GameState, Move, Variants, applyMove, deal, giveCard, legalMoves, newGame,
-  progressAt, seededRng, trackLen,
+  DEFAULT_VARIANTS, GameState, Move, Variants, applyMove, deal, giveCard, homeEntry, legalMoves, legalMovesFor,
+  newGame, progressAt, seededRng, trackLen,
 } from '../src/engine';
 
-const L = trackLen(4); // 72
+const L = trackLen(4); // 64
+/** Trou d'entrée de la maison : celui juste avant la case de départ (L - 1). */
+const E = homeEntry(4);
 
 /** Partie à 4 en phase de jeu, tous les pions à la base, chacun avec une carte de réserve. */
 function mk(hand: string[], v: Partial<Variants> = {}, n = 4): GameState {
@@ -84,21 +86,26 @@ describe('cartes de déplacement', () => {
     expect(applyMove(st, find(st, '4S0', () => true)).pawns[0][0].p).toBe(6);
   });
 
-  it("le 4 depuis la case de départ place le pion à deux trous de l'entrée de sa maison", () => {
-    const st = mk(['4S0', '3S0']);
+  it("le 4 depuis la case de départ place le pion à trois trous de l'entrée de sa maison", () => {
+    const st = mk(['4S0', '5S0']);
     put(st, 0, 0, 0, true);
     let after = applyMove(st, find(st, '4S0', () => true));
     expect(after.pawns[0][0]).toEqual({ p: L - 4, fresh: false });
-    // Il entre ensuite en maison avec un 3 (2 pas jusqu'à l'entrée, 1 en maison).
+    // Il entre ensuite en maison avec un 5 (3 pas jusqu'à l'entrée, 2 en maison).
     after.turn = 0;
-    after = applyMove(after, find(after, '3S0', () => true));
-    expect(after.pawns[0][0].p).toBe(L + 1);
+    after = applyMove(after, find(after, '5S0', () => true));
+    expect(after.pawns[0][0].p).toBe(L + 2);
   });
 
-  it('un pion qui a dépassé son entrée de maison refait un tour', () => {
+  it("l'entrée de la maison est le trou juste avant le départ", () => {
+    expect(E).toBe(L - 1);
+    expect(homeEntry(6)).toBe(trackLen(6) - 1);
+  });
+
+  it("depuis le trou d'entrée, le pion entre forcément en maison", () => {
     const st = mk(['3S0']);
-    put(st, 0, 0, L - 1); // entre l'entrée de la maison et la case de départ
-    expect(applyMove(st, find(st, '3S0', () => true)).pawns[0][0].p).toBe(2);
+    put(st, 0, 0, E);
+    expect(applyMove(st, find(st, '3S0', () => true)).pawns[0][0].p).toBe(L + 3);
   });
 
   it('on ne recule pas en maison avec le 4', () => {
@@ -109,7 +116,7 @@ describe('cartes de déplacement', () => {
 
   it('un pion en base ne bouge pas avec une carte de déplacement', () => {
     const st = mk(['QS0']);
-    expect(legalMoves(st)).toEqual([{ kind: 'discard' }]);
+    expect(legalMoves(st)).toEqual([{ kind: 'discard', card: '' }]);
   });
 });
 
@@ -144,13 +151,13 @@ describe('blocage sur la case de départ', () => {
   it('personne ne peut dépasser un pion qui vient de sortir', () => {
     const st = mk(['5S0']);
     put(st, 0, 0, 15);
-    put(st, 1, 0, 0, true); // case absolue 18
+    put(st, 1, 0, 0, true); // case absolue 16
     expect(movesOf(st, '5S0')).toHaveLength(0);
   });
 
   it('ni le prendre', () => {
     const st = mk(['3S0']);
-    put(st, 0, 0, 15);
+    put(st, 0, 0, 13);
     put(st, 1, 0, 0, true);
     expect(movesOf(st, '3S0')).toHaveLength(0);
   });
@@ -162,24 +169,24 @@ describe('blocage sur la case de départ', () => {
     expect(movesOf(st, '5S0')).toHaveLength(1);
   });
 
-  it('il bloque ses propres pions qui veulent le dépasser', () => {
+  it('il bloque aussi les pions de son équipe', () => {
     const st = mk(['3S0']);
-    put(st, 0, 0, 0, true);
-    put(st, 0, 1, L - 1); // a dépassé son entrée, doit franchir le départ
-    expect(movesOf(st, '3S0').map((m) => (m.kind === 'step' ? m.pawn.i : -1))).toEqual([0]);
+    put(st, 0, 0, 30);
+    put(st, 2, 0, 0, true); // case absolue 32
+    expect(movesOf(st, '3S0')).toHaveLength(0);
   });
 
   it("mais pas ceux qui rentrent : l'entrée est avant le départ", () => {
     const st = mk(['3S0']);
     put(st, 0, 0, 0, true);
-    put(st, 0, 1, L - 3);
+    put(st, 0, 1, E - 1);
     const m = find(st, '3S0', (m) => m.kind === 'step' && m.pawn.i === 1);
     expect(applyMove(st, m).pawns[0][1].p).toBe(L + 2);
   });
 
   it('variante sans blocage : on peut dépasser et prendre', () => {
     const st = mk(['3S0'], { startBlocks: false });
-    put(st, 0, 0, 15);
+    put(st, 0, 0, 13);
     put(st, 1, 0, 0, true);
     const after = applyMove(st, find(st, '3S0', () => true));
     expect(after.pawns[1][0].p).toBe(-1);
@@ -189,19 +196,19 @@ describe('blocage sur la case de départ', () => {
 describe('entrée en maison', () => {
   it('à la valeur exacte', () => {
     const st = mk(['6S0']);
-    put(st, 0, 0, L - 4);
+    put(st, 0, 0, E - 2);
     expect(applyMove(st, find(st, '6S0', () => true)).pawns[0][0].p).toBe(L + 4);
   });
 
   it('impossible de dépasser le fond de la maison', () => {
     const st = mk(['8S0']);
-    put(st, 0, 0, L - 4);
+    put(st, 0, 0, E - 2);
     expect(movesOf(st, '8S0')).toHaveLength(0);
   });
 
   it('impossible de sauter un pion déjà en maison', () => {
     const st = mk(['5S0', '3S0']);
-    put(st, 0, 0, L - 4);
+    put(st, 0, 0, E - 2);
     put(st, 0, 1, L + 2);
     expect(movesOf(st, '5S0').filter((m) => m.kind === 'step' && m.pawn.i === 0)).toHaveLength(0);
     // Mais on peut s'arrêter juste avant.
@@ -257,7 +264,7 @@ describe('le 7', () => {
     const st = mk(['7S0']);
     put(st, 0, 0, 15);
     put(st, 1, 0, 0, true);
-    // Seul le pion 0 est sur le parcours et il ne peut faire que 2 pas : 7 impossible.
+    // Seul le pion 0 est sur le parcours et le bloqueur est juste devant : 7 impossible.
     expect(movesOf(st, '7S0')).toHaveLength(0);
   });
 
@@ -266,7 +273,7 @@ describe('le 7', () => {
     put(st, 0, 0, L + 2);
     put(st, 0, 1, L + 3);
     put(st, 0, 2, L + 4);
-    put(st, 0, 3, L - 3); // 2 pas pour entrer en case maison 1
+    put(st, 0, 3, E - 1); // 2 pas pour entrer en case maison 1
     put(st, 2, 0, 20);
     const m = find(st, '7S0', (m) => m.kind === 'seven' && m.parts.length === 2 && m.parts[0].pawn.s === 0);
     expect(m.kind === 'seven' && m.parts[1].pawn.s).toBe(2);
@@ -341,8 +348,8 @@ describe('jeu pour le partenaire', () => {
 describe('défausse', () => {
   it('sans coup possible on défausse toute sa main et on passe la donne', () => {
     const st = mk(['QS0', '2S0']);
-    expect(legalMoves(st)).toEqual([{ kind: 'discard' }]);
-    const after = applyMove(st, { kind: 'discard' });
+    expect(legalMoves(st)).toEqual([{ kind: 'discard', card: '' }]);
+    const after = applyMove(st, { kind: 'discard', card: '' });
     expect(after.hands[0]).toEqual([]);
     expect(after.passed[0]).toBe(true);
     expect(after.turn).toBe(1);
@@ -350,18 +357,60 @@ describe('défausse', () => {
 
   it('la défausse est refusée si un coup existe', () => {
     const st = mk(['AS0']);
-    expect(() => applyMove(st, { kind: 'discard' })).toThrow();
+    expect(() => applyMove(st, { kind: 'discard', card: '' })).toThrow();
   });
 
   it('un joueur sans carte est sauté, et la donne suivante arrive quand tout le monde a fini', () => {
     const st = mk(['QS0']);
     st.hands = [['QS0'], [], ['3S0'], []];
-    let after = applyMove(st, { kind: 'discard' });
+    let after = applyMove(st, { kind: 'discard', card: '' });
     expect(after.turn).toBe(2);
-    after = applyMove(after, { kind: 'discard' });
+    after = applyMove(after, { kind: 'discard', card: '' });
     expect(after.phase).toBe('deal');
     expect(after.dealNo).toBe(1);
     expect(after.dealer).toBe(1);
+  });
+});
+
+describe('défausse d’une seule carte (variante)', () => {
+  it('on choisit la carte à défausser et on garde le reste', () => {
+    const st = mk(['QS0', '2S0', '2H0'], { discardOne: true });
+    const ms = legalMoves(st);
+    expect(ms).toEqual([
+      { kind: 'discard', card: 'QS0' }, { kind: 'discard', card: '2S0' }, { kind: 'discard', card: '2H0' },
+    ]);
+    const after = applyMove(st, { kind: 'discard', card: '2S0' });
+    expect(after.hands[0]).toEqual(['QS0', '2H0']);
+    expect(after.passed[0]).toBe(false);
+    expect(after.lastCard).toBe('2S0');
+    expect(after.turn).toBe(1);
+  });
+
+  it('défausser toute la main est refusé dans cette variante', () => {
+    const st = mk(['QS0'], { discardOne: true });
+    expect(() => applyMove(st, { kind: 'discard', card: '' })).toThrow();
+  });
+});
+
+describe('coups pour une carte (legalMovesFor)', () => {
+  it('ne renvoie que les coups de la carte touchée', () => {
+    const st = mk(['AS0', '5S0']);
+    put(st, 0, 0, 10);
+    const ms = legalMovesFor(st, 0, '5S0');
+    expect(ms.length).toBeGreaterThan(0);
+    expect(ms.every((m) => m.kind === 'step' && m.card === '5S0' && m.steps === 5)).toBe(true);
+    expect(legalMovesFor(st, 0, 'AS0').some((m) => m.kind === 'exit')).toBe(true);
+  });
+
+  it("vide si ce n'est pas son tour ou si la carte n'est pas en main", () => {
+    const st = mk(['AS0']);
+    expect(legalMovesFor(st, 1, '2C0')).toEqual([]);
+    expect(legalMovesFor(st, 0, 'KS0')).toEqual([]);
+  });
+
+  it('sans coup possible, la carte touchée propose la défausse', () => {
+    const st = mk(['QS0']);
+    expect(legalMovesFor(st, 0, 'QS0')).toEqual([{ kind: 'discard', card: '' }]);
   });
 });
 
@@ -369,7 +418,7 @@ describe('fin de partie', () => {
   it("l'équipe gagne quand ses 8 pions sont rentrés", () => {
     const st = mk(['AS0']);
     for (let i = 0; i < 4; i++) put(st, 2, i, L + 1 + i);
-    put(st, 0, 0, L - 2); // sur sa case d'entrée de maison, après le tour complet
+    put(st, 0, 0, E); // sur sa case d'entrée de maison, après le tour complet
     put(st, 0, 1, L + 2);
     put(st, 0, 2, L + 3);
     put(st, 0, 3, L + 4);
@@ -411,6 +460,6 @@ describe('distribution et échange', () => {
     const st = deal(newGame(6, { ...DEFAULT_VARIANTS, jokers: 4 }), seededRng(3));
     expect(st.hands.every((h) => h.length === 5)).toBe(true);
     expect(st.deck.length).toBe(2 * 56 - 30);
-    expect(trackLen(6)).toBe(108);
+    expect(trackLen(6)).toBe(96);
   });
 });
