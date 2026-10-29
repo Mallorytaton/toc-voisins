@@ -153,6 +153,23 @@
 .rsvp > button[aria-pressed='true'] { background: #fff; color: var(--private-edge); box-shadow: 0 4px 0 #c9d6ff; }
 .rsvp > button:active { transform: translateY(2px); }
 .soiree__link { border: none; background: none; color: #fff; opacity: .85; font: 800 13px var(--text); padding: 4px 6px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+/* Tournoi : statistiques et trophées */
+.stats-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font: 800 13px var(--text); }
+.stats-legend__item { display: inline-flex; align-items: center; gap: 6px; }
+.stats-legend__item i { width: 10px; height: 10px; border-radius: 50%; }
+.stats-legend__item b { font: 800 16px/1 var(--display); padding-top: 2px; }
+.stats-chart { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; height: 118px; }
+.stats-week { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-width: 0; padding: 0; border: none; background: none; cursor: pointer; }
+.stats-week:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; border-radius: 8px; }
+.stats-bars { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2px; border-bottom: 1px solid var(--clay); }
+.stats-bar { width: 12px; border-radius: 4px 4px 0 0; }
+.stats-week__label { font: 800 9.5px var(--text); color: var(--ink-3); text-align: center; white-space: nowrap; padding-bottom: 4px; }
+.stats-readout { font: 700 13px var(--text); color: var(--ink-2); }
+.trophies { display: flex; flex-direction: column; gap: 8px; }
+.trophy { display: flex; align-items: center; gap: 10px; font: 700 14px var(--text); }
+.trophy > i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.trophy__label { flex: 1; min-width: 0; color: var(--ink-2); }
+.trophy__value { font: 800 15px/1.2 var(--display); text-align: right; }
 .league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {

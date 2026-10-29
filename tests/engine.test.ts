@@ -465,6 +465,27 @@ describe('coups pour une carte (legalMovesFor)', () => {
   });
 });
 
+describe('compteurs de partie (statistiques)', () => {
+  it('compte les sorties et les captures adverses du joueur', () => {
+    const st = mk(['AS0', '5S0']);
+    put(st, 0, 1, 5);
+    putSq(st, 1, 0, 10);
+    let after = applyMove(st, find(st, 'AS0', (m) => m.kind === 'exit'));
+    expect(after.stats.exits[0]).toBe(1);
+    after.turn = 0;
+    after = applyMove(after, find(after, '5S0', (m) => m.kind === 'step' && m.pawn.i === 1));
+    expect(after.stats.captures[0]).toBe(1);
+    expect(after.stats.captures[1]).toBe(0);
+  });
+
+  it('ne compte pas un partenaire renvoyé dans sa réserve', () => {
+    const st = mk(['3S0']);
+    put(st, 0, 0, 5);
+    putSq(st, 2, 0, 8);
+    expect(applyMove(st, find(st, '3S0', () => true)).stats.captures[0]).toBe(0);
+  });
+});
+
 describe('fin de partie', () => {
   it("l'équipe gagne quand ses 8 pions sont rentrés", () => {
     const st = mk(['AS0']);

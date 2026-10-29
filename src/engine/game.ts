@@ -1,4 +1,4 @@
-import { allHome, clonePawns, controlledSeat, initialPawns, partner, teamCount } from './board';
+import { allHome, clonePawns, controlledSeat, initialPawns, partner, teamCount, teamOf } from './board';
 import { RANKS, RANK_NAMES, Rng, buildDeck, rankOf, shuffle } from './cards';
 import { Ctx, doExit, doSeven, doStep, doSwap, hasPlayableCard } from './moves';
 import { DEFAULT_VARIANTS, GameState, Move, PawnRef, Rank, Variants } from './types';
@@ -30,6 +30,8 @@ export function newGame(n: number, variants: Variants = DEFAULT_VARIANTS, dealer
     lastCard: '',
     lastCaptures: [],
     lastMove: '',
+    stats: { captures: Array(n).fill(0), exits: Array(n).fill(0) },
+    startedAt: 0,
     v: 0,
   };
 }
@@ -45,6 +47,7 @@ export function cloneState(st: GameState): GameState {
     passed: st.passed.slice(),
     log: st.log.slice(),
     lastCaptures: st.lastCaptures.slice(),
+    stats: { captures: st.stats.captures.slice(), exits: st.stats.exits.slice() },
   };
 }
 
@@ -192,6 +195,8 @@ export function applyMove(st0: GameState, move: Move): GameState {
 
   st.lastCaptures = caps;
   st.lastMove = { seat, move };
+  if (move.kind === 'exit') st.stats.exits[seat]++;
+  st.stats.captures[seat] += caps.filter((c) => teamOf(st.n, c.s) !== teamOf(st.n, seat)).length;
   st.log = pushLog(st.log, { seat, text, card: move.card });
 
   // Victoire ?

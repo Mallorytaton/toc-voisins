@@ -108,6 +108,101 @@ function soireeCard(l: League, me: string): HTMLElement {
       }, 'Annuler la soirée')));
 }
 
+// ---------- Statistiques et trophées ----------
+
+const WEEK_MS = 7 * 86_400_000;
+const shortDate = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
+const minutes = (ms: number) => `${Math.max(1, Math.round(ms / 60_000))} min`;
+
+/** Lundi 0 h de la semaine de `t`. */
+function weekStart(t: number) {
+  const d = new Date(t);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+interface Trophy { label: string; value: string; color: string }
+
+function leagueStats(l: League) {
+  const teams = l.n / 2;
+  const chrono = [...l.games].sort((a, b) => a.at - b.at);
+  // Séries : victoires d'affilée de la même équipe
+  let best: { team: number; n: number } | null = null, run = { team: -1, n: 0 };
+  for (const g of chrono) {
+    run = g.winner === run.team ? { team: run.team, n: run.n + 1 } : { team: g.winner, n: 1 };
+    if (!best || run.n > best.n) best = { ...run };
+  }
+  const current = chrono.length ? run : null;
+  // Par joueur (places fixes du tournoi) : captures et sorties cumulées
+  const sum = (field: 'captures' | 'exits') => l.seats.map((_, k) => chrono.reduce((a, g) => a + (g[field][k] ?? 0), 0));
+  const top = (vals: number[]) => {
+    const k = vals.indexOf(Math.max(...vals));
+    return vals[k] > 0 && l.seats[k] ? { name: l.members[l.seats[k]]?.name ?? '…', n: vals[k], k } : null;
+  };
+  const durations = chrono.map((g) => g.duration).filter((d) => d > 0);
+  // Victoires par semaine, sur les 6 dernières semaines
+  const now = weekStart(Date.now());
+  const weeks = Array.from({ length: 6 }, (_, i) => {
+    const start = now - (5 - i) * WEEK_MS;
+    const wins = Array(teams).fill(0);
+    for (const g of chrono) if (g.at >= start && g.at < start + WEEK_MS) wins[g.winner]++;
+    return { start, wins };
+  });
+  return { played: chrono.length, current, best, boom: top(sum('captures')), out: top(sum('exits')), durations, weeks };
+}
+
+const teamColor = (l: League, t: number) => COL[SEAT_COLORS[l.n][t]];
+
+function statsCard(l: League): HTMLElement {
+  const s = leagueStats(l);
+  const card = h('div', { class: 'card', style: { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 } },
+    h('span', { class: 't-label' }, 'Statistiques'));
+  if (!s.played) {
+    card.append(h('span', { class: 't-body' }, 'Les statistiques apparaîtront après votre première partie.'));
+    return card;
+  }
+  const teams = l.n / 2;
+  // Légende : équipes et total des victoires (l'identité ne repose pas que sur la couleur)
+  card.append(h('div', { class: 'stats-legend' }, ...Array.from({ length: teams }, (_, t) =>
+    h('span', { class: 'stats-legend__item' },
+      h('i', { style: { background: teamColor(l, t).c } }), `${TEAM_NAMES[t]} `, h('b', null, l.wins[t])))));
+  // Victoires par semaine : barres groupées, une échelle, le détail d'une semaine au toucher
+  const max = Math.max(1, ...s.weeks.flatMap((w) => w.wins));
+  const readout = h('span', { class: 'stats-readout', 'aria-live': 'polite' });
+  const show = (i: number) => {
+    const w = s.weeks[i];
+    readout.textContent = `Semaine du ${shortDate.format(new Date(w.start))} : ` +
+      (w.wins.some(Boolean) ? w.wins.map((n, t) => `${TEAM_NAMES[t]} ${n}`).join(' · ') : 'pas de partie');
+  };
+  const chart = h('div', { class: 'stats-chart', role: 'img', 'aria-label': 'Victoires par semaine sur les 6 dernières semaines' },
+    ...s.weeks.map((w, i) => h('button', {
+      class: 'stats-week', type: 'button', 'aria-label': `Semaine du ${shortDate.format(new Date(w.start))}`, onclick: () => show(i),
+    },
+      h('span', { class: 'stats-bars' }, ...w.wins.map((n, t) => h('span', {
+        class: 'stats-bar', title: `${TEAM_NAMES[t]} : ${n}`,
+        style: { height: `${(n / max) * 100}%`, minHeight: n ? '6px' : '0', background: teamColor(l, t).c },
+      }))),
+      h('span', { class: 'stats-week__label' }, i === 5 ? 'Cette sem.' : shortDate.format(new Date(w.start))))));
+  show(5);
+  card.append(chart, readout);
+  // Trophées
+  const trophies: Trophy[] = [];
+  if (s.current) trophies.push({ label: 'Série en cours', value: `${TEAM_NAMES[s.current.team]} · ${s.current.n} victoire${s.current.n > 1 ? 's' : ''} d’affilée`, color: teamColor(l, s.current.team).c });
+  if (s.best && s.best.n > 1) trophies.push({ label: 'Plus longue série', value: `${TEAM_NAMES[s.best.team]} · ${s.best.n} victoires`, color: teamColor(l, s.best.team).c });
+  if (s.boom) trophies.push({ label: 'Roi du BOUM', value: `${s.boom.name} · ${s.boom.n} capture${s.boom.n > 1 ? 's' : ''}`, color: COL[SEAT_COLORS[l.n][s.boom.k]].c });
+  if (s.out) trophies.push({ label: 'Le plus de billes sorties', value: `${s.out.name} · ${s.out.n}`, color: COL[SEAT_COLORS[l.n][s.out.k]].c });
+  if (s.durations.length) {
+    trophies.push({ label: 'Partie la plus longue', value: minutes(Math.max(...s.durations)), color: 'var(--ink-3)' });
+    trophies.push({ label: 'Durée moyenne', value: minutes(s.durations.reduce((a, b) => a + b, 0) / s.durations.length), color: 'var(--ink-3)' });
+  }
+  trophies.push({ label: 'Parties jouées', value: String(s.played), color: 'var(--ink-3)' });
+  card.append(h('div', { class: 'trophies' }, ...trophies.map((t) =>
+    h('div', { class: 'trophy' }, h('i', { style: { background: t.color } }),
+      h('span', { class: 'trophy__label' }, t.label), h('span', { class: 'trophy__value' }, t.value)))));
+  return card;
+}
+
 /** Équipe t : places t et t + n/2. */
 const teamSeats = (n: number, t: number) => [t, t + n / 2];
 
@@ -159,6 +254,7 @@ export function leagueScreen(code: string): View {
   const codeVal = h('span', { style: { font: '800 26px/1.05 var(--display)', letterSpacing: '.06em' } }, 'T-' + code);
   const teams = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   const soiree = h('div');
+  const stats = h('div');
   const hist = h('div', { class: 'card', style: { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 } });
   // Déclaré avant la carte « Règles », qui lit le tournoi dès sa création.
   let league: League | null = null;
@@ -208,6 +304,7 @@ export function leagueScreen(code: string): View {
     }));
     hist.hidden = false;
     soiree.replaceChildren(soireeCard(l, me));
+    stats.replaceChildren(statsCard(l));
     rules.refresh();
     hist.replaceChildren(h('span', { class: 't-label' }, 'Dernières parties'),
       ...(l.games.length
@@ -239,6 +336,7 @@ export function leagueScreen(code: string): View {
         invite),
       soiree,
       teams,
+      stats,
       hist,
       rules.el),
     status,

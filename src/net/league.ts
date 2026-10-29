@@ -20,6 +20,17 @@ export interface LeagueGame {
   key: string;
   winner: number;
   at: number;
+  /** Durée (ms), 0 si inconnue */
+  duration: number;
+  /** Par place du tournoi : billes adverses renvoyées, billes sorties */
+  captures: number[];
+  exits: number[];
+}
+
+export interface GameExtras {
+  duration: number;
+  captures: number[];
+  exits: number[];
 }
 
 export interface League {
@@ -63,8 +74,11 @@ const me = (): LeagueMember => {
 function normalize(code: string, raw: Record<string, unknown> | null): League | null {
   if (!raw?.name) return null;
   const n = (raw.n as number) === 6 ? 6 : 4;
-  const games = Object.entries((raw.games ?? {}) as Record<string, { winner: number; at: number }>)
-    .map(([key, g]) => ({ key, winner: g.winner, at: g.at ?? 0 }))
+  const games = Object.entries((raw.games ?? {}) as Record<string, { winner: number; at: number; duration?: number; captures?: unknown; exits?: unknown }>)
+    .map(([key, g]) => ({
+      key, winner: g.winner, at: g.at ?? 0, duration: g.duration ?? 0,
+      captures: arr<number>(g.captures, n, () => 0), exits: arr<number>(g.exits, n, () => 0),
+    }))
     .sort((a, b) => b.at - a.at);
   return {
     code, name: raw.name as string, n, host: raw.host as string,
@@ -178,8 +192,8 @@ export function watchMyLeagues(cb: (list: League[]) => void): () => void {
 }
 
 /** Résultat d'une partie du tournoi : compté une seule fois, même si tous les téléphones l'envoient. */
-export async function recordLeagueGame(code: string, key: string, winner: number) {
-  const res = await runTransaction(node('leagues', code, 'games', key), (cur) => (cur ? undefined : { winner, at: Date.now() }));
+export async function recordLeagueGame(code: string, key: string, winner: number, extras?: GameExtras) {
+  const res = await runTransaction(node('leagues', code, 'games', key), (cur) => (cur ? undefined : { winner, at: Date.now(), ...extras }));
   if (!res.committed) return;
   await runTransaction(node('leagues', code, 'wins', winner), (cur) => (Number(cur) || 0) + 1);
 }

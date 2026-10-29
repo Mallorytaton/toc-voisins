@@ -87,6 +87,14 @@ export interface LastMove {
   move: Move;
 }
 
+/** Compteurs de la partie, par place (statistiques des tournois). */
+export interface GameStats {
+  /** Billes adverses renvoyées dans leur réserve */
+  captures: number[];
+  /** Billes sorties de la réserve */
+  exits: number[];
+}
+
 export interface GameState {
   n: number;
   variants: Variants;
@@ -110,6 +118,10 @@ export interface GameState {
   lastCaptures: PawnRef[];
   /** Dernier coup de la donne ('' au début d'une donne). */
   lastMove: LastMove | '';
+  /** Compteurs de la partie (captures, sorties) par place. */
+  stats: GameStats;
+  /** Début de la partie (ms), fixé par l'appelant ; 0 si inconnu. */
+  startedAt: number;
   /** Incrémenté à chaque modification (contrôle de concurrence côté Firebase). */
   v: number;
 }

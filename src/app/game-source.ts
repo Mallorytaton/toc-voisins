@@ -49,6 +49,7 @@ export class LocalGame implements GameSource {
     const n = players.length;
     // Le donneur est à droite du joueur : c'est lui qui commence.
     this.state = newGame(n, variants, n - 1);
+    this.state.startedAt = Date.now();
     setTimeout(() => this.dealNow(), 300);
   }
 

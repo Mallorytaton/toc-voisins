@@ -201,9 +201,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const hintS = h('span');
   // « Une astuce ? » : propose un bon coup (le robot le choisit) sans le jouer à la place du joueur.
   const tipBtn = h('button', { class: 'g-tip', type: 'button', onclick: () => suggest() }, 'Une astuce ?');
+  const resetSeven = h('button', { class: 'g-tip', type: 'button', onclick: () => { split = new Map(); render(); } }, 'Recommencer le partage');
   const playBtn = button('Jouer', 'primary', () => commit());
   playBtn.classList.add('g-play');
-  const actions = h('div', { class: 'g-actions' }, emoteBtn, h('div', { class: 'g-hint', 'aria-live': 'polite' }, hintT, hintS, tipBtn), playBtn);
+  const actions = h('div', { class: 'g-actions' }, emoteBtn, h('div', { class: 'g-hint', 'aria-live': 'polite' }, hintT, hintS, tipBtn, resetSeven), playBtn);
   const timerBar = h('div');
   const timerEl = h('div', { class: 'g-timer', 'aria-hidden': 'true' }, timerBar);
   const hand = h('div', { class: 'hand' });
@@ -279,15 +280,45 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     tip = null; // le joueur choisit lui-même : l'explication de l'astuce ne vaut plus
     if (pl.targets.some((t) => sameRef(t, r))) target = r;
     else if (pl.cands.some((c) => sameRef(c, r))) {
-      if (pl.sevenPawns.length && pick) {
-        if (!split.has(key(r))) split.set(key(r), 0);
-      } else {
+      if (pl.sevenPawns.length && pick) giveStep(r);
+      else {
         pick = r;
         target = null;
         split = new Map();
       }
     } else return;
     render();
+  };
+
+  /**
+   * Partage du 7 : la bille touchée gagne un pas, pris sur la bille qui en a le plus.
+   * Si on touche une nouvelle bille alors que le partage est au maximum de billes (deux, en règle de base),
+   * elle prend la place de celle qui a le moins de pas.
+   */
+  const giveStep = (r: PawnRef) => {
+    const k = key(r);
+    const cur = new Map([...split].filter(([, n]) => n > 0));
+    const others = [...cur.entries()].filter(([kk]) => kk !== k).sort((a, b) => b[1] - a[1]);
+    const maxPawns = view.variants.sevenAnyPawns ? Infinity : 2;
+    const total = [...cur.values()].reduce((a, b) => a + b, 0);
+    // Il reste des pas à placer (la première bille était bloquée avant 7) : on les ajoute.
+    if (total < 7 && (cur.has(k) || cur.size < maxPawns)) {
+      cur.set(k, (cur.get(k) ?? 0) + 1);
+      split = cur;
+      return;
+    }
+    if (!others.length) return toast('Touche une autre bille pour partager le 7.');
+    if (!cur.has(k) && cur.size >= maxPawns) {
+      const [weakK, weakN] = others[others.length - 1];
+      cur.delete(weakK);
+      cur.set(k, weakN);
+    } else {
+      const [fromK, fromN] = others[0];
+      if (fromN - 1 > 0) cur.set(fromK, fromN - 1);
+      else cur.delete(fromK);
+      cur.set(k, (cur.get(k) ?? 0) + 1);
+    }
+    split = cur;
   };
 
   /** Progressions successives d'un pion qui fait `steps` pas (négatif = recule). */
@@ -301,6 +332,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     pathLayer.replaceChildren();
     ghostLayer.replaceChildren();
     const m = pl.chosen;
+    const sevenSplit = [...split].filter(([, n]) => n > 0);
+    if (sevenSplit.length && (!m || m.kind === 'seven')) return previewSeven(sevenSplit, m);
     if (!m || m.kind === 'discard' || m.kind === 'swap') return false;
     const cap = applyMove(view, m).lastCaptures.length > 0;
     const ghost = (s: number, i: number, p: number) => {
@@ -326,6 +359,31 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         dots(part.pawn.s, ps);
       }
       cur.forEach((p, k) => { const [s, i] = k.split('.').map(Number); ghost(s, i, p); });
+    }
+    return cap;
+  };
+
+  /** Aperçu du 7 : sur chaque bille et sur sa case d'arrivée, une étiquette « +n ». Gris si le partage ne joue pas. */
+  const previewSeven = (parts: [string, number][], m: Move | null) => {
+    const ok = !!m;
+    const cap = ok && applyMove(view, m!).lastCaptures.length > 0;
+    const edge = !ok ? 'var(--ink-3)' : cap ? 'var(--ink)' : 'var(--coral)';
+    const tag = (x: number, y: number, text: string, color: string, arrival: boolean) =>
+      ghostLayer.append(h('div', { class: 'seven-tag' + (arrival ? ' seven-tag--arrival' : ''), style: { left: r1(x), top: r1(y), borderColor: color } }, text));
+    for (const [k, n] of parts) {
+      const [s, i] = k.split('.').map(Number);
+      const p0 = view.pawns[s][i].p;
+      const ps = walk(p0, n);
+      const [x0, y0] = xy(s, i, p0), [x1, y1] = xy(s, i, ps[ps.length - 1]), z = Z.ps + 8;
+      ps.slice(0, -1).forEach((p, j) => {
+        if (inHome(N, p)) return;
+        const [x, y] = g.track[trackIndex(g, me, s, p)], dz = Z.hs * 0.5;
+        pathLayer.append(h('div', { class: 'path-dot', style: { left: r1(x - dz / 2), top: r1(y - dz / 2), width: r1(dz), height: r1(dz), background: ok ? '' : 'var(--ink-3)', animation: `tocPath 1.1s ease-in-out ${((j + 1) * 0.07).toFixed(2)}s infinite` } }));
+      });
+      ghostLayer.append(h('div', { class: 'ghost', style: { left: r1(x1 - z / 2), top: r1(y1 - z / 2), width: z, height: z, borderColor: edge } }));
+      const color = tint(s).c;
+      tag(x0, y0 - Z.ps - 2, '+' + n, color, false);
+      tag(x1, y1 - Z.ps / 2 - 12, '+' + n, ok ? color : 'var(--ink-3)', true);
     }
     return cap;
   };
@@ -489,22 +547,6 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
             RANK_SHORT[r] ?? r))));
       return;
     }
-    if (pl.sevenPawns.length && pick) {
-      choicePop.hidden = false;
-      const total = [...split.values()].reduce((a, b) => a + b, 0);
-      choicePop.replaceChildren(h('span', { class: 'pop__title' }, `Répartis ton 7 · ${total} / 7`),
-        ...pl.sevenPawns.map((r) => {
-          const n = split.get(key(r)) ?? 0;
-          const set = (d: number) => { split.set(key(r), Math.max(0, Math.min(7, n + d))); render(); };
-          return h('div', { class: 'split-row' },
-            bille(SEAT_COLORS[N][r.s], { size: 18 }),
-            h('span', { class: 'split-row__who' }, r.s === me ? `Ton pion ${r.i + 1}` : `Pion ${r.i + 1} de ${nameOf(r.s)}`),
-            h('button', { class: 'step-btn', type: 'button', 'aria-label': 'Moins', disabled: n === 0, onclick: () => set(-1) }, '−'),
-            h('span', { class: 'split-row__n' }, n),
-            h('button', { class: 'step-btn', type: 'button', 'aria-label': 'Plus', disabled: total >= 7, onclick: () => set(1) }, '+'));
-        }));
-      return;
-    }
     choicePop.hidden = true;
   };
 
@@ -545,12 +587,21 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         t = 'Aucun coup possible';
         sub = pl.chosen.card ? 'Défausse cette carte.' : 'Tu passes la donne.';
         label = 'Défausser';
+      } else if (split.size && [...split.values()].some((n) => n > 0) && (pl.sevenPawns.length || pl.chosen?.kind === 'seven')) {
+        const parts = [...split.values()].filter((n) => n > 0);
+        t = parts.length > 1 ? `Le 7 · ${parts.map((n) => '+' + n).join(' et ')}` : 'Le 7 · +7';
+        t += cap ? ' · capture !' : '';
+        const left = 7 - parts.reduce((a, b) => a + b, 0);
+        sub = left > 0 ? `Encore ${left} pas à placer : touche une bille.`
+          : !pl.chosen ? 'Ce partage n’est pas possible. Touche une autre bille ou recommence.'
+          : pl.sevenPawns.length ? 'Touche une bille pour lui donner un pas.' : c.rule;
+        if (pl.chosen) label = 'Jouer';
       } else {
         t = c.t + (cap ? ' · capture !' : '');
         sub = pl.jokerValues.length > 1 && !jokerAs ? 'Choisis la carte que ton Joker remplace.'
-          : !pl.chosen && pl.cands.length > 1 && !pick ? 'Touche la bille à jouer.'
-            : !pl.chosen && pl.targets.length > 1 ? 'Touche la bille à échanger.'
-              : !pl.chosen && pl.sevenPawns.length ? 'Répartis les 7 pas entre tes billes.'
+          : !pl.chosen && pl.sevenPawns.length ? 'Touche la bille à avancer de 7, puis une autre pour partager.'
+            : !pl.chosen && pl.cands.length > 1 && !pick ? 'Touche la bille à jouer.'
+              : !pl.chosen && pl.targets.length > 1 ? 'Touche la bille à échanger.'
                 : c.rule;
         if (pl.chosen) label = 'Jouer';
         if (!pl.moves.length) sub = 'Cette carte ne peut pas jouer.';
@@ -559,6 +610,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     hintT.textContent = t;
     hintS.textContent = sub;
     tipBtn.hidden = !(myTurn() && sel === null);
+    resetSeven.hidden = !(myTurn() && [...split.values()].filter((n) => n > 0).length > 1);
     playBtn.hidden = !label;
     if (label && playBtn.textContent !== label) {
       playBtn.textContent = label;

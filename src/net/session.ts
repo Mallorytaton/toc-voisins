@@ -112,6 +112,11 @@ export function normalizePublic(raw: Record<string, unknown>): PublicState {
     lastCard: (raw.lastCard as string) ?? '',
     lastCaptures: list(raw.lastCaptures),
     lastMove: lm && typeof lm === 'object' ? { seat: lm.seat, move: normMove(lm.move) } : '',
+    stats: {
+      captures: arr((raw.stats as Record<string, unknown> | undefined)?.captures, n, () => 0),
+      exits: arr((raw.stats as Record<string, unknown> | undefined)?.exits, n, () => 0),
+    },
+    startedAt: (raw.startedAt as number) ?? 0,
     v: (raw.v as number) ?? 0,
   };
 }
@@ -454,6 +459,7 @@ export class RoomSession implements Room {
     if (!r || r.meta.status !== 'countdown') return;
     const fresh = newGame(r.meta.n, r.meta.variants, r.meta.n - 1);
     fresh.v = (r.state?.v ?? -1) + 1;
+    fresh.startedAt = Date.now();
     const dealt = deal(fresh, cryptoRng);
     await update(ref(database()), {
       [`v2/rooms/${this.code}/meta/status`]: 'playing',
@@ -489,7 +495,9 @@ export class RoomSession implements Room {
   async rematch() {
     const st = this.room?.state;
     if (!st || st.phase !== 'over') return;
-    await this.write(rematch(toFull(st, -1, [])));
+    const next = rematch(toFull(st, -1, []));
+    next.startedAt = Date.now();
+    await this.write(next);
   }
 
   async emote(t: string) {
@@ -629,7 +637,9 @@ export class OnlineGame implements GameSource {
     // Partie d'un tournoi : la victoire de l'équipe s'ajoute au score du tournoi (une seule fois).
     const league = this.s.room?.meta.league;
     if (league && next.phase === 'over' && prev.phase !== 'over')
-      void recordLeagueGame(league, `${this.code}-${next.v}`, next.winner).catch((e) => console.warn('tournoi', e));
+      void recordLeagueGame(league, `${this.code}-${next.v}`, next.winner, {
+        duration: next.startedAt ? Date.now() - next.startedAt : 0, captures: next.stats.captures, exits: next.stats.exits,
+      }).catch((e) => console.warn('tournoi', e));
     this.subs.forEach((cb) => cb(prev, reset));
   }
 
