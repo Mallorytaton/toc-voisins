@@ -1,0 +1,224 @@
+/* ==== TOC Mobile : composants de base (style argile) ==== */
+
+/* ---- Textes ---- */
+.t-screen { font: 800 34px/1 var(--display); }
+.t-title { font: 800 26px/1.1 var(--display); }
+.t-card { font: 800 30px/1 var(--display); }
+.t-body { font: 600 15px/1.4 var(--text); color: var(--ink-2); text-wrap: pretty; }
+.t-label { font: 800 13px var(--text); color: var(--ink-2); letter-spacing: .08em; text-transform: uppercase; }
+.t-mini { font: 800 11px var(--text); color: var(--ink-2); letter-spacing: .12em; text-transform: uppercase; }
+
+/* ---- Boutons argile ----
+   Baloo 2 est décalée vers le bas : padding-top de 2 à 3 px pour la centrer. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 60px; padding: 3px 30px 0; border: none; border-radius: 22px;
+  font: 800 20px/1 var(--display); cursor: pointer; white-space: nowrap;
+  transition: transform .12s, box-shadow .12s, background .2s, color .2s;
+}
+.btn:disabled { cursor: default; }
+.btn--block { display: flex; width: 100%; }
+.btn--lg { height: 62px; font-size: 21px; }
+.btn--md { height: 56px; padding: 3px 20px 0; border-radius: 20px; font-size: 19px; }
+.btn--sm { height: 46px; padding: 2px 18px 0; border-radius: 16px; font-size: 16px; }
+.btn--xs { height: 40px; padding: 2px 14px 0; border-radius: 14px; font-size: 15px; }
+
+.btn--primary {
+  background: linear-gradient(180deg, var(--primary-top) 0%, var(--primary-bottom) 100%); color: #fff;
+  box-shadow: 0 6px 0 var(--primary-edge), 0 16px 26px rgba(242, 90, 56, .32), inset 0 2px 0 rgba(255, 255, 255, .4);
+}
+.btn--primary:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--primary-edge), 0 6px 12px rgba(242, 90, 56, .3);
+}
+.btn--white { background: #fff; color: var(--ink); box-shadow: 0 5px 0 var(--clay-2); }
+.btn--white:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--clay-2); }
+.btn--danger { background: #fff; color: var(--coral-d); box-shadow: 0 5px 0 var(--clay-2); }
+.btn--danger:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--clay-2); }
+.btn--dark { background: var(--ink); color: #fff; box-shadow: 0 5px 0 var(--dark-edge); }
+.btn--dark:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--dark-edge); }
+.btn--on-blue { background: #fff; color: var(--private-edge); box-shadow: 0 5px 0 #c9d6ff, inset 0 2px 0 #fff; }
+.btn--on-blue:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 #c9d6ff; }
+.btn--yellow { background: var(--yellow); color: var(--ink); box-shadow: 0 4px 0 var(--yellow-d); }
+.btn--yellow:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--yellow-d); }
+.btn--ok { background: var(--teal-l); color: var(--ok-ink); box-shadow: 0 4px 0 var(--ok-edge); }
+.btn--off { background: var(--disabled); color: #fff; box-shadow: 0 6px 0 var(--disabled-edge); }
+.btn--text {
+  height: auto; padding: 6px; background: none; color: var(--ink-2);
+  font: 800 15px var(--text); box-shadow: none;
+}
+
+/* Bouton rond (retour, pause) */
+.btn-round {
+  width: 44px; height: 44px; flex: none; border: none; border-radius: 50%;
+  background: #fff; color: var(--ink); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  font: 800 26px/1 var(--display); padding: 0 0 2px;
+  box-shadow: 0 4px 0 var(--clay-2), 0 10px 16px rgba(110, 80, 50, .1);
+  transition: transform .12s, box-shadow .12s, background .2s;
+}
+.btn-round:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--clay-2); }
+.btn-round--lg { width: 54px; height: 54px; box-shadow: 0 4px 0 var(--clay-2), 0 8px 14px rgba(110, 80, 50, .1); }
+.pause-bar { width: 4px; height: 14px; border-radius: 2px; background: var(--ink); }
+
+/* ---- Surfaces ---- */
+.card {
+  background: #fff; border-radius: 24px;
+  box-shadow: 0 6px 0 var(--clay), 0 14px 24px var(--drop);
+}
+.card--lg { border-radius: 26px; padding: 14px; }
+.card--row { border-radius: 22px; box-shadow: 0 4px 0 var(--clay); }
+.card--flat { background: var(--muted-bg); box-shadow: none; }
+
+.hero {
+  position: relative; overflow: hidden; border-radius: 32px; padding: 22px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.hero--blue {
+  background: var(--private); color: #fff;
+  box-shadow: 0 8px 0 var(--private-edge), 0 22px 34px rgba(53, 96, 230, .3), inset 0 3px 0 rgba(255, 255, 255, .3);
+}
+.hero--yellow {
+  background: var(--yellow); color: var(--ink);
+  box-shadow: 0 8px 0 var(--yellow-d), 0 22px 34px rgba(217, 161, 22, .3), inset 0 3px 0 rgba(255, 255, 255, .5);
+}
+.hero__title { font: 800 30px/1 var(--display); }
+
+/* ---- Pastilles ---- */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font: 800 12px var(--text); padding: 7px 11px; border-radius: 999px;
+  background: #fff; box-shadow: 0 3px 0 var(--clay);
+}
+.tag {
+  align-self: flex-start; font: 900 11px var(--text); letter-spacing: .16em;
+  padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .18);
+}
+.tag--dark { background: var(--ink); color: var(--yellow); }
+.badge-count {
+  min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px;
+  background: var(--ink); color: #fff; font: 900 11px/22px var(--text); text-align: center;
+  box-shadow: 0 0 0 2px var(--app);
+}
+.duo { display: inline-flex; align-items: center; }
+.duo > span { width: 14px; height: 14px; border-radius: 50%; }
+.duo > span + span { margin-left: -8px; box-shadow: 0 0 0 2px #fff; }
+
+/* ---- Champs ---- */
+.field {
+  height: 54px; min-width: 0; border: none; border-radius: 18px; background: #fff;
+  padding: 0 16px; font: 700 15px var(--text); color: var(--ink); outline: none;
+  box-shadow: inset 0 2px 4px rgba(110, 80, 50, .1), 0 3px 0 var(--field-edge);
+}
+.field--big { padding: 0 18px; font: 800 18px var(--text); }
+.field:focus-visible { outline: none; box-shadow: inset 0 2px 4px rgba(110, 80, 50, .1), 0 0 0 3px var(--blue-l), 0 3px 0 var(--field-edge); }
+
+/* ---- Segmenté ---- */
+.seg {
+  display: flex; gap: 6px; padding: 6px; border-radius: 22px;
+  background: var(--seg); box-shadow: inset 0 2px 4px rgba(110, 80, 50, .1);
+}
+.seg__opt {
+  flex: 1; height: 44px; border: none; border-radius: 16px; cursor: pointer;
+  background: transparent; color: var(--ink); padding-top: 2px;
+  font: 800 16px/1 var(--display);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  transition: all .2s;
+}
+.seg__opt[aria-pressed='true'] { background: #fff; box-shadow: 0 4px 0 var(--clay-2), 0 8px 14px rgba(110, 80, 50, .1); }
+.seg--tall { border-radius: 24px; }
+.seg--tall .seg__opt { height: 56px; border-radius: 18px; padding-top: 0; font-size: 17px; line-height: 1.1; }
+.seg__sub { font: 700 12px var(--text); color: var(--ink-2); }
+
+/* ---- Barre de progression ---- */
+.bar { height: 8px; border-radius: 4px; background: var(--field-edge); overflow: hidden; }
+.bar > div { height: 100%; border-radius: 4px; background: var(--teal); }
+
+/* ---- Bille (pion) ----
+   --c couleur, --d relief, --s taille en px (sans unité). */
+.bille {
+  --s: 17;
+  width: calc(var(--s) * 1px); height: calc(var(--s) * 1px); border-radius: 50%; flex: none;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .95) 0 10%, transparent 32%),
+    radial-gradient(circle at 50% 48%, var(--c) 55%, var(--d) 100%);
+  box-shadow:
+    0 calc(var(--s) * .16px) 0 var(--d),
+    0 calc(var(--s) * .32px) calc(var(--s) * .4px) rgba(70, 40, 20, .32);
+  transform-origin: 50% 90%;
+}
+.bille--sel {
+  animation: tocBob .8s ease-in-out infinite;
+  box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--c), 0 8px 12px rgba(0, 0, 0, .25);
+}
+.bille--target { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink), 0 8px 12px rgba(0, 0, 0, .25); }
+.bille--land { animation: tocSquash .42s ease-out; }
+
+/* ---- Carte à jouer ---- */
+.pcard {
+  position: relative; width: 80px; height: 116px; border-radius: 16px; background: #fff; flex: none;
+  display: flex; flex-direction: column; padding: 8px; color: var(--col, var(--ink));
+  box-shadow: 0 6px 0 var(--clay-2), 0 12px 20px rgba(70, 40, 20, .14);
+  transition: top .28s cubic-bezier(.3, 1.5, .5, 1), left .28s ease, transform .28s cubic-bezier(.3, 1.5, .5, 1), box-shadow .2s, opacity .2s;
+}
+.pcard[aria-pressed='true'] { box-shadow: 0 0 0 3px var(--coral), 0 8px 0 var(--clay-2), 0 22px 30px rgba(242, 90, 56, .3); }
+.pcard__corner { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+.pcard__rank { font: 800 20px/1 var(--display); }
+.pcard__suit { font: 700 13px/1 sans-serif; }
+.pcard__pip { flex: 1; display: flex; align-items: center; justify-content: center; font: 700 34px/1 sans-serif; margin-top: -8px; }
+.pcard__badge {
+  align-self: center; font: 900 10px/1 var(--text); padding: 5px 7px; border-radius: 999px; white-space: nowrap;
+  background: var(--bbg); color: var(--bc);
+}
+/* Dos de carte (pioche) */
+.pback { position: relative; width: 54px; height: 76px; flex: none; }
+.pback::before { content: ''; position: absolute; left: 4px; top: 4px; width: 100%; height: 100%; border-radius: 12px; background: var(--blue-d); }
+.pback > span {
+  position: absolute; inset: 0; border-radius: 12px; background: var(--blue);
+  display: flex; align-items: center; justify-content: center; font: 800 15px/1 var(--display); color: #fff;
+  box-shadow: inset 0 0 0 4px #fff, inset 0 0 0 6px var(--blue), inset 0 0 0 7px rgba(255, 255, 255, .5), 0 6px 10px rgba(40, 60, 140, .25);
+}
+
+/* ---- Avatar (formes simples, 10em = taille) ---- */
+.avatar { position: relative; flex: none; }
+.avatar > div { position: absolute; }
+.avatar-ring { position: relative; flex: none; padding: 4px; border-radius: 50%; background: #fff; }
+
+/* ---- Barre d'onglets flottante ---- */
+.tabbar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  width: calc(min(100vw, 430px) - 32px); bottom: calc(var(--safe-bottom) + 14px); height: 72px; z-index: 20;
+  border-radius: 30px; background: #fff; display: flex; padding: 8px; gap: 6px;
+  box-shadow: 0 8px 0 var(--clay), 0 18px 34px rgba(110, 80, 50, .16);
+}
+.tabbar__btn {
+  flex: 1; border: none; border-radius: 22px; background: transparent; cursor: pointer; color: var(--ink-3);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font: 800 12px var(--text); transition: background .2s, color .2s;
+}
+.tabbar__btn[aria-current='page'] { background: var(--coral-l); color: var(--coral-d); }
+.tabbar__icon { position: relative; width: 26px; height: 22px; }
+.tabbar__icon > i { position: absolute; background: currentColor; }
+
+/* ---- Écran mobile ----
+   Référence 393 × 852 ; au-delà de 430 px de large, l'app reste centrée. */
+.screen {
+  position: relative; min-height: 100dvh; width: 100%; max-width: 430px; margin: 0 auto;
+  overflow-x: hidden; background: var(--app);
+  padding: calc(var(--safe-top) + 6px) 20px calc(var(--safe-bottom) + 28px);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.screen--tabs { padding-bottom: calc(var(--safe-bottom) + 120px); }
+/* Les ronds décoratifs restent derrière le contenu. */
+.screen > :not(.blob):not(.tabbar) { position: relative; }
+.screen__head { display: flex; align-items: center; gap: 12px; }
+.spacer { flex: 1; }
+.blob { position: absolute; border-radius: 50%; pointer-events: none; }
+
+/* ---- Toast ---- */
+.toast {
+  position: fixed; left: 50%; top: calc(var(--safe-top) + 240px); z-index: 60; white-space: nowrap;
+  font: 800 19px/1 var(--display); padding: 13px 20px 10px; border-radius: 20px; background: #fff; color: var(--ink);
+  box-shadow: 0 6px 0 var(--clay-2), 0 16px 30px rgba(70, 40, 20, .2);
+  animation: tocUp .35s cubic-bezier(.3, 1.5, .5, 1) both;
+}

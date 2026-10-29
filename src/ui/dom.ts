@@ -14,13 +14,18 @@ function setProps(el: Element, props: Props) {
   for (const [k, v] of Object.entries(props)) {
     if (v === undefined || v === null || v === false) continue;
     if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v as EventListener);
-    else if (k === 'style' && typeof v === 'object') Object.assign((el as HTMLElement).style, v);
-    else if (k === 'value' && el instanceof HTMLInputElement) el.value = String(v);
+    else if (k === 'style' && typeof v === 'object') {
+      for (const [p, val] of Object.entries(v as Record<string, string | number>)) {
+        if (p.startsWith('--')) (el as HTMLElement).style.setProperty(p, String(val));
+        else ((el as HTMLElement).style as unknown as Record<string, string>)[p] = typeof val === 'number' ? val + 'px' : val;
+      }
+    } else if (k === 'value' && el instanceof HTMLInputElement) el.value = String(v);
     else el.setAttribute(k, v === true ? '' : String(v));
   }
 }
 
-/** Crée un élément HTML : h('button', { class: 'btn', onclick }, 'Texte'). */
+/** Crée un élément HTML : h('button', { class: 'btn', onclick }, 'Texte').
+ *  Dans style, un nombre vaut des px et les clés « --x » posent des variables CSS. */
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props, ...children: Child[]) {
   const el = document.createElement(tag);
   setProps(el, props);
@@ -28,18 +33,10 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props, 
   return el;
 }
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-/** Crée un élément SVG. */
-export function s(tag: string, props?: Props, ...children: Child[]): SVGElement {
-  const el = document.createElementNS(SVG_NS, tag) as SVGElement;
-  setProps(el, props);
-  append(el, children);
-  return el;
-}
-
-export function toast(msg: string, ms = 2600) {
+/** Petit message flottant au milieu de l'écran. */
+export function toast(msg: string, ms = 1700) {
+  document.querySelectorAll('.toast').forEach((t) => t.remove());
   const t = h('div', { class: 'toast', role: 'status' }, msg);
   document.body.append(t);
-  setTimeout(() => t.classList.add('out'), ms);
-  setTimeout(() => t.remove(), ms + 400);
+  setTimeout(() => t.remove(), ms);
 }
