@@ -76,7 +76,7 @@ function setView(v: View) {
   const { el, cleanup: c } = v instanceof HTMLElement ? { el: v, cleanup: null } : v;
   // Les écrans de la maquette tiennent dans le téléphone (la vitrine, elle, défile).
   if (el.classList.contains('screen') && el.dataset.fit !== 'scroll') {
-    const f = fitScreen(el, el.dataset.fit === 'width' ? 'width' : 'fit');
+    const f = fitScreen(el, el.dataset.fit === 'tabs' ? 'tabs' : 'fit');
     cleanup = () => { f.dispose(); c?.(); };
     app.replaceChildren(f.el);
   } else {

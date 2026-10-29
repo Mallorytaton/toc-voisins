@@ -1,6 +1,7 @@
 // 04 Accueil : profil, choix 4/6 joueurs, partie privée, code de salle, tournoi.
 import { XP_PER_LEVEL, draftProfile, levelOf } from '../../app/profile';
 import { cupKey, setCup, watchCup, watchFriends } from '../../net/social';
+import { openAccountSheet } from './account';
 import { DEMO, DEMO_FRIENDS, type Friend } from '../demo';
 import { h, toast } from '../dom';
 import { avatar, avatarRing, bille, button, segmented, tabbar } from '../kit/kit';
@@ -50,7 +51,10 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
 
   // En-tête : avatar + niveau, salut + XP, jetons
   const head = h('div', { class: 'home-head' },
-    h('div', { style: { position: 'relative' } },
+    h('button', {
+      type: 'button', 'aria-label': 'Ton compte', onclick: () => openAccountSheet(),
+      style: { position: 'relative', border: 'none', background: 'none', padding: 0, cursor: 'pointer' },
+    },
       avatarRing(p.char, p.color, 46, 'var(--coral)'),
       h('span', { class: 'badge-count home-head__lvl', 'aria-label': `Niveau ${level}` }, level)),
     h('div', { class: 'home-head__who' },
@@ -81,7 +85,7 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   drawFriends(DEMO ? DEMO_FRIENDS : []);
   const stopFriends = DEMO || !navigator.onLine ? () => {} : watchFriends(drawFriends);
 
-  const privateCard = h('div', { class: 'hero hero--blue' },
+  const privateCard = h('div', { class: 'hero hero--blue hero--tight' },
     h('div', { class: 'blob', style: { right: -26, top: -30 } }, bille('yellow', { size: 120, style: { boxShadow: '0 14px 20px rgba(0,0,0,.18)' } })),
     h('div', { class: 'blob deco-anim', style: { right: 76, top: 30, animation: 'tocBob 2.2s ease-in-out infinite' } },
       bille('coral', { size: 38, style: { boxShadow: '0 8px 12px rgba(0,0,0,.2)' } })),
@@ -114,6 +118,8 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
     if (!registered && count >= capacity) return toast('Le tournoi est complet !');
     setCup(cupId, !registered).catch(() => toast('Inscription impossible pour l’instant.'));
   }, { size: 'md' });
+  regBtn.style.flex = '1';
+  regBtn.style.padding = '3px 12px 0';
   const drawReg = () => {
     const n = count;
     regText.textContent = `${n} / ${capacity} inscrits`;
@@ -130,23 +136,25 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   tick();
   const timer = setInterval(tick, 1000);
 
-  const cup = h('div', { class: 'hero hero--yellow' },
+  const cup = h('div', { class: 'hero hero--yellow hero--tight' },
     h('div', { class: 'blob', style: { right: -40, bottom: -50, width: 150, height: 150, background: 'rgba(255,255,255,.25)' } }),
     h('div', { style: { position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
       h('span', { class: 'tag tag--dark' }, 'TOURNOI · 4 JOUEURS'),
       h('span', { style: { font: '800 13px var(--text)' } }, 'Gros lot : 5 000')),
     h('span', { style: { position: 'relative', font: '800 28px/1 var(--display)' } }, 'La Coupe du Vendredi'),
-    h('div', { style: { position: 'relative', display: 'flex', flexDirection: 'column', gap: 6 } },
-      h('span', { style: { font: '800 12px var(--text)', letterSpacing: '.08em', textTransform: 'uppercase', color: '#5a4300' } }, 'Commence dans'),
-      clock),
-    h('div', { style: { position: 'relative', display: 'flex', flexDirection: 'column', gap: 6 } },
+    // Compte à rebours et inscription sur une ligne : l'accueil tient dans l'écran sans défiler.
+    h('div', { style: { display: 'flex', alignItems: 'flex-end', gap: 10 } },
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+        h('span', { style: { font: '800 12px var(--text)', letterSpacing: '.08em', textTransform: 'uppercase', color: '#5a4300' } }, 'Commence dans'),
+        clock),
+      regBtn),
+    h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
       h('div', { style: { display: 'flex', justifyContent: 'space-between', font: '800 13px var(--text)' } }, regText, h('span', null, `${capacity / 2} équipes`)),
-      h('div', { class: 'reg-bar' }, regFill)),
-    regBtn);
+      h('div', { class: 'reg-bar' }, regFill)));
 
-  const el = h('div', { class: 'screen screen--tabs', style: { gap: 18, paddingTop: 'calc(var(--safe-top) + 12px)' } },
+  const el = h('div', { class: 'screen screen--tabs home', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 10px)' } },
     head,
-    h('span', { class: 't-screen', style: { marginTop: 6 } }, 'On joue ?'),
+    h('span', { class: 't-screen' }, 'On joue ?'),
     segmented<4 | 6>([{ value: 4, label: '4 joueurs', sub: '2 équipes de 2' }, { value: 6, label: '6 joueurs', sub: '3 équipes de 2' }], mode, setMode),
     privateCard,
     h('div', { style: { display: 'flex', gap: 10 } }, code, button('Rejoindre', 'dark', join, { size: 'md' })),

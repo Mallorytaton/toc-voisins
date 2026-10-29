@@ -8,7 +8,12 @@ await page.addInitScript(() => localStorage.setItem('toc.profile', JSON.stringif
 for (const r of ['/splash', '/bienvenue', '/perso', '/accueil', '/salle/nouvelle', '/gang', '/classement']) {
   await page.goto(base + '#' + r);
   await page.waitForTimeout(r.startsWith('/salle') ? 3500 : 700);
-  const h = await page.evaluate(() => Math.max(...[...document.querySelectorAll('.screen')].map((e) => e.scrollHeight)));
+  // Hauteur naturelle à 393 de large (scène sans mise à l'échelle).
+  const h = await page.evaluate(() => {
+    const sc = document.querySelector('.screen'), st = sc.parentElement;
+    st.style.transform = 'none'; st.style.width = '393px'; st.style.height = 'auto'; sc.style.height = 'auto';
+    return sc.offsetHeight;
+  });
   console.log(r.padEnd(16), h);
 }
 await browser.close();

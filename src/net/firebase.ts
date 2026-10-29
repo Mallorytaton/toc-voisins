@@ -1,7 +1,7 @@
 // Connexion Firebase : Realtime Database + authentification anonyme.
 // Les données du nouveau jeu sont rangées sous v2/, à côté de celles de l'ancien site.
 import { type FirebaseApp, initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { type Database, getDatabase, onValue, ref } from 'firebase/database';
 import { firebaseConfig } from './firebase-config';
 
@@ -33,24 +33,26 @@ export const node = (...parts: (string | number)[]) => ref(database(), [ROOT, ..
 /** Heure du serveur Firebase (corrige l'horloge du téléphone). */
 export const serverNow = () => Date.now() + serverOffset;
 
-/** Connexion anonyme, gardée sur l'appareil. Renvoie l'identifiant du joueur. */
+/** Identifiant du joueur : le compte déjà connecté sur l'appareil (Google ou anonyme), sinon un compte anonyme. */
 export function ensureAuth(): Promise<string> {
   if (!uidPromise) {
     const auth = getAuth(firebaseApp());
-    uidPromise = new Promise((resolve, reject) => {
-      const off = onAuthStateChanged(auth, (u) => {
-        if (u) {
-          off();
-          resolve(u.uid);
-        }
-      });
-      signInAnonymously(auth).catch((e) => {
-        uidPromise = null;
-        reject(e);
-      });
+    uidPromise = (async () => {
+      // On attend la session gardée sur l'appareil : sans ça, un compte Google serait remplacé par un anonyme.
+      await auth.authStateReady();
+      if (auth.currentUser) return auth.currentUser.uid;
+      return (await signInAnonymously(auth)).user.uid;
+    })().catch((e) => {
+      uidPromise = null;
+      throw e;
     });
   }
   return uidPromise;
+}
+
+/** Après un changement de compte : le prochain ensureAuth relit la session. */
+export function resetAuthCache() {
+  uidPromise = null;
 }
 
 /** Firebase supprime les tableaux vides et les valeurs nulles : on reconstruit des tableaux complets. */

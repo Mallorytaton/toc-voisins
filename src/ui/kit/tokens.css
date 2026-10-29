@@ -68,9 +68,10 @@ html[data-rot] body { overflow: hidden; }
 html[data-rot] #app { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; overflow: hidden; transform-origin: 0 0; }
 html[data-rot='90'] #app { transform: translateY(100vh) rotate(-90deg); }
 html[data-rot='-90'] #app { transform: translateX(100vw) rotate(90deg); }
-/* L'encoche passe sur le côté en paysage : on la reporte en haut de l'app redressée. */
-html[data-rot='90'] .fit, html[data-rot='90'] .game__frame { inset: env(safe-area-inset-left) 0 0 0; }
-html[data-rot='-90'] .fit, html[data-rot='-90'] .game__frame { inset: env(safe-area-inset-right) 0 0 0; }
+/* L'encoche passe sur le côté en paysage : on la reporte en haut du plateau redressé
+   (les autres écrans la gèrent dans src/ui/fit.ts). */
+html[data-rot='90'] .game__frame { inset: env(safe-area-inset-left) 0 0 0; }
+html[data-rot='-90'] .game__frame { inset: env(safe-area-inset-right) 0 0 0; }
 body {
   min-height: 100dvh;
   background: var(--app);

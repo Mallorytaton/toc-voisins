@@ -1,6 +1,7 @@
 // Écrans d'arrivée : 01 Splash, 02 Onboarding, 03 Choix du perso.
 import { NICK_MAX, draftProfile, getProfile, saveProfile } from '../../app/profile';
 import { syncProfile } from '../../net/social';
+import { googleThenGo } from './account';
 import { DEMO } from '../demo';
 import { h } from '../dom';
 import { CHARS, COL, COLOR_NAMES, type CharId, type ColorName } from '../kit/data';
@@ -41,8 +42,10 @@ export function splashScreen(): HTMLElement {
     h('div', { class: 'spacer' }),
     h('div', { class: 'splash__actions' },
       button('Embarque !', 'primary', () => go(ROUTES.onboard), { size: 'lg', block: true }),
-      // La connexion au compte arrive avec l'étape « comptes » ; d'ici là on va à l'accueil.
-      button('J’ai déjà un compte', 'text', () => go(getProfile() ? ROUTES.home : ROUTES.pick))),
+      // Compte Google : on retrouve son perso et sa progression ; sinon on le crée.
+      button('J’ai déjà un compte', 'text', async () => {
+        if (await googleThenGo()) go(getProfile() ? ROUTES.home : ROUTES.pick);
+      })),
   );
 }
 

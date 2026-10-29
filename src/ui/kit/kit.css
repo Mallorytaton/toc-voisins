@@ -83,6 +83,10 @@
   box-shadow: 0 8px 0 var(--yellow-d), 0 22px 34px rgba(217, 161, 22, .3), inset 0 3px 0 rgba(255, 255, 255, .5);
 }
 .hero__title { font: 800 30px/1 var(--display); }
+/* Accueil : cartes un peu plus serrées pour tenir dans l'écran sans défiler. */
+.hero--tight { padding: 18px 20px; gap: 10px; }
+.home .seg--tall .seg__opt { height: 50px; }
+.home .hero--tight .btn--md { height: 50px; }
 
 /* ---- Pastilles ---- */
 .pill {
@@ -208,15 +212,12 @@
   padding: calc(var(--safe-top) + 6px) 20px calc(var(--safe-bottom) + 28px);
   display: flex; flex-direction: column; gap: 16px;
 }
-.screen--tabs { padding-bottom: calc(var(--safe-bottom) + 120px); }
+.screen--tabs { padding-bottom: calc(var(--safe-bottom) + 104px); }
 
 /* ---- Mise à l'échelle (src/ui/fit.ts) ----
-   La scène se place dans la zone sûre (encoche, barre du bas) : à l'intérieur, petites marges fixes. */
-.fit {
-  position: fixed; overflow: hidden; background: var(--app);
-  inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  --safe-top: 14px; --safe-bottom: 12px;
-}
+   La scène va jusqu'aux bords ; les marges d'encoche et de barre du bas (--safe-top, --safe-bottom)
+   sont recalculées à l'échelle de la scène. */
+.fit { position: fixed; inset: 0; overflow: hidden; background: var(--app); }
 .fit__stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .fit .screen { min-height: 0; max-width: none; margin: 0; overflow: hidden; }
 /* Éléments « fixes » de l'écran : rattachés à la scène (une scène transformée les contient). */

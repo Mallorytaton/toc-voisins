@@ -52,6 +52,8 @@ const codeKey = (code: string) => code.replace('#', '-');
 /** Envoie le profil public et réserve le code ami (une seule fois). */
 export async function syncProfile(p: Profile = draftProfile()) {
   const me = await uid();
+  // Profil créé avant les codes amis : on lui en donne un.
+  if (!p.friendCode && getProfile()) p = saveProfile(p);
   if (p.friendCode) {
     const k = codeKey(p.friendCode);
     const owner = (await get(node('codes', k))).val();
