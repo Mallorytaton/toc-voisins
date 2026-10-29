@@ -204,6 +204,9 @@
 .slow-row__title { font: 800 16px/1.15 var(--display); color: var(--ink); padding-top: 2px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .slow-row__status { font: 800 12.5px var(--text); color: var(--ink-2); }
 .slow-row--mine .slow-row__status { color: var(--coral-d); }
+/* Tournoi : quitter, supprimer */
+.league-exit { display: flex; justify-content: center; gap: 18px; padding: 4px 0 2px; }
+.link-btn--danger { color: var(--coral-d); }
 .league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {

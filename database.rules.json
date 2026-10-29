@@ -185,6 +185,7 @@
       "leagues": {
         "$code": {
           ".read": "auth != null",
+          ".write": "auth != null && !newData.exists() && data.child('host').val() === auth.uid",
           "name": {
             ".write": "auth != null && !data.exists()",
             ".validate": "newData.isString() && newData.val().length <= 30"
@@ -194,7 +195,7 @@
             ".validate": "newData.val() === 4 || newData.val() === 6"
           },
           "host": {
-            ".write": "auth != null && !data.exists() && newData.val() === auth.uid"
+            ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && newData.isString() && root.child('v2/leagues/' + $code + '/members/' + newData.val()).exists()))"
           },
           "createdAt": {
             ".write": "auth != null && !data.exists()"

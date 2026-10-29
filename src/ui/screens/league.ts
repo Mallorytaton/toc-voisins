@@ -1,7 +1,7 @@
 // Tournois : création, page du tournoi (équipes fixes, score cumulé, dernières parties).
 import {
-  type League, type OfflineClaim, type Rsvp, answerSoiree, cancelSoiree, claimApproved, createLeague, dropOffline, leagueLink,
-  proposeOffline, proposeSoiree, refusedBy, settleOffline, takeLeagueSeat, voteOffline, watchLeague,
+  type League, type OfflineClaim, type Rsvp, answerSoiree, cancelSoiree, claimApproved, createLeague, deleteLeague, dropOffline,
+  leagueLink, leaveLeague, proposeOffline, proposeSoiree, refusedBy, settleOffline, takeLeagueSeat, voteOffline, watchLeague,
 } from '../../net/league';
 import { type FriendView, currentUid, inviteToLeague, watchFriends } from '../../net/social';
 import { h, toast } from '../dom';
@@ -333,6 +333,49 @@ export function newLeagueScreen(): View {
   return { el, cleanup: () => {} };
 }
 
+/** Demande confirmation avant une action définitive (quitter, supprimer). */
+function confirmSheet(title: string, text: string, label: string, action: () => Promise<void>) {
+  const close = () => wrap.remove();
+  const ok = button(label, 'danger', async () => {
+    ok.disabled = true;
+    try {
+      await action();
+      close();
+    } catch {
+      ok.disabled = false;
+      toast('Impossible pour l’instant. Réessaie.');
+    }
+  }, { size: 'md', block: true });
+  const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': title },
+      h('span', { class: 'sheet__title' }, title),
+      h('span', { class: 'sheet__text' }, text),
+      ok,
+      button('Annuler', 'text', close)));
+  (document.getElementById('app') ?? document.body).append(wrap);
+}
+
+/** En bas de la page : quitter le tournoi (joueur), le supprimer (créateur). */
+function exitLinks(l: League, me: string): HTMLElement {
+  const seated = l.seats.includes(me);
+  const host = l.host === me;
+  const alone = !l.seats.some((u) => u && u !== me);
+  return h('div', { class: 'league-exit' },
+    seated && !(host && alone) && h('button', {
+      class: 'link-btn link-btn--danger', type: 'button',
+      onclick: () => confirmSheet(`Quitter « ${l.name} » ?`,
+        host ? 'Ta place se libère et un autre joueur devient le créateur du tournoi. Les victoires de ton équipe restent.'
+          : 'Ta place se libère pour quelqu’un d’autre. Les victoires de ton équipe restent.',
+        'Quitter le tournoi', async () => { await leaveLeague(l.code); go(ROUTES.home); toast('Tu as quitté le tournoi.'); }),
+    }, 'Quitter le tournoi'),
+    host && h('button', {
+      class: 'link-btn link-btn--danger', type: 'button',
+      onclick: () => confirmSheet(`Supprimer « ${l.name} » ?`,
+        'Le tournoi disparaît pour tout le monde : scores, historique des parties et prochaine soirée. C’est définitif.',
+        'Supprimer le tournoi', async () => { await deleteLeague(l.code); go(ROUTES.home); toast('Tournoi supprimé.'); }),
+    }, 'Supprimer le tournoi'));
+}
+
 /** « Inviter » : le lien à partager, ou directement un ami de l'app. */
 function openInviteSheet(l: League) {
   const full = l.seats.every(Boolean);
@@ -395,6 +438,7 @@ export function leagueScreen(code: string): View {
   const soiree = h('div');
   const claims = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   const stats = h('div');
+  const exit = h('div');
   // Déclarations acceptées par tous, en cours d'enregistrement (une seule fois par téléphone)
   const settling = new Set<string>();
   const hist = h('div', { class: 'card', style: { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 } });
@@ -447,6 +491,7 @@ export function leagueScreen(code: string): View {
     hist.hidden = false;
     soiree.replaceChildren(soireeCard(l, me));
     stats.replaceChildren(statsCard(l));
+    exit.replaceChildren(exitLinks(l, me));
     // Une déclaration acceptée par tous devient une victoire ; n'importe quel joueur l'enregistre (sans doublon).
     for (const o of l.offline)
       if (seated && claimApproved(l, o) && !settling.has(o.id)) {
@@ -492,7 +537,8 @@ export function leagueScreen(code: string): View {
       teams,
       stats,
       hist,
-      rules.el),
+      rules.el,
+      exit),
     status,
     play);
   return { el, cleanup: stop };

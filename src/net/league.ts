@@ -5,11 +5,11 @@
 //                           offline/<id> = { winner, by, at, playedAt, votes/<uid> = oui | non } (partie hors de l'app à valider)
 //   myLeagues/<uid>/<code>  true (tournois dont on fait partie)
 // L'équipe t réunit les places t et t + n/2, comme au jeu : les duos restent les mêmes de partie en partie.
-import { get, onValue, runTransaction, serverTimestamp, set, update } from 'firebase/database';
+import { get, onValue, ref, runTransaction, serverTimestamp, set, update } from 'firebase/database';
 import { draftProfile } from '../app/profile';
 import { DEFAULT_VARIANTS, type Variants, cryptoRng } from '../engine';
 import type { CharId, ColorName } from '../ui/kit/data';
-import { arr, ensureAuth, node } from './firebase';
+import { arr, database, ensureAuth, node } from './firebase';
 import { notifyPlayers } from './push';
 
 export interface LeagueMember {
@@ -226,6 +226,33 @@ export async function takeLeagueSeat(code: string, seat: number) {
   for (const other of Object.keys(l.members)) if (other !== uid) Object.assign(friends, { [`${uid}/${other}`]: true, [`${other}/${uid}`]: true });
   if (Object.keys(friends).length) await update(node('friends'), friends).catch(() => undefined);
   await set(node('myLeagues', uid, code), true);
+}
+
+/**
+ * Quitte le tournoi : ta place se libère (les victoires de ton équipe restent).
+ * Le créateur qui s'en va passe la main au premier autre joueur ; seul, il supprime le tournoi.
+ */
+export async function leaveLeague(code: string) {
+  const uid = await ensureAuth();
+  const l = await getLeagueOnce(code);
+  if (!l) return;
+  const others = l.seats.filter((u) => u && u !== uid);
+  if (l.host === uid) {
+    if (!others.length) return deleteLeague(code);
+    await set(node('leagues', code, 'host'), others[0]);
+  }
+  const seat = l.seats.indexOf(uid);
+  await update(ref(database()), {
+    [`v2/leagues/${code}/members/${uid}`]: null,
+    [`v2/myLeagues/${uid}/${code}`]: null,
+    ...(seat >= 0 ? { [`v2/leagues/${code}/seats/${seat}`]: null } : {}),
+  });
+}
+
+/** Supprime le tournoi pour tout le monde (son créateur seulement) : scores, historique, soirée. */
+export async function deleteLeague(code: string) {
+  const uid = await ensureAuth();
+  await update(ref(database()), { [`v2/leagues/${code}`]: null, [`v2/myLeagues/${uid}/${code}`]: null });
 }
 
 export async function getLeagueOnce(code: string): Promise<League | null> {
