@@ -215,7 +215,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
 
   const myHand = () => view.hands[me] ?? [];
   const myTurn = () => !busy && view.phase === 'play' && view.turn === me;
-  const giving = () => !busy && view.phase === 'exchange' && !view.exchange[me];
+  // L'échange se choisit même pendant l'animation de distribution.
+  const giving = () => view.phase === 'exchange' && !view.exchange[me];
 
   interface Plan {
     moves: Move[];
