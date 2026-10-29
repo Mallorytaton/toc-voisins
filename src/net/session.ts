@@ -646,7 +646,16 @@ export class OnlineGame implements GameSource {
     this.s.play(m).catch(() => toast('Le coup n’a pas passé (quelqu’un a joué en même temps ?). Réessaie.', 2600));
   }
   give(card: string) {
-    this.s.give(card).catch(() => toast('La carte n’a pas pu être donnée. Réessaie.', 2600));
+    // Pendant l'échange, tout le monde donne en même temps : si un autre don passe avant le nôtre,
+    // Firebase refuse le nôtre (version déjà prise). On redonne la même carte sur l'état à jour.
+    const attempt = (left: number): Promise<void> => this.s.give(card).catch(async (e) => {
+      const st = this.s.room?.state;
+      const stillToGive = st?.phase === 'exchange' && !st.exchange[this.mySeat];
+      if (left <= 0 || !stillToGive) throw e;
+      await new Promise((r) => setTimeout(r, 250 + Math.random() * 350));
+      return attempt(left - 1);
+    });
+    attempt(4).catch(() => toast('La carte n’a pas pu être donnée. Réessaie.', 2600));
   }
   emote(t: string) {
     this.s.emote(t).catch(() => undefined);
