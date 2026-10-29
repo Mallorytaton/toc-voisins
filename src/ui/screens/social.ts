@@ -183,7 +183,7 @@ async function offerFriend(code: string) {
   const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
     h('div', { class: 'sheet', role: 'dialog', 'aria-label': `Ajouter ${p.nick} à tes amis`, style: { alignItems: 'center', textAlign: 'center' } },
       avatarRing(p.char, p.color, 96, COL[p.color].c, 4, 3, null),
-      h('span', { class: 'sheet__title' }, `Ajouter ${p.nick} à tes amis00a0?`),
+      h('span', { class: 'sheet__title' }, `Ajouter ${p.nick} à tes amis ?`),
       h('span', { class: 'sheet__text' }, 'Vous pourrez vous inviter dans vos salles et discuter.'),
       add,
       button('Plus tard', 'text', close)));
