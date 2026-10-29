@@ -236,6 +236,18 @@
                 ".validate": "newData.val() === 'oui' || newData.val() === 'peut' || newData.val() === 'non'"
               }
             }
+          },
+          "offline": {
+            "$id": {
+              ".write": "auth != null && root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists() && ((!data.exists() && newData.child('by').val() === auth.uid) || !newData.exists())",
+              ".validate": "!newData.exists() || (newData.hasChildren(['winner', 'by', 'at', 'playedAt']) && newData.child('winner').isNumber() && newData.child('winner').val() >= 0 && newData.child('winner').val() < root.child('v2/leagues/' + $code + '/n').val() / 2 && newData.child('playedAt').isNumber())",
+              "votes": {
+                "$uid": {
+                  ".write": "auth != null && auth.uid === $uid && root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists()",
+                  ".validate": "newData.val() === 'oui' || newData.val() === 'non'"
+                }
+              }
+            }
           }
         }
       },

@@ -1,6 +1,7 @@
 // Tournois : création, page du tournoi (équipes fixes, score cumulé, dernières parties).
 import {
-  type League, type Rsvp, answerSoiree, cancelSoiree, createLeague, leagueLink, proposeSoiree, takeLeagueSeat, watchLeague,
+  type League, type OfflineClaim, type Rsvp, answerSoiree, cancelSoiree, claimApproved, createLeague, dropOffline, leagueLink,
+  proposeOffline, proposeSoiree, refusedBy, settleOffline, takeLeagueSeat, voteOffline, watchLeague,
 } from '../../net/league';
 import { currentUid } from '../../net/social';
 import { h, toast } from '../dom';
@@ -203,6 +204,100 @@ function statsCard(l: League): HTMLElement {
   return card;
 }
 
+// ---------- Parties jouées hors de l'app ----------
+
+const p2 = (v: number) => String(v).padStart(2, '0');
+const isoDay = (d: Date) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+
+/** « aujourd'hui », « hier », « le 27 oct. » */
+function dayLabel(t: number) {
+  const d = new Date(t), now = new Date();
+  if (d.toDateString() === now.toDateString()) return 'aujourd’hui';
+  if (d.toDateString() === new Date(now.getTime() - 86_400_000).toDateString()) return 'hier';
+  return 'le ' + dateFmt.format(d);
+}
+
+/** Formulaire « Partie jouée hors de l'app » : l'équipe gagnante et le jour. */
+function openOfflineSheet(l: League) {
+  let winner: number | null = null;
+  const today = isoDay(new Date());
+  const date = h('input', { class: 'field', type: 'date', value: today, max: today, 'aria-label': 'Jour de la partie' });
+  const picks: HTMLElement[] = Array.from({ length: l.n / 2 }, (_, t) => {
+    const seats = teamSeats(l.n, t);
+    const names = seats.map((k) => l.members[l.seats[k]]?.name).filter(Boolean).join(' et ');
+    return h('button', {
+      class: 'team-pick', type: 'button', 'aria-pressed': 'false',
+      onclick: () => { winner = t; picks.forEach((b, i) => b.setAttribute('aria-pressed', String(i === t))); },
+    },
+      duo(SEAT_COLORS[l.n][seats[0]], SEAT_COLORS[l.n][seats[1]]),
+      h('span', { class: 'team-pick__name' }, 'Équipe ' + TEAM_NAMES[t], names && h('small', null, names)));
+  });
+  const close = () => wrap.remove();
+  const send = button('Envoyer aux joueurs', 'primary', async () => {
+    if (winner === null) return toast('Choisis l’équipe gagnante.');
+    if (date.value > today) return toast('Ce jour n’est pas encore arrivé.');
+    // Aujourd'hui : l'heure de la déclaration ; un autre jour : le soir même.
+    const playedAt = !date.value || date.value === today ? Date.now() : new Date(`${date.value}T20:00`).getTime();
+    send.disabled = true;
+    try {
+      await proposeOffline(l.code, winner, playedAt);
+      close();
+      toast('Envoyé ! Chaque joueur doit accepter.');
+    } catch {
+      send.disabled = false;
+      toast('Non enregistré. Réessaie.');
+    }
+  }, { size: 'md', block: true });
+  const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Partie jouée hors de l’app' },
+      h('span', { class: 'sheet__title' }, 'Partie hors de l’app'),
+      h('span', { class: 'sheet__text' }, 'Vous avez joué sur un vrai plateau ? La victoire comptera quand tous les joueurs du tournoi l’auront acceptée.'),
+      h('span', { class: 't-label' }, 'Qui a gagné ?'),
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } }, ...picks),
+      h('label', { style: { display: 'flex', flexDirection: 'column', gap: 6 } }, h('span', { class: 't-label' }, 'Quel jour ?'), date),
+      send,
+      button('Annuler', 'text', close)));
+  (document.getElementById('app') ?? document.body).append(wrap);
+}
+
+const VOTE_PILLS: Record<'oui' | 'non' | 'none', [string, string, string]> = {
+  oui: ['A accepté', '#d4f4eb', '#16705a'], non: ['A refusé', '#ffe3da', '#c9401f'], none: ['En attente', 'var(--app)', 'var(--ink-2)'],
+};
+
+/** Une partie hors de l'app à valider : l'avis de chaque joueur, et ses boutons pour répondre. */
+function offlineCard(l: League, o: OfflineClaim, me: string): HTMLElement {
+  const seats = teamSeats(l.n, o.winner);
+  const voters = l.seats.filter(Boolean);
+  const refused = refusedBy(o);
+  const yes = voters.filter((u) => o.votes[u] === 'oui').length;
+  const name = (u: string) => (u === me ? 'toi' : l.members[u]?.name ?? '…');
+  const seated = voters.includes(me);
+  const drop = (msg: string) => () => dropOffline(l.code, o.id).then(() => toast(msg)).catch(() => toast('Impossible pour l’instant. Réessaie.'));
+  const vote = (v: 'oui' | 'non') => () => voteOffline(l.code, o.id, v).catch(() => toast('Réponse non enregistrée. Réessaie.'));
+  return h('div', { class: 'card claim' + (refused.length ? ' claim--refused' : '') },
+    h('span', { class: 't-label' }, refused.length ? 'Partie hors app refusée' : 'Partie hors app à valider'),
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+      duo(SEAT_COLORS[l.n][seats[0]], SEAT_COLORS[l.n][seats[1]]),
+      h('span', { style: { flex: 1, font: '800 18px/1.1 var(--display)', paddingTop: 2 } }, `Victoire ${TEAM_NAMES[o.winner]}`),
+      !refused.length && h('span', { class: 'claim__count' }, `${yes} / ${voters.length}`)),
+    h('span', { class: 't-body' }, `Jouée ${dayLabel(o.playedAt)}, déclarée par ${name(o.by)}.`),
+    refused.length
+      ? h('span', { class: 't-body', style: { color: 'var(--coral-d)' } }, `Refusée par ${refused.map(name).join(' et ')} : la victoire n’est pas comptée.`)
+      : h('div', { class: 'claim__list' }, ...voters.map((u) => {
+        const m = l.members[u];
+        const [label, bg, fg] = VOTE_PILLS[o.votes[u] ?? 'none'];
+        return h('div', { class: 'claim__row' },
+          m && avatarRing(m.char, m.color, 26, 'transparent', 2, 0, null),
+          h('span', { class: 'claim__name' }, u === me ? `${m?.name ?? 'Toi'} (toi)` : m?.name ?? '…'),
+          h('span', { class: 'claim__pill', style: { background: bg, color: fg } }, label));
+      })),
+    !refused.length && seated && !o.votes[me] && h('div', { style: { display: 'flex', gap: 8 } },
+      button('J’accepte', 'ok', vote('oui'), { size: 'sm', block: true }),
+      button('Je refuse', 'danger', vote('non'), { size: 'sm', block: true })),
+    !refused.length && o.by === me && h('button', { class: 'link-btn', type: 'button', onclick: drop('Déclaration annulée.') }, 'Annuler la déclaration'),
+    refused.length > 0 && seated && h('button', { class: 'link-btn', type: 'button', onclick: drop('Déclaration retirée.') }, 'Retirer'));
+}
+
 /** Équipe t : places t et t + n/2. */
 const teamSeats = (n: number, t: number) => [t, t + n / 2];
 
@@ -254,7 +349,10 @@ export function leagueScreen(code: string): View {
   const codeVal = h('span', { style: { font: '800 26px/1.05 var(--display)', letterSpacing: '.06em' } }, 'T-' + code);
   const teams = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   const soiree = h('div');
+  const claims = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   const stats = h('div');
+  // Déclarations acceptées par tous, en cours d'enregistrement (une seule fois par téléphone)
+  const settling = new Set<string>();
   const hist = h('div', { class: 'card', style: { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 } });
   // Déclaré avant la carte « Règles », qui lit le tournoi dès sa création.
   let league: League | null = null;
@@ -305,14 +403,25 @@ export function leagueScreen(code: string): View {
     hist.hidden = false;
     soiree.replaceChildren(soireeCard(l, me));
     stats.replaceChildren(statsCard(l));
+    // Une déclaration acceptée par tous devient une victoire ; n'importe quel joueur l'enregistre (sans doublon).
+    for (const o of l.offline)
+      if (seated && claimApproved(l, o) && !settling.has(o.id)) {
+        settling.add(o.id);
+        void settleOffline(code, o).catch(() => settling.delete(o.id));
+      }
+    claims.replaceChildren(...l.offline.filter((o) => !claimApproved(l, o)).map((o) => offlineCard(l, o, me)));
     rules.refresh();
-    hist.replaceChildren(h('span', { class: 't-label' }, 'Dernières parties'),
+    const canDeclare = seated && l.seats.filter(Boolean).length >= 2;
+    hist.replaceChildren(
+      h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+        h('span', { class: 't-label' }, 'Dernières parties'),
+        canDeclare && h('button', { class: 'link-btn', type: 'button', onclick: () => openOfflineSheet(l) }, '+ Partie hors app')),
       ...(l.games.length
         ? l.games.slice(0, 4).map((g) => {
           const seats = teamSeats(l.n, g.winner);
           return h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, font: '700 14px var(--text)' } },
             duo(SEAT_COLORS[l.n][seats[0]], SEAT_COLORS[l.n][seats[1]], 12),
-            h('span', { style: { flex: 1 } }, `Victoire ${TEAM_NAMES[g.winner]}`),
+            h('span', { style: { flex: 1 } }, `Victoire ${TEAM_NAMES[g.winner]}`, g.offline && h('span', { class: 'hist-tag' }, 'hors app')),
             h('span', { style: { color: 'var(--ink-3)', font: '800 12px var(--text)' } }, g.at ? dateFmt.format(new Date(g.at)) : ''));
         })
         : [h('span', { class: 't-body' }, 'Aucune partie pour l’instant.')]));
@@ -335,6 +444,7 @@ export function leagueScreen(code: string): View {
         h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('span', { class: 't-mini' }, 'Code du tournoi'), codeVal),
         invite),
       soiree,
+      claims,
       teams,
       stats,
       hist,

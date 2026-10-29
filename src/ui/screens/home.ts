@@ -1,8 +1,8 @@
 // 04 Accueil : profil, choix 4/6 joueurs, partie privée, code de salle ou de tournoi, tes tournois.
 import { XP_PER_LEVEL, draftProfile, levelOf } from '../../app/profile';
-import { type League, parseLeagueCode, watchMyLeagues } from '../../net/league';
+import { type League, parseLeagueCode, refusedBy, watchMyLeagues } from '../../net/league';
 import { RoomSession } from '../../net/session';
-import { watchFriends } from '../../net/social';
+import { currentUid, watchFriends } from '../../net/social';
 import { openAccountSheet } from './account';
 import { soireeLabel } from './league';
 import { DEMO, DEMO_FRIENDS, type Friend } from '../demo';
@@ -93,15 +93,21 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
     go('/salle/' + c);
   };
 
-  // Tes tournois : mêmes équipes, victoires cumulées
+  // Tes tournois : mêmes équipes, victoires cumulées.
+  // Sous le nom : une partie hors app qui attend ton accord, sinon la prochaine soirée.
+  const leagueNote = (l: League) => {
+    const me = currentUid();
+    if (l.seats.includes(me) && l.offline.some((o) => !o.votes[me] && !refusedBy(o).length))
+      return h('span', { class: 'league-row__when' }, 'Une partie hors app à valider');
+    return l.soiree && h('span', { class: 'league-row__when' }, 'Soirée : ' + soireeLabel(l.soiree.at));
+  };
   const leagueList = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } });
   const drawLeagues = (list: League[]) => {
     leagueList.replaceChildren(...(list.length
       ? list.slice(0, 2).map((l) => h('button', {
         class: 'league-row', type: 'button', onclick: () => go('/tournoi/' + l.code),
       },
-        h('span', { class: 'league-row__name' }, l.name,
-          l.soiree && h('span', { class: 'league-row__when' }, 'Soirée : ' + soireeLabel(l.soiree.at))),
+        h('span', { class: 'league-row__name' }, l.name, leagueNote(l)),
         h('span', { class: 'league-row__score' }, ...l.wins.flatMap((w, t) => [
           ...(t ? [h('span', { style: { opacity: 0.5 } }, '·')] : []),
           duo(SEAT_COLORS[l.n][t], SEAT_COLORS[l.n][t + l.n / 2], 10), h('b', { 'aria-label': `${TEAM_NAMES[t]} ${w}` }, w),

@@ -170,6 +170,21 @@
 .trophy > i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .trophy__label { flex: 1; min-width: 0; color: var(--ink-2); }
 .trophy__value { font: 800 15px/1.2 var(--display); text-align: right; }
+/* Tournoi : parties jouées hors de l'app */
+.claim { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 0 0 3px var(--yellow), 0 6px 0 var(--clay-2); }
+.claim--refused { box-shadow: 0 6px 0 var(--clay-2); }
+.claim__count { font: 800 15px var(--display); color: var(--ink-2); padding-top: 2px; }
+.claim__list { display: flex; flex-direction: column; gap: 6px; }
+.claim__row { display: flex; align-items: center; gap: 8px; }
+.claim__row .avatar-ring { padding: 2px; }
+.claim__name { flex: 1; min-width: 0; font: 800 15px/1.1 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 2px; }
+.claim__pill { font: 900 11px var(--text); padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+.link-btn { align-self: center; border: none; background: none; padding: 4px 6px; cursor: pointer; font: 800 13px var(--text); color: var(--primary-bottom); text-decoration: underline; text-underline-offset: 3px; }
+.hist-tag { margin-left: 8px; font: 900 10px var(--text); padding: 3px 7px; border-radius: 999px; background: var(--app); color: var(--ink-2); vertical-align: 2px; }
+.team-pick { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px; border: 3px solid transparent; background: var(--app); cursor: pointer; text-align: left; }
+.team-pick[aria-pressed='true'] { border-color: var(--coral); background: #fff; }
+.team-pick__name { display: flex; flex-direction: column; gap: 2px; font: 800 17px/1.1 var(--display); color: var(--ink); padding-top: 2px; }
+.team-pick__name small { font: 700 13px var(--text); color: var(--ink-2); }
 .league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {
