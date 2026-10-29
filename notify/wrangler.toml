@@ -1,6 +1,8 @@
 # Service de notifications de TOC (Cloudflare Workers, offre gratuite).
 # Mise en ligne : npx wrangler deploy (depuis ce dossier). La clé privée VAPID est un secret :
 #   npx wrangler secret put VAPID_PRIVATE
+# Essai local de la tâche planifiée : npx wrangler dev --test-scheduled (clé dans .dev.vars, jamais versionné),
+# puis http://localhost:8787/__scheduled
 name = "toc-notifs"
 main = "src/index.ts"
 compatibility_date = "2025-06-01"
@@ -10,6 +12,12 @@ VAPID_PUBLIC = "BM9d9hBE1XQtrwchuyk3Bcd9rUuBd82tMvdxoKTCzHiw0gUR55j3Hbtu5POpraCF
 SUBJECT = "https://mallorytaton.github.io/toc-voisins/"
 DB_URL = "https://toc-voisins-default-rtdb.europe-west1.firebasedatabase.app"
 APP_URL = "https://mallorytaton.github.io/toc-voisins/"
+# Clé publique de l'app Firebase (la même que dans l'app) : le service s'y connecte en compte anonyme.
+FIREBASE_API_KEY = "AIzaSyDWmPbWNbmc_qN0AOZsYYhFm-SrRgj276M"
+
+# Rappels de soirée : vérification toutes les 15 minutes.
+[triggers]
+crons = ["*/15 * * * *"]
 
 [[kv_namespaces]]
 binding = "SUBS"

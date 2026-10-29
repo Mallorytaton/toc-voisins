@@ -1,6 +1,8 @@
 // Web Push chiffré (RFC 8291, aes128gcm) et signé (VAPID, RFC 8292), avec WebCrypto seulement :
 // le même code tourne dans le Worker Cloudflare et dans les tests (Node).
 const enc = new TextEncoder();
+/** Octets sur un ArrayBuffer ordinaire (ce que WebCrypto attend). */
+type Bytes = Uint8Array<ArrayBuffer>;
 
 export interface PushSub {
   endpoint: string;
@@ -23,14 +25,14 @@ export const b64u = {
     for (const x of b) s += String.fromCharCode(x);
     return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   },
-  decode(s: string): Uint8Array {
+  decode(s: string): Bytes {
     const t = s.replace(/-/g, '+').replace(/_/g, '/');
     const bin = atob(t + '='.repeat((4 - (t.length % 4)) % 4));
     return Uint8Array.from(bin, (c) => c.charCodeAt(0));
   },
 };
 
-const concat = (...parts: Uint8Array[]) => {
+const concat = (...parts: Uint8Array[]): Bytes => {
   const out = new Uint8Array(parts.reduce((a, p) => a + p.length, 0));
   let o = 0;
   for (const p of parts) {
@@ -41,7 +43,7 @@ const concat = (...parts: Uint8Array[]) => {
 };
 
 /** HKDF-SHA256 (extraction puis expansion) : `len` octets. */
-async function hkdf(salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, len: number) {
+async function hkdf(salt: Bytes, ikm: Bytes, info: Bytes, len: number) {
   const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
   return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, key, len * 8));
 }

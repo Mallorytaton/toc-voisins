@@ -7,3 +7,4 @@ playwright-report
 
 # Cloudflare (fichiers locaux de wrangler)
 notify/.wrangler/
+notify/.dev.vars

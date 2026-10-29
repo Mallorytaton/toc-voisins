@@ -266,6 +266,13 @@
             ".validate": "newData.val() === true"
           }
         }
+      },
+      "soirees": {
+        ".read": "auth != null",
+        "$code": {
+          ".write": "auth != null && (root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists() || (!newData.exists() && data.val() < now - 14400000))",
+          ".validate": "newData.isNumber()"
+        }
       }
     }
   }

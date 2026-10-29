@@ -3,6 +3,7 @@
 //                           wins/<équipe> = nombre de victoires, games/<partie> = { winner, at }
 //                           soiree = { id, at, place, by } (prochaine soirée), rsvp/<soirée>/<uid> = oui | peut | non
 //                           offline/<id> = { winner, by, at, playedAt, votes/<uid> = oui | non } (partie hors de l'app à valider)
+//   soirees/<code>          date de la prochaine soirée (le service de notifications y lit les rappels à envoyer)
 //   myLeagues/<uid>/<code>  true (tournois dont on fait partie)
 // L'équipe t réunit les places t et t + n/2, comme au jeu : les duos restent les mêmes de partie en partie.
 import { get, onValue, ref, runTransaction, serverTimestamp, set, update } from 'firebase/database';
@@ -170,7 +171,18 @@ export async function proposeSoiree(code: string, at: number, place: string) {
     soiree: { id, at, place: place.trim().slice(0, 40), by: uid },
     [`rsvp/${id}/${uid}`]: 'oui',
   });
+  indexed.set(code, at);
+  await set(node('soirees', code), at).catch(() => undefined);
   void notifyOthers(code, uid, 'soiree');
+}
+
+/** Dernière date de soirée inscrite dans l'index par ce téléphone, par tournoi. */
+const indexed = new Map<string, number>();
+/** Une soirée créée avant l'index (ou par une autre version de l'app) y est ajoutée par le premier membre qui la voit. */
+function indexSoiree(code: string, at: number) {
+  if (indexed.get(code) === at) return;
+  indexed.set(code, at);
+  set(node('soirees', code), at).catch(() => indexed.delete(code));
 }
 
 /** Prévient les autres joueurs du tournoi (le service n'envoie qu'à ceux qui n'ont pas l'app sous les yeux). */
@@ -181,6 +193,8 @@ async function notifyOthers(code: string, uid: string, kind: 'soiree' | 'offline
 
 export async function cancelSoiree(code: string) {
   await set(node('leagues', code, 'soiree'), null);
+  indexed.delete(code);
+  await set(node('soirees', code), null).catch(() => undefined);
 }
 
 export async function answerSoiree(code: string, id: string, answer: Rsvp) {
@@ -252,7 +266,7 @@ export async function leaveLeague(code: string) {
 /** Supprime le tournoi pour tout le monde (son créateur seulement) : scores, historique, soirée. */
 export async function deleteLeague(code: string) {
   const uid = await ensureAuth();
-  await update(ref(database()), { [`v2/leagues/${code}`]: null, [`v2/myLeagues/${uid}/${code}`]: null });
+  await update(ref(database()), { [`v2/leagues/${code}`]: null, [`v2/myLeagues/${uid}/${code}`]: null, [`v2/soirees/${code}`]: null });
 }
 
 export async function getLeagueOnce(code: string): Promise<League | null> {
@@ -263,8 +277,12 @@ export function watchLeague(code: string, cb: (l: League | null) => void): () =>
   // On attend la connexion : sans elle, la lecture est refusée (nouveau joueur arrivé par le lien).
   let off = () => {};
   let stopped = false;
-  void ensureAuth().then(() => {
-    if (!stopped) off = onValue(node('leagues', code), (s) => cb(normalize(code, s.val())), () => cb(null));
+  void ensureAuth().then((uid) => {
+    if (!stopped) off = onValue(node('leagues', code), (s) => {
+      const l = normalize(code, s.val());
+      if (l?.soiree && l.members[uid]) indexSoiree(code, l.soiree.at);
+      cb(l);
+    }, () => cb(null));
   }).catch(() => cb(null));
   return () => { stopped = true; off(); };
 }
