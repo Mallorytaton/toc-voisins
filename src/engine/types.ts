@@ -69,6 +69,12 @@ export interface LogEntry {
   card: Card;
 }
 
+/** Dernier coup joué, pour que chaque client rejoue la même animation. */
+export interface LastMove {
+  seat: number;
+  move: Move;
+}
+
 export interface GameState {
   n: number;
   variants: Variants;
@@ -90,6 +96,8 @@ export interface GameState {
   lastCard: Card;
   /** Pions renvoyés à la base par le dernier coup (pour l'animation). */
   lastCaptures: PawnRef[];
+  /** Dernier coup de la donne ('' au début d'une donne). */
+  lastMove: LastMove | '';
   /** Incrémenté à chaque modification (contrôle de concurrence côté Firebase). */
   v: number;
 }

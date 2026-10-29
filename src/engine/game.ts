@@ -29,6 +29,7 @@ export function newGame(n: number, variants: Variants = DEFAULT_VARIANTS, dealer
     log: [],
     lastCard: '',
     lastCaptures: [],
+    lastMove: '',
     v: 0,
   };
 }
@@ -65,6 +66,7 @@ export function deal(st0: GameState, rng: Rng): GameState {
   st.turn = (st.dealer + 1) % st.n;
   st.lastCard = '';
   st.lastCaptures = [];
+  st.lastMove = '';
   st.log = pushLog(st.log, { seat: st.dealer, text: `@${st.dealer} distribue ${size} cartes`, card: '' });
   st.v++;
   return st;
@@ -186,6 +188,7 @@ export function applyMove(st0: GameState, move: Move): GameState {
   }
 
   st.lastCaptures = caps;
+  st.lastMove = { seat, move };
   st.log = pushLog(st.log, { seat, text, card: move.card });
 
   // Victoire ?

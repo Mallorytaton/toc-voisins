@@ -1,6 +1,6 @@
 // Modèle de salle privée commun à la salle locale (démo) et à la salle en ligne (Firebase).
 import { DEMO, DEMO_GUESTS } from '../ui/demo';
-import type { CharId, ColorName } from '../ui/kit/data';
+import { type CharId, type ColorName, SEAT_COLORS } from '../ui/kit/data';
 import { draftProfile } from './profile';
 
 export interface RoomPlayer {
@@ -8,6 +8,7 @@ export interface RoomPlayer {
   char: CharId;
   color: ColorName;
   host: boolean;
+  bot?: boolean;
 }
 
 export interface RoomSnapshot {
@@ -25,6 +26,8 @@ export interface Room {
   /** Lien d'invitation à partager. */
   link(): string;
   launch(): void;
+  /** Partie sur l'appareil : remplit les places libres avec des robots. */
+  fillBots?(): void;
   leave(): void;
 }
 
@@ -63,6 +66,17 @@ export class LocalRoom implements Room {
   }
   link() {
     return inviteLink(this.s.code);
+  }
+  fillBots() {
+    const used = new Set(this.s.seats.map((x) => x?.name));
+    const cast = DEMO_GUESTS.filter((gst) => !used.has(gst.name));
+    // Chaque robot s'assoit de préférence à la place de sa couleur, comme dans la maquette.
+    const take = (seat: number) => {
+      const k = Math.max(0, cast.findIndex((gst) => gst.color === SEAT_COLORS[this.s.n][seat]));
+      return cast.splice(k, 1)[0];
+    };
+    this.s.seats = this.s.seats.map((x, seat) => x ?? { ...take(seat), host: false, bot: true });
+    this.emit();
   }
   launch() {
     if (this.s.seats.some((x) => !x) || this.s.status !== 'waiting') return;

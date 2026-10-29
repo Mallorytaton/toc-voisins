@@ -1,0 +1,132 @@
+/* ==== 06 Plateau de jeu ====
+   La scène garde les coordonnées de la maquette (393 de large, y de la maquette − 50)
+   et s'adapte à l'écran par un facteur d'échelle. */
+
+.game { position: fixed; inset: 0; background: var(--table); overflow: hidden; overflow: clip; touch-action: manipulation; }
+/* overflow: clip empêche le navigateur de faire défiler la scène vers une carte touchée. */
+.game__frame { position: absolute; inset: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; overflow: clip; }
+.game__stage { position: absolute; left: 0; top: 0; width: 393px; height: 750px; transform-origin: 0 0; }
+
+.g-top { position: absolute; left: 16px; right: 16px; top: 6px; height: 50px; display: flex; align-items: center; gap: 10px; }
+.g-top__mid { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.g-top__round { font: 800 11px var(--text); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-4); }
+.g-top__turn { font: 800 19px/1.15 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.g-score { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 20px; background: #fff; box-shadow: 0 4px 0 var(--clay-2); }
+.g-score > div { display: flex; align-items: center; gap: 4px; font: 800 16px/1 var(--display); }
+.g-score > div > b { font: inherit; padding-top: 2px; }
+
+/* Plateau 360 × 360 */
+.board { position: absolute; z-index: 1; left: 16px; top: 82px; width: 360px; height: 360px; }
+.board--shake { animation: tocShake .45s ease-out; }
+.board__wood {
+  position: absolute; inset: 0; border-radius: 44px; background: var(--wood);
+  box-shadow: 0 10px 0 var(--wood-edge), 0 28px 44px rgba(120, 80, 40, .22), inset 0 4px 0 rgba(255, 255, 255, .95), inset 0 -10px 18px rgba(180, 130, 80, .12);
+}
+.board__center { position: absolute; border-radius: 50%; background: var(--center); box-shadow: inset 0 4px 8px rgba(150, 100, 60, .18), 0 2px 0 #fff; }
+.pad { position: absolute; box-shadow: inset 0 2px 4px rgba(120, 80, 40, .12), 0 1px 0 #fff; }
+.pad--glow { animation: tocGlow 1.3s ease-in-out infinite; }
+.hole { position: absolute; border-radius: 50%; }
+.path-dot { position: absolute; border-radius: 50%; background: var(--coral); box-shadow: 0 0 0 2px rgba(255, 255, 255, .85); z-index: 350; }
+
+.pile { position: absolute; inset: 0; pointer-events: none; }
+.pile .pback { position: absolute; left: 119px; top: 142px; }
+.discard {
+  position: absolute; left: 187px; top: 142px; width: 54px; height: 76px; border-radius: 12px; background: #fff;
+  box-shadow: 0 5px 0 var(--clay-2), 0 8px 14px rgba(70, 40, 20, .15);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; transform: rotate(6deg);
+}
+.discard > b { font: 800 30px/1 var(--display); }
+.discard > span { font: 700 16px/1 sans-serif; }
+.discard--thump { animation: tocThump .35s ease-out; }
+.discard--empty { background: rgba(255, 255, 255, .45); box-shadow: inset 0 2px 6px rgba(120, 80, 40, .15); }
+
+.ghost { position: absolute; border-radius: 50%; border: 3px dashed var(--coral); background: rgba(255, 255, 255, .6); animation: tocDash 1s ease-in-out infinite; z-index: 400; pointer-events: none; }
+
+.pawn { position: absolute; transition: left .5s ease-out, top .5s ease-out, translate .3s ease-out; }
+.pawn > .bille { width: 100%; height: 100%; }
+.pawn--pick { cursor: pointer; }
+.pawn--pick::before { content: ''; position: absolute; inset: -9px; border-radius: 50%; }
+.pawn--cand > .bille { box-shadow: 0 0 0 2.5px #fff, 0 0 0 5px var(--c), 0 6px 10px rgba(0, 0, 0, .22); }
+
+.seat-av { position: absolute; z-index: 900; transition: transform .4s cubic-bezier(.3, 1.6, .5, 1); }
+.seat-av__pulse { position: absolute; inset: -6px; border-radius: 50%; animation: tocRing 1.3s ease-out infinite; }
+.seat-av__disc { position: absolute; inset: -3px; border-radius: 50%; background: #fff; }
+.seat-av__cards {
+  position: absolute; top: -6px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--ink); color: #fff;
+  font: 900 10px/18px var(--text); text-align: center; box-shadow: 0 0 0 2px #fff; padding: 0 4px;
+}
+.seat-av__name {
+  position: absolute; white-space: nowrap; font: 900 10px/1 var(--text); padding: 4px 7px; border-radius: 999px;
+  background: #fff; color: var(--ink); box-shadow: 0 2px 0 var(--clay-2);
+}
+.seat-av--off { filter: grayscale(.8); opacity: .7; }
+.emote-bubble {
+  position: absolute; z-index: 1000; transform: translateX(-50%); white-space: nowrap; font: 800 15px/1 var(--display);
+  padding: 9px 14px 6px; border-radius: 18px; background: var(--ink); color: #fff; box-shadow: 0 6px 14px rgba(43, 42, 61, .25);
+  animation: tocUp .35s cubic-bezier(.3, 1.5, .5, 1) both; pointer-events: none;
+}
+.fx-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+
+.g-toast {
+  position: absolute; left: 50%; top: 248px; z-index: 30; white-space: nowrap; font: 800 19px/1 var(--display);
+  padding: 13px 20px 10px; border-radius: 20px; background: #fff; color: var(--ink);
+  box-shadow: 0 6px 0 var(--clay-2), 0 16px 30px rgba(70, 40, 20, .2); animation: tocUp .35s cubic-bezier(.3, 1.5, .5, 1) both; pointer-events: none;
+}
+
+.pop {
+  position: absolute; left: 16px; z-index: 35; padding: 12px; border-radius: 24px; background: #fff;
+  box-shadow: 0 8px 0 var(--clay-2), 0 20px 36px rgba(70, 40, 20, .2); animation: tocIn .25s ease-out both;
+}
+.pop--emotes { top: 338px; width: 270px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pop--emotes > button {
+  height: 44px; border: none; border-radius: 14px; background: var(--muted-bg); color: var(--ink);
+  font: 800 15px/1 var(--display); padding-top: 2px; cursor: pointer;
+}
+.pop--emotes > button:active { transform: scale(.95); background: var(--coral-l); }
+.pop--choice { right: 16px; bottom: calc(750px - 462px); display: flex; flex-direction: column; gap: 10px; }
+.pop__title { font: 800 13px var(--text); color: var(--ink-2); letter-spacing: .08em; text-transform: uppercase; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips > button {
+  min-width: 44px; height: 40px; padding: 2px 12px 0; border: none; border-radius: 14px; background: var(--muted-bg); color: var(--ink);
+  font: 800 17px/1 var(--display); cursor: pointer; box-shadow: 0 3px 0 var(--clay);
+}
+.chips > button[aria-pressed='true'] { background: var(--coral); color: #fff; box-shadow: 0 3px 0 var(--coral-d); }
+.split-row { display: flex; align-items: center; gap: 10px; }
+.split-row > .bille { margin-right: 2px; }
+.split-row__who { flex: 1; font: 800 14px var(--text); color: var(--ink-2); }
+.split-row__n { width: 26px; text-align: center; font: 800 22px/1 var(--display); padding-top: 3px; }
+.step-btn {
+  width: 38px; height: 38px; border: none; border-radius: 12px; background: var(--muted-bg); color: var(--ink); cursor: pointer;
+  font: 800 22px/1 var(--display); padding-top: 2px; box-shadow: 0 3px 0 var(--clay);
+}
+.step-btn:disabled { opacity: .35; cursor: default; }
+
+.g-actions { position: absolute; left: 16px; right: 16px; top: 470px; display: flex; align-items: center; gap: 10px; }
+.g-hint {
+  flex: 1; min-width: 0; min-height: 54px; padding: 8px 14px; border-radius: 20px; background: #fff;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px; box-shadow: 0 4px 0 var(--clay-2);
+}
+.g-hint > b { font: 800 16px/1.1 var(--display); }
+.g-hint > span { font: 600 12px/1.3 var(--text); color: var(--ink-2); text-wrap: pretty; }
+.g-play { animation: tocPop .35s cubic-bezier(.3, 1.5, .5, 1) both; flex: none; height: 54px; padding: 3px 18px 0; font-size: 18px; border-radius: 20px; }
+.emote-btn { position: relative; }
+.emote-btn > i { position: relative; width: 26px; height: 20px; border-radius: 9px; background: var(--ink); display: flex; align-items: center; justify-content: center; gap: 3px; }
+.emote-btn > i > span { width: 4px; height: 4px; border-radius: 50%; background: #fff; }
+.emote-btn > i::after { content: ''; position: absolute; left: 5px; bottom: -4px; width: 8px; height: 8px; background: var(--ink); transform: rotate(45deg); border-radius: 2px; }
+.emote-btn[aria-expanded='true'] { background: var(--coral-l); }
+
+.g-timer { position: absolute; left: 86px; right: 16px; top: 538px; height: 5px; border-radius: 3px; background: rgba(43, 42, 61, .08); overflow: hidden; }
+.g-timer > div { width: 100%; height: 100%; border-radius: 3px; background: var(--coral); transform-origin: left; }
+
+.hand { position: absolute; left: 0; top: 556px; width: 393px; height: 200px; }
+.hand .pcard { position: absolute; transform-origin: 50% 120%; }
+.hand .pcard--deal { animation: tocDeal .6s cubic-bezier(.2, 1.25, .4, 1) both; }
+@media (hover: hover) { .hand .pcard:not([aria-pressed='true']):hover { translate: 0 -8px; } }
+
+.sheet-wrap { position: fixed; inset: 0; z-index: 45; background: rgba(43, 42, 61, .35); backdrop-filter: blur(6px); display: flex; flex-direction: column; justify-content: flex-end; }
+.sheet {
+  width: 100%; max-width: 430px; margin: 0 auto; padding: 26px 22px calc(var(--safe-bottom) + 32px); border-radius: 36px 36px 0 0;
+  background: var(--app); display: flex; flex-direction: column; gap: 12px; animation: tocIn .3s ease-out both;
+}
+.sheet__title { font: 800 30px/1 var(--display); }
+.sheet__text { font: 600 15px var(--text); color: var(--ink-2); margin-bottom: 8px; }

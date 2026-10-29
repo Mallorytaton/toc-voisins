@@ -5,9 +5,11 @@ import './ui/kit/tokens.css';
 import './ui/kit/kit.css';
 import './ui/screens/screens.css';
 import { getProfile } from './app/profile';
-import { LocalRoom } from './app/room';
-import { toast } from './ui/dom';
+import { type GameSource, LocalGame } from './app/game-source';
+import { LocalRoom, type RoomSnapshot } from './app/room';
 import { ROUTES, go } from './ui/nav';
+import { gameScreen } from './ui/screens/game';
+import './ui/screens/game.css';
 import { homeScreen, savedMode } from './ui/screens/home';
 import { onboardScreen, pickScreen, splashScreen } from './ui/screens/intro';
 import { roomScreen } from './ui/screens/room';
@@ -15,6 +17,20 @@ import { friendsScreen, rankingScreen } from './ui/screens/social';
 import { vitrineScreen } from './ui/screens/vitrine';
 
 registerSW({ immediate: true });
+
+/** Partie en cours (une seule à la fois). */
+let currentGame: GameSource | null = null;
+
+// Accès de test automatisé (?debug dans l'adresse).
+if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __toc: { game: () => currentGame } });
+
+function startLocalGame(s: RoomSnapshot) {
+  const p = getProfile()!;
+  currentGame = new LocalGame(s.code, s.seats.map((x, k) => k === s.mySeat
+    ? { name: p.nick, char: p.char, color: p.color, bot: false, online: true }
+    : { name: x!.name, char: x!.char, color: x!.color, bot: true, online: false }));
+  go('/partie');
+}
 
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | null = null;
@@ -51,11 +67,12 @@ function router() {
   if (room) {
     const n = room[1] === 'nouvelle' ? (params.get('n') === '6' ? 6 : params.get('n') === '4' ? 4 : savedMode()) : savedMode();
     const r = new LocalRoom(n, room[1] === 'nouvelle' ? undefined : room[1]);
-    return setView(roomScreen(r, () => {
-      // Le plateau arrive à l'étape suivante.
-      toast('Le plateau arrive bientôt !');
-      go(ROUTES.home);
-    }));
+    return setView(roomScreen(r, () => startLocalGame(r.snapshot())));
+  }
+  if (path === '/partie') {
+    if (!currentGame) return go(ROUTES.home);
+    const game = currentGame;
+    return setView(gameScreen(game, { onQuit: () => { currentGame = null; go(ROUTES.home); } }));
   }
   switch (path) {
     case ROUTES.friends:

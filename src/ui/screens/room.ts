@@ -26,7 +26,7 @@ function seatView(s: RoomSnapshot, seat: number, room: Room): HTMLElement {
       h('button', { class: 'seat__invite', type: 'button', onclick: () => shareInvite(room) },
         h('span', null, 'En attente…'), h('span', null, 'Inviter')));
   const me = seat === s.mySeat;
-  const tag = me ? (p.host ? 'Toi · hôte' : 'Toi') : p.host ? 'Hôte' : 'Prêt·e';
+  const tag = me ? (p.host ? 'Toi · hôte' : 'Toi') : p.host ? 'Hôte' : p.bot ? 'Robot' : 'Prêt·e';
   return h('div', { class: 'seat', style: { background: tint.l } },
     avatarRing(p.char, p.color, 38, tint.c, 3, 2, null),
     h('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
@@ -50,6 +50,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
   const teams = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   const status = h('span', { class: 'status-line' });
   const launch = button('', 'primary', () => room.launch(), { size: 'lg', block: true });
+  const bots = button('Compléter avec des robots', 'text', () => room.fillBots?.());
   const overlay = h('div', { class: 'count-overlay', hidden: true }, h('span', null, 'La partie commence'));
   let counting = false;
 
@@ -74,6 +75,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     launch.textContent = full ? (host ? 'Lancer la partie' : 'L’hôte lance la partie…') : 'En attente…';
     launch.className = 'btn btn--lg btn--block ' + (full && host ? 'btn--primary' : 'btn--off');
     launch.disabled = !full || !host;
+    bots.hidden = full || !host || !room.fillBots;
     if (s.status === 'countdown' && !counting) countdown();
   };
 
@@ -103,6 +105,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     teams,
     h('div', { class: 'spacer' }),
     status,
+    bots,
     launch,
     overlay);
   return { el, cleanup: () => { unsub(); room.leave(); } };
