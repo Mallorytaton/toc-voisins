@@ -33,21 +33,23 @@ Contre des robots seulement, il n'y a pas de minuteur : les robots t'attendent. 
 - **16 trous par joueur**, comme sur le vrai plateau. On sort sur son trou de départ, on fait le tour, puis on entre dans ses 4 trous de maison depuis le trou juste avant son départ.
 - Donnes de 5, 4 puis 4 cartes (paquet neuf tous les trois tours ; deux paquets à 6 joueurs). Au début de chaque donne, chacun passe une carte face cachée à son partenaire.
 - On doit jouer une carte à son tour. Sans coup possible, on défausse sa main et on passe jusqu'à la donne suivante.
-- **As** : sortir ou avancer de 1. **Roi** : sortir ou avancer de 13. **Dame** : 12. **Valet** : échanger une de ses billes avec une autre bille du circuit. **10, 9, 8, 6, 5, 3, 2** : avancer d'autant. **4** : reculer de 4. **7** : 7 pas à répartir entre ses billes, qui prennent toutes les billes dépassées ou atteintes. **Joker** : n'importe quelle carte.
+- **As** : sortir ou avancer de 1. **Roi** : sortir seulement. **4** : reculer de 4. **7** : avancer un pion de 7, ou partager les 7 pas entre deux pions ; il ne prend pas les pions qu'il dépasse. **Valet** : échanger un de ses pions avec un autre pion du circuit (de son équipe ou adverse). **Toutes les autres cartes** avancent de leur valeur (Dame 12, 10, 9, 8, 6, 5, 3, 2). Pas de joker.
 - S'arrêter sur une bille la renvoie dans sa réserve (même celle d'un partenaire). Une bille tout juste sortie bloque son trou de départ.
 - Entrée en maison au compte exact, sans sauter de bille, jamais en reculant.
 - Quand un joueur a rentré ses 4 billes, il joue celles de son partenaire. L'équipe gagne quand toutes ses billes sont rentrées.
 
-### Variantes (moteur)
+### Variantes (« Règles » dans la salle, ou à la création d'un tournoi)
 
 | Variante | Par défaut | Effet |
 |---|---|---|
-| `startBlocks` | oui | La bille tout juste sortie ne peut être ni dépassée ni prise. |
+| `kingThirteen` | non | Le Roi avance aussi de 13. |
 | `jackEleven` | non | Le Valet avance de 11 au lieu d'échanger. |
+| `sevenAnyPawns` | non | Le 7 se partage entre autant de pions qu'on veut. |
+| `sevenNoPassCapture` | oui | Le 7 ne prend que les billes sur lesquelles on s'arrête (désactivé : il prend aussi celles qu'il dépasse). |
+| `jokers` | 0 | 2 jokers par paquet, qui remplacent n'importe quelle carte. |
 | `fiveOthers` | non | Le 5 fait avancer de 5 la bille d'un autre joueur. |
-| `sevenNoPassCapture` | non | Le 7 ne prend que les billes sur lesquelles on s'arrête (règle de la maquette). |
-| `jokers` | 2 | 0, 2 ou 4 jokers par paquet (0 dans la maquette). |
-| `discardOne` | non | Sans coup possible, on défausse une seule carte au choix (règle de la maquette). |
+| `discardOne` | non | Sans coup possible, on défausse une seule carte au choix. |
+| `startBlocks` | oui | La bille tout juste sortie ne peut être ni dépassée ni prise. |
 
 ## Technique
 
