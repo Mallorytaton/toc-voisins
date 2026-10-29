@@ -1,6 +1,7 @@
 // Modèle de salle privée commun à la salle locale (démo) et à la salle en ligne (Firebase).
 import { DEMO, DEMO_GUESTS } from '../ui/demo';
 import { type CharId, type ColorName, SEAT_COLORS } from '../ui/kit/data';
+import { DEFAULT_VARIANTS, type Variants } from '../engine';
 import { draftProfile } from './profile';
 
 export interface RoomPlayer {
@@ -22,6 +23,8 @@ export interface RoomSnapshot {
   status: 'waiting' | 'countdown' | 'playing';
   /** Partie de tournoi : son nom. */
   title?: string;
+  /** Règles de la partie (variantes). */
+  variants: Variants;
 }
 
 export interface Room {
@@ -34,6 +37,8 @@ export interface Room {
   fillBots?(): void;
   /** Reprend la place d'un joueur déconnecté pendant une partie. */
   takeSeat?(seat: number): Promise<void>;
+  /** L'hôte choisit les règles avant de lancer. */
+  setVariants?(v: Variants): void;
   leave(): void;
 }
 
@@ -51,7 +56,7 @@ export class LocalRoom implements Room {
     const p = draftProfile();
     const seats: (RoomPlayer | null)[] = Array(n).fill(null);
     seats[0] = { name: p.nick || 'Toi', char: p.char, color: p.color, host: true };
-    this.s = { code, n, seats, mySeat: 0, status: 'waiting' };
+    this.s = { code, n, seats, mySeat: 0, status: 'waiting', variants: { ...DEFAULT_VARIANTS } };
     if (DEMO) {
       // Ordre d'arrivée de la maquette : le partenaire d'abord, puis les adversaires.
       const order = n === 4 ? [2, 3, 1] : [3, 4, 1, 5, 2];
@@ -72,6 +77,10 @@ export class LocalRoom implements Room {
   }
   link() {
     return inviteLink(this.s.code);
+  }
+  setVariants(v: Variants) {
+    this.s.variants = v;
+    this.emit();
   }
   fillBots() {
     const used = new Set(this.s.seats.map((x) => x?.name));

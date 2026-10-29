@@ -26,13 +26,13 @@ const codeA = `FREDO#${rnd()}`;
 const a = await player('frédo', { nick: 'Frédo', char: 'tuque', color: 'coral', level: 1, xp: 0, tokens: 0, friendCode: codeA });
 const b = await player('mimi', { nick: 'Mimi', char: 'lunettes', color: 'yellow', level: 1, xp: 0, tokens: 0, friendCode: `MIMI#${rnd()}` });
 
-await a.page.goto(base + '#/gang');
-await b.page.goto(base + '#/gang');
+await a.page.goto(base + '#/amis');
+await b.page.goto(base + '#/amis');
 await a.page.waitForTimeout(2500);
 step('Mimi ajoute Frédo avec son code ' + codeA);
 await b.page.getByLabel('Code ami à ajouter').fill(codeA);
 await b.page.getByRole('button', { name: 'Ajouter' }).click();
-await b.page.getByText('Frédo est dans ta gang !').waitFor({ timeout: 15000 });
+await b.page.getByText('Frédo fait partie de tes amis !').waitFor({ timeout: 15000 });
 await a.page.getByText('Mimi').waitFor({ timeout: 15000 });
 await a.page.waitForTimeout(800);
 await shot(a, '01-gang');
@@ -52,7 +52,7 @@ step('Les deux quittent la partie et ouvrent le chat d’équipe');
 for (const p of [a, b]) {
   await p.page.getByRole('button', { name: 'Pause' }).click();
   await p.page.getByRole('button', { name: 'Quitter la partie' }).click();
-  await p.page.goto(base + '#/gang');
+  await p.page.goto(base + '#/amis');
   await p.page.getByRole('button', { name: 'Chat d’équipe' }).click();
 }
 await a.page.getByLabel('Message').fill('Salut partner, bien joué !');

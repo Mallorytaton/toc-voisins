@@ -221,6 +221,9 @@
               ".write": "auth != null && root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists() && !data.exists()",
               ".validate": "newData.hasChildren(['winner', 'at']) && newData.child('winner').isNumber()"
             }
+          },
+          "variants": {
+            ".write": "auth != null && !data.exists()"
           }
         }
       },

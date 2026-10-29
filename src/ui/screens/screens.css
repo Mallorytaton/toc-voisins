@@ -117,6 +117,21 @@
   box-shadow: 0 6px 0 var(--clay-2), 0 16px 30px rgba(70, 40, 20, .2); animation: tocIn .3s ease-out both;
 }
 .invite-banner > span { flex: 1; font: 800 15px/1.25 var(--display); }
+/* Règles de la partie : carte résumé et lignes de variantes */
+.variants-card {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 10px 16px; border: none; border-radius: 20px;
+  background: #fff; color: var(--ink); cursor: pointer; text-align: left; box-shadow: 0 4px 0 var(--clay);
+}
+.variants-card:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--clay); }
+.variants-card__title { font: 800 16px/1 var(--display); padding-top: 2px; }
+.variants-card__sum { flex: 1; min-width: 0; font: 700 13px var(--text); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.variants-card__go { font: 800 13px var(--text); color: var(--primary-bottom); white-space: nowrap; }
+.variant { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: #fff; cursor: pointer; }
+.variant--ro { cursor: default; }
+.variant__text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.variant__text > b { font: 800 15px/1.2 var(--display); }
+.variant__text > span { font: 600 12px/1.35 var(--text); color: var(--ink-2); }
+.sheet--tall { gap: 10px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; border: none; border-radius: 16px;

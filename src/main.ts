@@ -66,7 +66,7 @@ function startLocalGame(s: RoomSnapshot) {
   const p = getProfile()!;
   currentGame = new LocalGame(s.code, s.seats.map((x, k) => k === s.mySeat
     ? { name: p.nick, char: p.char, color: p.color, bot: false, online: true }
-    : { name: x!.name, char: x!.char, color: x!.color, bot: true, online: false }));
+    : { name: x!.name, char: x!.char, color: x!.color, bot: true, online: false }), s.variants);
   go('/partie');
 }
 
@@ -186,7 +186,7 @@ async function openOnlineRoom(code: string, n: 4 | 6, ligue: string | null = nul
         // Partie de tournoi : places fixes de chaque membre, invitation envoyée aux autres.
         const l = await getLeagueOnce(ligue);
         if (!l) throw new Error('Ce tournoi n’existe plus.');
-        currentSession = await RoomSession.create(l.n, undefined, { league: l.code, title: l.name, reserved: l.seats });
+        currentSession = await RoomSession.create(l.n, l.variants, { league: l.code, title: l.name, reserved: l.seats });
         const me = currentSession.uid;
         for (const u of l.seats) if (u && u !== me) inviteFriend(u, currentSession.code).catch((e) => console.warn('invitation', e));
       } else currentSession = await RoomSession.create(n);

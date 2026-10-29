@@ -169,6 +169,8 @@ export function sevenSplits(ctx0: Ctx, seat: number, cap = SEVEN_CAP): SevenPart
     for (let i = 0; i < PAWNS_PER_SEAT; i++) {
       const key = cs + ':' + i;
       if (used.includes(key) || inBase(ctx.pawns[cs][i].p)) continue;
+      // Règle de base : le 7 se partage entre deux pions au plus.
+      if (!ctx.v.sevenAnyPawns && used.length >= 2) continue;
       const ref = { s: cs, i };
       for (let k = 1; k <= remaining; k++) {
         const c2: Ctx = { ...ctx, pawns: clonePawns(ctx.pawns) };
@@ -212,6 +214,8 @@ export function movesForRank(st: GameState, seat: number, rank: Rank, cap?: numb
 
   let forward = FORWARD[rank];
   if (rank === 'J' && v.jackEleven) forward = 11;
+  // Règle de base : le Roi sert seulement à sortir.
+  if (rank === 'K' && !v.kingThirteen) forward = undefined;
   if (rank === '5' && v.fiveOthers) {
     for (let s = 0; s < n; s++) {
       if (s === seat) continue;

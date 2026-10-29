@@ -46,8 +46,19 @@ describe('cartes de sortie', () => {
     expect(applyMove(st, m).pawns[0][0].p).toBe(11);
   });
 
-  it('le Roi sort un pion ou avance de 13', () => {
+  it('règle de base : le Roi sert seulement à sortir', () => {
     const st = mk(['KS0']);
+    put(st, 0, 0, 3);
+    const ms = movesOf(st, 'KS0');
+    expect(ms.every((m) => m.kind === 'exit')).toBe(true);
+    expect(ms.length).toBeGreaterThan(0);
+    // Tous les pions sur le parcours : le Roi ne joue pas.
+    for (let i = 0; i < 4; i++) put(st, 0, i, 3 + i * 5);
+    expect(movesOf(st, 'KS0')).toHaveLength(0);
+  });
+
+  it('variante : le Roi sort un pion ou avance de 13', () => {
+    const st = mk(['KS0'], { kingThirteen: true });
     put(st, 0, 0, 3);
     const ms = movesOf(st, 'KS0');
     expect(ms.some((m) => m.kind === 'exit')).toBe(true);
@@ -234,8 +245,8 @@ describe('le 7', () => {
     expect(after.pawns[0][1].p).toBe(34);
   });
 
-  it('prend les pions dépassés et atteints', () => {
-    const st = mk(['7S0']);
+  it('variante : prend les pions dépassés et atteints', () => {
+    const st = mk(['7S0'], { sevenNoPassCapture: false });
     put(st, 0, 0, 10);
     putSq(st, 1, 0, 12); // dépassé
     putSq(st, 2, 0, 17); // atteint
@@ -283,8 +294,38 @@ describe('le 7', () => {
   });
 });
 
+describe('le 7 sur deux pions au plus (règle de base)', () => {
+  it('se partage entre deux pions, pas trois', () => {
+    const st = mk(['7S0']);
+    put(st, 0, 0, 10);
+    put(st, 0, 1, 20);
+    put(st, 0, 2, 30);
+    const ms = movesOf(st, '7S0').filter((m) => m.kind === 'seven');
+    expect(ms.some((m) => m.kind === 'seven' && m.parts.length === 2)).toBe(true);
+    expect(ms.every((m) => m.kind === 'seven' && new Set(m.parts.map((p) => p.pawn.i)).size <= 2)).toBe(true);
+    const three = { kind: 'seven' as const, card: '7S0', as: '7' as const, parts: [0, 1, 2].map((i) => ({ pawn: { s: 0, i }, steps: i === 0 ? 3 : 2 })) };
+    expect(() => applyMove(st, three)).toThrow();
+  });
+
+  it('variante : sur autant de pions qu’on veut', () => {
+    const st = mk(['7S0'], { sevenAnyPawns: true });
+    put(st, 0, 0, 10);
+    put(st, 0, 1, 20);
+    put(st, 0, 2, 30);
+    expect(movesOf(st, '7S0').some((m) => m.kind === 'seven' && m.parts.length === 3)).toBe(true);
+  });
+
+  it('ne prend pas les pions dépassés', () => {
+    const st = mk(['7S0']);
+    put(st, 0, 0, 10);
+    putSq(st, 1, 0, 12);
+    const m = movesOf(st, '7S0').find((x) => x.kind === 'seven' && x.parts.length === 1)!;
+    expect(applyMove(st, m).pawns[1][0].p).not.toBe(-1);
+  });
+});
+
 describe('le Valet', () => {
-  it('échange deux pions du parcours', () => {
+  it('règle de base : échange un de ses pions avec un pion du parcours (partenaire ou adversaire)', () => {
     const st = mk(['JS0']);
     put(st, 0, 0, 10);
     putSq(st, 1, 0, 40);
@@ -292,6 +333,16 @@ describe('le Valet', () => {
     const after = applyMove(st, m);
     expect(after.pawns[0][0].p).toBe(40);
     expect(after.pawns[1][0].p).toBe(progressAt(4, 1, 10));
+  });
+
+  it('échange aussi avec un pion de son partenaire', () => {
+    const st = mk(['JS0']);
+    put(st, 0, 0, 10);
+    putSq(st, 2, 0, 45);
+    const m = find(st, 'JS0', (x) => x.kind === 'swap' && x.target.s === 2);
+    const after = applyMove(st, m);
+    expect(after.pawns[0][0].p).toBe(45);
+    expect(after.pawns[2][0].p).toBe(progressAt(4, 2, 10));
   });
 
   it("n'échange ni avec un pion en maison, ni à la base, ni protégé", () => {

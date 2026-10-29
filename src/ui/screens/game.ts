@@ -413,7 +413,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     hand.replaceChildren(...cards.map((card, i) => {
       const m = i - (n - 1) / 2, on = sel === i;
       const el = playingCard(card, {
-        selected: on, jackEleven: view.variants.jackEleven, fiveOthers: view.variants.fiveOthers,
+        selected: on, ...view.variants,
         onclick: () => {
           if (!active) return toast('Patience, c’est pas ton tour !');
           if (sel === i) clearSel();

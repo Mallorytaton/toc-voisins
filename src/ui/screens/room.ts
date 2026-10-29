@@ -4,6 +4,7 @@ import { h, toast } from '../dom';
 import { COL, SEAT_COLORS, TEAM_NAMES } from '../kit/data';
 import { avatarRing, backButton, button, duo } from '../kit/kit';
 import { ROUTES, go } from '../nav';
+import { variantsCard } from './rules';
 
 async function shareInvite(room: Room) {
   const url = room.link();
@@ -54,6 +55,11 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
   }, { size: 'sm' });
 
   const teams = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
+  // Règles : l'hôte les choisit avant de lancer (celles d'un tournoi sont fixées à sa création).
+  const rules = variantsCard(
+    () => room.snapshot().variants,
+    () => { const s = room.snapshot(); return !!s.seats[s.mySeat]?.host && s.status === 'waiting' && !s.title && !!room.setVariants; },
+    (v) => room.setVariants?.(v));
   const status = h('span', { class: 'status-line' });
   const launch = button('', 'primary', () => room.launch(), { size: 'lg', block: true });
   const bots = button('Compléter avec des robots', 'text', () => room.fillBots?.());
@@ -84,6 +90,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     launch.disabled = !full || !host;
     bots.hidden = full || !host || !room.fillBots;
     launch.hidden = s.status === 'playing';
+    rules.refresh();
     if (s.status === 'countdown' && !counting) countdown();
     // Partie déjà lancée (retour dans la salle, reconnexion) : direction le plateau.
     if (s.status === 'playing' && s.mySeat >= 0 && !counting) {
@@ -117,6 +124,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
         h('span', { style: { font: '800 28px/1.05 var(--display)', letterSpacing: '.06em' } }, 'TOC-' + s0.code)),
       copyBtn),
     teams,
+    rules.el,
     h('div', { class: 'spacer' }),
     status,
     bots,

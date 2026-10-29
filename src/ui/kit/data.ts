@@ -71,6 +71,10 @@ export interface CardOptions {
   jackEleven?: boolean;
   /** Variante « 5 pour un autre joueur » */
   fiveOthers?: boolean;
+  /** Variante « le Roi avance aussi de 13 » */
+  kingThirteen?: boolean;
+  /** Variante « le 7 sur autant de pions qu'on veut » */
+  sevenAnyPawns?: boolean;
 }
 
 /** Apparence d'une carte du moteur ("KH0", "10S1", "XJ3"). */
@@ -84,17 +88,17 @@ export function cardLook(card: string, o: CardOptions = {}): CardLook {
     case 'A':
       return { r: 'A', s, red, t: 'As', badge: 'Sortir', ...OUT, rule: 'Sors un pion de ta réserve, ou avance de 1.' };
     case 'K':
-      return { r: 'R', s, red, t: 'Roi', badge: 'Sortir', ...OUT, rule: 'Sors un pion de ta réserve, ou avance de 13.' };
+      return { r: 'R', s, red, t: 'Roi', badge: 'Sortir', ...OUT, rule: o.kingThirteen ? 'Sors un pion de ta réserve, ou avance de 13.' : 'Sors un pion de ta réserve.' };
     case 'Q':
       return { r: 'D', s, red, t: 'Dame', badge: '+12', ...BIG, rule: 'Avance de 12 cases.' };
     case 'J':
       return o.jackEleven
         ? { r: 'V', s, red, t: 'Valet', badge: '+11', ...BIG, rule: 'Avance de 11 cases.' }
-        : { r: 'V', s, red, t: 'Valet', badge: 'Échange', ...SWAP, rule: 'Échange un de tes pions avec un autre pion du circuit.' };
+        : { r: 'V', s, red, t: 'Valet', badge: 'Échange', ...SWAP, rule: 'Échange un de tes pions avec un autre pion, de ton équipe ou adverse.' };
     case '4':
       return { r: '4', s, red, t: 'Le 4', badge: 'Recule 4', ...BACK, rule: 'Recule de 4 cases. Le raccourci des pros.' };
     case '7':
-      return { r: '7', s, red, t: 'Le 7', badge: 'Divise', ...SPLIT, rule: 'Avance de 7, ou partage les 7 entre tes pions.' };
+      return { r: '7', s, red, t: 'Le 7', badge: 'Divise', ...SPLIT, rule: o.sevenAnyPawns ? 'Avance de 7, ou partage les 7 entre tes pions.' : 'Avance de 7, ou partage les 7 entre deux pions.' };
     case 'X':
       return { r: '★', s: '★', red: false, t: 'Joker', badge: 'Joker', ...JOKER, rule: 'Joue-la comme n’importe quelle carte.' };
     case '5':

@@ -314,6 +314,7 @@ export class RoomSession implements Room {
       mySeat: this.mySeat,
       status: r.meta.status,
       title: r.meta.title,
+      variants: r.meta.variants,
     };
   }
 
@@ -324,6 +325,12 @@ export class RoomSession implements Room {
 
   link() {
     return inviteLink(this.code);
+  }
+
+  setVariants(v: Variants) {
+    const r = this.room;
+    if (!r || !this.isHost || r.meta.status !== 'waiting' || r.meta.league) return;
+    update(node('rooms', this.code, 'meta'), { variants: v }).catch((e) => toast('Règles non enregistrées : ' + e.message));
   }
 
   launch() {

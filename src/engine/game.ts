@@ -101,6 +101,7 @@ export function expectedSteps(v: Variants, as: Rank): number {
     A: 1, '2': 2, '3': 3, '4': -4, '5': 5, '6': 6, '8': 8, '9': 9, '10': 10, Q: 12, K: 13,
   };
   if (as === 'J') return v.jackEleven ? 11 : 0;
+  if (as === 'K') return v.kingThirteen ? 13 : 0;
   return fwd[as] ?? 0;
 }
 
@@ -176,6 +177,8 @@ export function applyMove(st0: GameState, move: Move): GameState {
         break;
       case 'seven':
         if (move.as !== '7') throw new Error('7 invalide');
+        if (!st.variants.sevenAnyPawns && new Set(move.parts.map((p) => `${p.pawn.s}.${p.pawn.i}`)).size > 2)
+          throw new Error('Le 7 se partage entre deux pions au plus');
         res = doSeven(ctx, seat, move.parts);
         text = `@${seat} répartit le 7 (${move.parts.map((p) => p.steps).join(' + ')})${move.as !== rankOf(move.card) ? ' avec un Joker' : ''}`;
         break;

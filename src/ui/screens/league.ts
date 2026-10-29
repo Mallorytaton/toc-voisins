@@ -6,6 +6,8 @@ import { COL, SEAT_COLORS, TEAM_NAMES } from '../kit/data';
 import { avatarRing, backButton, button, duo, segmented } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { savedMode } from './home';
+import { variantsCard } from './rules';
+import { DEFAULT_VARIANTS, type Variants } from '../../engine';
 
 type View = { el: HTMLElement; cleanup: () => void };
 
@@ -16,12 +18,14 @@ const teamSeats = (n: number, t: number) => [t, t + n / 2];
 
 export function newLeagueScreen(): View {
   let n = savedMode();
+  let variants: Variants = { ...DEFAULT_VARIANTS };
+  const rules = variantsCard(() => variants, () => true, (v) => { variants = v; rules.refresh(); });
   const name = h('input', { class: 'field field--big', placeholder: 'Ex. Les voisins du 12', 'aria-label': 'Nom du tournoi', maxlength: 30, enterkeyhint: 'done' });
   const create = button('Créer le tournoi', 'primary', async () => {
     if (!navigator.onLine) return toast('Il faut du réseau pour créer un tournoi.');
     create.disabled = true;
     try {
-      const code = await createLeague(name.value, n);
+      const code = await createLeague(name.value, n, variants);
       history.replaceState(null, '', '#/tournoi/' + code);
       window.dispatchEvent(new HashChangeEvent('hashchange'));
     } catch (e) {
@@ -38,6 +42,7 @@ export function newLeagueScreen(): View {
     h('label', { style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Nom du tournoi'), name),
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Joueurs'),
       segmented<4 | 6>([{ value: 4, label: '4 joueurs', sub: '2 équipes de 2' }, { value: 6, label: '6 joueurs', sub: '3 équipes de 2' }], n, (v) => { n = v; })),
+    rules.el,
     h('div', { class: 'spacer' }),
     create);
   return { el, cleanup: () => {} };
@@ -59,9 +64,11 @@ export function leagueScreen(code: string): View {
   const codeVal = h('span', { style: { font: '800 26px/1.05 var(--display)', letterSpacing: '.06em' } }, 'T-' + code);
   const teams = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   const hist = h('div', { class: 'card', style: { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 } });
+  // Déclaré avant la carte « Règles », qui lit le tournoi dès sa création.
+  let league: League | null = null;
+  const rules = variantsCard(() => league?.variants ?? DEFAULT_VARIANTS, () => false, () => undefined);
   const status = h('span', { class: 'status-line' });
   const play = button('Jouer une partie', 'primary', () => undefined, { size: 'lg', block: true });
-  let league: League | null = null;
   const invite = button('Inviter', 'dark', () => league && shareLeague(league), { size: 'sm' });
 
   const draw = (l: League | null) => {
@@ -104,6 +111,7 @@ export function leagueScreen(code: string): View {
         })));
     }));
     hist.hidden = false;
+    rules.refresh();
     hist.replaceChildren(h('span', { class: 't-label' }, 'Dernières parties'),
       ...(l.games.length
         ? l.games.slice(0, 4).map((g) => {
@@ -131,6 +139,7 @@ export function leagueScreen(code: string): View {
       h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('span', { class: 't-mini' }, 'Code du tournoi'), codeVal),
       invite),
     teams,
+    rules.el,
     hist,
     h('div', { class: 'spacer' }),
     status,

@@ -19,15 +19,27 @@ export interface Variants {
   jokers: 0 | 2 | 4;
   /** Sans coup possible, on défausse une seule carte au choix (au lieu de toute sa main). */
   discardOne: boolean;
+  /** Le Roi avance aussi de 13 (sinon il sert seulement à sortir). */
+  kingThirteen: boolean;
+  /** Le 7 peut se partager entre plus de deux pions (sinon un ou deux pions). */
+  sevenAnyPawns: boolean;
 }
 
+/**
+ * Règles de base (celles de Mallory) : l'As sort ou avance de 1, le Roi sert seulement à sortir,
+ * le 4 recule de 4, le 7 avance un pion ou se partage entre deux, sans prendre les pions dépassés,
+ * le Valet échange un de ses pions avec un autre (partenaire ou adversaire), et toutes les autres
+ * cartes avancent de leur valeur (Dame 12). Pas de joker.
+ */
 export const DEFAULT_VARIANTS: Variants = {
   jackEleven: false,
   fiveOthers: false,
-  sevenNoPassCapture: false,
+  sevenNoPassCapture: true,
   startBlocks: true,
-  jokers: 2,
+  jokers: 0,
   discardOne: false,
+  kingThirteen: false,
+  sevenAnyPawns: false,
 };
 
 /**

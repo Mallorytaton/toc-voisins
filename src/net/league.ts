@@ -5,7 +5,7 @@
 // L'équipe t réunit les places t et t + n/2, comme au jeu : les duos restent les mêmes de partie en partie.
 import { get, onValue, runTransaction, serverTimestamp, set, update } from 'firebase/database';
 import { draftProfile } from '../app/profile';
-import { cryptoRng } from '../engine';
+import { DEFAULT_VARIANTS, type Variants, cryptoRng } from '../engine';
 import type { CharId, ColorName } from '../ui/kit/data';
 import { arr, ensureAuth, node } from './firebase';
 
@@ -33,6 +33,8 @@ export interface League {
   wins: number[];
   /** Parties, de la plus récente à la plus ancienne */
   games: LeagueGame[];
+  /** Règles de toutes les parties du tournoi */
+  variants: Variants;
 }
 
 const me = (): LeagueMember => {
@@ -52,6 +54,7 @@ function normalize(code: string, raw: Record<string, unknown> | null): League | 
     members: (raw.members ?? {}) as Record<string, LeagueMember>,
     wins: arr<number>(raw.wins, n / 2, () => 0),
     games,
+    variants: { ...DEFAULT_VARIANTS, ...(raw.variants as Partial<Variants>) },
   };
 }
 
@@ -64,13 +67,13 @@ export function parseLeagueCode(raw: string): string | null {
 export const leagueLink = (code: string) => `${location.origin}${location.pathname}?t=${code}`;
 
 /** Crée un tournoi : l'auteur prend la première place. */
-export async function createLeague(name: string, n: 4 | 6): Promise<string> {
+export async function createLeague(name: string, n: 4 | 6, variants: Variants = DEFAULT_VARIANTS): Promise<string> {
   const uid = await ensureAuth();
   for (let k = 0; k < 20; k++) {
     const code = String(1000 + Math.floor(cryptoRng() * 9000));
     const res = await runTransaction(node('leagues', code, 'name'), (cur) => (cur ? undefined : name.trim().slice(0, 30) || 'Notre tournoi'));
     if (!res.committed) continue;
-    await update(node('leagues', code), { n, host: uid, createdAt: serverTimestamp(), [`members/${uid}`]: me(), 'seats/0': uid });
+    await update(node('leagues', code), { n, host: uid, createdAt: serverTimestamp(), variants, [`members/${uid}`]: me(), 'seats/0': uid });
     await set(node('myLeagues', uid, code), true);
     return code;
   }
