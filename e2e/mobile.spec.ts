@@ -66,12 +66,13 @@ test('partie hors ligne contre les robots', async ({ page, context }) => {
   await expect(hint).toHaveText('À ton tour !', { timeout: 20_000 });
   const cards = page.locator('.hand .pcard');
   const play = page.locator('.g-play:not([hidden])');
+  // force : dans l'éventail, une carte voisine peut chevaucher un instant celle qu'on touche.
   for (let i = 0; i < (await cards.count()) && !(await play.count()); i++) {
-    await cards.nth(i).click();
-    if (!(await play.count()) && (await page.locator('.pawn--pick').count())) await page.locator('.pawn--pick').first().click();
-    if (!(await play.count())) await cards.nth(i).click();
+    await cards.nth(i).click({ force: true });
+    if (!(await play.count()) && (await page.locator('.pawn--pick').count())) await page.locator('.pawn--pick').first().click({ force: true });
+    if (!(await play.count())) await cards.nth(i).click({ force: true });
   }
-  await play.click();
+  await play.click({ timeout: 10_000 });
   // Les robots enchaînent, puis la partie continue.
   await expect(page.locator('.g-top__turn')).not.toHaveText('À toi de jouer, Frédo', { timeout: 10_000 });
   await expectNoSideScroll(page);

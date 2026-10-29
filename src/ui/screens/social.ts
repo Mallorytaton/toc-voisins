@@ -159,12 +159,14 @@ function chatPane(): { head: HTMLElement; body: HTMLElement; foot: HTMLElement |
 
 export function friendsScreen(): View {
   const content = h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 14 } });
+  // La liste d'amis défile à l'intérieur de l'écran.
   let stop = () => {};
   const show = (k: 'amis' | 'chat') => {
     stop();
     if (k === 'amis') {
       const v = friendsPane();
       stop = v.cleanup;
+      v.el.classList.add('scroll-y');
       content.replaceChildren(v.el);
     } else {
       const c = chatPane();
@@ -173,7 +175,7 @@ export function friendsScreen(): View {
     }
   };
   show('amis');
-  const el = h('div', { class: 'screen screen--tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 12px)' } },
+  const el = h('div', { class: 'screen screen--tabs', 'data-fit': 'width', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 12px)' } },
     h('span', { class: 't-screen' }, 'Ta gang'),
     segmented([{ value: 'amis' as const, label: 'Amis' }, { value: 'chat' as const, label: 'Chat d’équipe' }], 'amis', show),
     content,
@@ -197,7 +199,8 @@ function regionCard(onDone: () => void): HTMLElement {
 }
 
 export function rankingScreen(): View {
-  const body = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } });
+  // Le podium et la liste défilent à l'intérieur de l'écran.
+  const body = h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14 } });
   const me = h('div', { class: 'rank-row rank-me' });
   let scope: RankScope = 'quebec';
   let real: { all: RankEntry[]; friends: Set<string> } | null = null;
@@ -258,7 +261,7 @@ export function rankingScreen(): View {
       .then(([all, f]) => { real = { all, friends: new Set(f) }; show(scope); })
       .catch(() => { real = { all: [], friends: new Set() }; show(scope); });
 
-  const el = h('div', { class: 'screen screen--tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 12px)', paddingBottom: 'calc(var(--safe-bottom) + 190px)' } },
+  const el = h('div', { class: 'screen screen--tabs', 'data-fit': 'width', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 12px)', paddingBottom: 'calc(var(--safe-bottom) + 190px)' } },
     h('div', { style: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 } },
       h('span', { class: 't-screen' }, 'Classement'),
       h('span', { class: 'pill' }, DEMO ? 'Saison 4 · finit dans 12 j' : 'Saison 1')),

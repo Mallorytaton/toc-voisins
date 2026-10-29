@@ -11,6 +11,8 @@ import { RoomSession } from './net/session';
 import { inviteFriend, setInGame, startPresence, syncProfile, watchInvites } from './net/social';
 import { DEMO } from './ui/demo';
 import { h } from './ui/dom';
+import { fitScreen } from './ui/fit';
+import { blockZoom, lockPortrait } from './ui/orientation';
 import { button } from './ui/kit/kit';
 import { ROUTES, go } from './ui/nav';
 import { gameScreen } from './ui/screens/game';
@@ -22,6 +24,8 @@ import { friendsScreen, rankingScreen } from './ui/screens/social';
 import { vitrineScreen } from './ui/screens/vitrine';
 
 registerSW({ immediate: true });
+lockPortrait();
+blockZoom();
 
 /** Partie en cours (une seule à la fois) et salle en ligne associée. */
 let currentGame: GameSource | null = null;
@@ -41,7 +45,7 @@ function startSocial() {
       h('span', null, `${inv.name} t’invite dans sa salle !`),
       button('Rejoindre', 'primary', () => { banner.remove(); go('/salle/' + inv.code); }, { size: 'xs' }),
       h('button', { class: 'btn btn--text', type: 'button', 'aria-label': 'Fermer', onclick: () => banner.remove() }, '✕'));
-    document.body.append(banner);
+    app.append(banner);
     setTimeout(() => banner.remove(), 20_000);
   });
 }
@@ -70,8 +74,15 @@ type View = HTMLElement | { el: HTMLElement; cleanup: () => void };
 function setView(v: View) {
   cleanup?.();
   const { el, cleanup: c } = v instanceof HTMLElement ? { el: v, cleanup: null } : v;
-  cleanup = c;
-  app.replaceChildren(el);
+  // Les écrans de la maquette tiennent dans le téléphone (la vitrine, elle, défile).
+  if (el.classList.contains('screen') && el.dataset.fit !== 'scroll') {
+    const f = fitScreen(el, el.dataset.fit === 'width' ? 'width' : 'fit');
+    cleanup = () => { f.dispose(); c?.(); };
+    app.replaceChildren(f.el);
+  } else {
+    cleanup = c;
+    app.replaceChildren(el);
+  }
   window.scrollTo(0, 0);
 }
 

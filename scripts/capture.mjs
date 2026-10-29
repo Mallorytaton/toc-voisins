@@ -12,7 +12,9 @@ const base = (process.env.TOC_URL ?? 'http://localhost:5180/toc-voisins/') + (de
 mkdirSync(out, { recursive: true });
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+// TOC_VW / TOC_VH : taille d'écran (par défaut celle de la maquette).
+const vw = Number(process.env.TOC_VW ?? 393), vh = Number(process.env.TOC_VH ?? 852);
+const page = await browser.newPage({ viewport: { width: vw, height: vh }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 if (demo)
   await page.addInitScript(() => localStorage.setItem('toc.profile', JSON.stringify(
     { nick: 'Frédo', char: 'tuque', color: 'coral', level: 14, xp: 13680, tokens: 2450, friendCode: 'FREDO#2741' })));

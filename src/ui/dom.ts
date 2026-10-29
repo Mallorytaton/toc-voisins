@@ -37,6 +37,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props, 
 export function toast(msg: string, ms = 1700) {
   document.querySelectorAll('.toast').forEach((t) => t.remove());
   const t = h('div', { class: 'toast', role: 'status' }, msg);
-  document.body.append(t);
+  // Dans #app, pour pivoter avec l'app quand le téléphone est tourné.
+  (document.getElementById('app') ?? document.body).append(t);
   setTimeout(() => t.remove(), ms);
 }

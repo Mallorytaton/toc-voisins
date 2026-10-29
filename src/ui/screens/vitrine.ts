@@ -21,7 +21,7 @@ export function vitrineScreen(): HTMLElement {
     handRow.replaceChildren(...hand.map((c, i) => playingCard(c, { selected: i === sel, onclick: () => { sel = i; drawHand(); } })));
   drawHand();
 
-  return h('div', { class: 'screen screen--tabs' },
+  return h('div', { class: 'screen screen--tabs', 'data-fit': 'scroll' },
     h('div', { class: 'blob', style: { left: -120, top: -90, width: 360, height: 360, background: 'var(--coral-l)' } }),
     h('header', { class: 'screen__head', style: { position: 'relative' } },
       h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4 } },

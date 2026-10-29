@@ -59,6 +59,18 @@
 [hidden] { display: none !important; }
 *::-webkit-scrollbar { display: none; }
 html, body { margin: 0; padding: 0; }
+/* Pas de zoom par double toucher ni de défilement élastique : l'app reste fixe comme une vraie app. */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* Portrait seulement : si le téléphone est tourné (iPhone, ou navigateur), l'app pivote à l'inverse
+   pour rester droite par rapport au téléphone (voir src/ui/orientation.ts). */
+html[data-rot] body { overflow: hidden; }
+html[data-rot] #app { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; overflow: hidden; transform-origin: 0 0; }
+html[data-rot='90'] #app { transform: translateY(100vh) rotate(-90deg); }
+html[data-rot='-90'] #app { transform: translateX(100vw) rotate(90deg); }
+/* L'encoche passe sur le côté en paysage : on la reporte en haut de l'app redressée. */
+html[data-rot='90'] .fit, html[data-rot='90'] .game__frame { inset: env(safe-area-inset-left) 0 0 0; }
+html[data-rot='-90'] .fit, html[data-rot='-90'] .game__frame { inset: env(safe-area-inset-right) 0 0 0; }
 body {
   min-height: 100dvh;
   background: var(--app);

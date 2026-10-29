@@ -209,6 +209,19 @@
   display: flex; flex-direction: column; gap: 16px;
 }
 .screen--tabs { padding-bottom: calc(var(--safe-bottom) + 120px); }
+
+/* ---- Mise à l'échelle (src/ui/fit.ts) ----
+   La scène se place dans la zone sûre (encoche, barre du bas) : à l'intérieur, petites marges fixes. */
+.fit {
+  position: fixed; overflow: hidden; background: var(--app);
+  inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  --safe-top: 14px; --safe-bottom: 12px;
+}
+.fit__stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.fit .screen { min-height: 0; max-width: none; margin: 0; overflow: hidden; }
+/* Éléments « fixes » de l'écran : rattachés à la scène (une scène transformée les contient). */
+.fit .tabbar, .fit .rank-me { width: calc(100% - 32px); }
+.scroll-y { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 /* Les ronds décoratifs restent derrière le contenu de l'écran ou de la carte. */
 .screen, .hero { isolation: isolate; }
 .screen__head { display: flex; align-items: center; gap: 12px; }
