@@ -207,6 +207,18 @@
 /* Tournoi : quitter, supprimer */
 .league-exit { display: flex; justify-content: center; gap: 18px; padding: 4px 0 2px; }
 .link-btn--danger { color: var(--coral-d); }
+/* Tournoi : discussion */
+.lchat-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.lchat-new { font: 900 11px var(--text); padding: 4px 9px; border-radius: 999px; background: var(--coral); color: #fff; }
+.lchat-preview { display: flex; flex-direction: column; gap: 4px; }
+.lchat-line { font: 700 14px/1.35 var(--text); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lchat-line b { color: var(--ink); font-weight: 800; }
+.lchat-list { padding: 4px 2px; }
+.lchat-msg { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.lchat-msg--me { align-items: flex-end; }
+.lchat-msg__who { font: 800 12px var(--text); color: var(--ink-2); padding: 0 6px; }
+.lchat-msg__at { font: 700 10.5px var(--text); color: var(--ink-3); padding: 0 6px; }
+.lchat-msg .bubble { max-width: 85%; }
 .league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {

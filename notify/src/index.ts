@@ -24,8 +24,8 @@ interface Env {
   FIREBASE_API_KEY: string;
 }
 
-type Kind = 'invite' | 'league' | 'turn' | 'chat' | 'soiree' | 'offline';
-const KINDS: Kind[] = ['invite', 'league', 'turn', 'chat', 'soiree', 'offline'];
+type Kind = 'invite' | 'league' | 'turn' | 'chat' | 'leagueChat' | 'soiree' | 'offline';
+const KINDS: Kind[] = ['invite', 'league', 'turn', 'chat', 'leagueChat', 'soiree', 'offline'];
 const ORIGINS = ['https://mallorytaton.github.io', 'http://localhost:5180', 'http://localhost:4173'];
 const TEAM_NAMES = ['Soleil', 'Myrtilles', 'Framboises'];
 const MAX_DEVICES = 5;
@@ -188,7 +188,11 @@ async function notify(env: Env, db: Db, me: string, b: Record<string, unknown>) 
     const league = (l.name ?? 'votre tournoi').slice(0, 30);
     // Inviter dans un tournoi : un ami, pas encore membre ; sinon, entre membres du tournoi.
     allowed = kind === 'league' ? async (u) => (await db.get(`friends/${me}/${u}`)) === true : (u) => !!l.members?.[u];
-    if (kind === 'league') {
+    if (kind === 'leagueChat') {
+      const text = String(b.text ?? '').trim().slice(0, 140);
+      if (!text) return { sent: 0 };
+      msg = { title: league, body: `${name} : ${text}`, url: `${app}?t=${code}`, tag: `lchat-${code}`, renotify: true, ttl: 43_200, urgency: 'normal' };
+    } else if (kind === 'league') {
       msg = {
         title: `${name} t’invite dans un tournoi`, body: `Rejoins « ${league} » : mêmes équipes à chaque partie, et les victoires s’additionnent.`,
         url: `${app}?t=${code}`, tag: `league-${code}`, renotify: true, ttl: 7 * 86_400, urgency: 'normal',

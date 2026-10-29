@@ -90,7 +90,7 @@ export async function refreshPush() {
   if (pushState() === 'on') await register();
 }
 
-export type NotifyKind = 'invite' | 'league' | 'turn' | 'chat' | 'soiree' | 'offline';
+export type NotifyKind = 'invite' | 'league' | 'turn' | 'chat' | 'leagueChat' | 'soiree' | 'offline';
 
 /** Demande au service de prévenir ces joueurs. Sans attente ni message d'erreur : ce n'est qu'un bonus. */
 export function notifyPlayers(to: string[], kind: NotifyKind, extra: { code?: string; text?: string } = {}) {

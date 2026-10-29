@@ -273,6 +273,18 @@
           ".write": "auth != null && (root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists() || (!newData.exists() && data.val() < now - 14400000))",
           ".validate": "newData.isNumber()"
         }
+      },
+      "leagueChats": {
+        "$code": {
+          ".read": "auth != null && root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists()",
+          ".write": "auth != null && !newData.exists() && root.child('v2/leagues/' + $code + '/host').val() === auth.uid",
+          "msgs": {
+            "$id": {
+              ".write": "auth != null && !data.exists() && root.child('v2/leagues/' + $code + '/members/' + auth.uid).exists()",
+              ".validate": "newData.hasChildren(['from', 'name', 't', 'at']) && newData.child('from').val() === auth.uid && newData.child('t').isString() && newData.child('t').val().length > 0 && newData.child('t').val().length <= 300 && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('at').val() <= now"
+            }
+          }
+        }
       }
     }
   }

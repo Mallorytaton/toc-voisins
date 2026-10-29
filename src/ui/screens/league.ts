@@ -1,7 +1,8 @@
 // Tournois : création, page du tournoi (équipes fixes, score cumulé, dernières parties).
 import {
   type League, type OfflineClaim, type Rsvp, answerSoiree, cancelSoiree, claimApproved, createLeague, deleteLeague, dropOffline,
-  leagueLink, leaveLeague, proposeOffline, proposeSoiree, refusedBy, settleOffline, takeLeagueSeat, voteOffline, watchLeague,
+  type LeagueMsg, leagueLink, leaveLeague, proposeOffline, proposeSoiree, refusedBy, sendLeagueMsg, settleOffline, takeLeagueSeat,
+  voteOffline, watchLeague, watchLeagueChat,
 } from '../../net/league';
 import { type FriendView, currentUid, inviteToLeague, watchFriends } from '../../net/social';
 import { h, toast } from '../dom';
@@ -333,6 +334,75 @@ export function newLeagueScreen(): View {
   return { el, cleanup: () => {} };
 }
 
+// ---------- Discussion du tournoi ----------
+
+const READ_KEY = (code: string) => 'toc.discussion.' + code;
+const lastRead = (code: string) => { try { return Number(localStorage.getItem(READ_KEY(code)) ?? 0); } catch { return 0; } };
+const markRead = (code: string, at: number) => { try { localStorage.setItem(READ_KEY(code), String(at)); } catch { /* sans stockage */ } };
+const timeFmt = new Intl.DateTimeFormat('fr-FR', { hour: 'numeric', minute: '2-digit' });
+/** « 20:31 » aujourd'hui, « 29 oct. » avant */
+const msgTime = (t: number) => (new Date(t).toDateString() === new Date().toDateString() ? timeFmt.format(t) : dateFmt.format(t));
+
+/** Aperçu dans la page : les deux derniers messages et le nombre de nouveaux. */
+function chatCard(l: League, me: string, msgs: LeagueMsg[], open: () => void): HTMLElement {
+  const seen = lastRead(l.code);
+  const unread = msgs.filter((m) => m.from !== me && m.at > seen).length;
+  return h('div', { class: 'card lchat-card' },
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+      h('span', { class: 't-label', style: { flex: 1 } }, 'Discussion'),
+      unread > 0 && h('span', { class: 'lchat-new' }, unread > 1 ? `${unread} nouveaux` : '1 nouveau')),
+    msgs.length
+      ? h('div', { class: 'lchat-preview' }, ...msgs.slice(-2).map((m) =>
+        h('div', { class: 'lchat-line' }, h('b', null, m.from === me ? 'Toi' : m.name), ` ${m.t}`)))
+      : h('span', { class: 't-body' }, 'Personne n’a encore écrit. Lance la discussion !'),
+    button(msgs.length ? 'Ouvrir la discussion' : 'Écrire à la bande', 'white', open, { size: 'sm', block: true }));
+}
+
+/** La discussion complète, avec le champ de saisie en bas. */
+function openChatSheet(l: League, me: string, onClose: () => void) {
+  const list = h('div', { class: 'chat lchat-list' });
+  const scroller = h('div', { class: 'scroll-y', style: { maxHeight: '52vh', paddingBottom: 4 } }, list);
+  const input = h('input', { class: 'field', id: 'lchat-input', placeholder: 'Écris à la bande…', 'aria-label': 'Message', enterkeyhint: 'send', maxlength: 300, style: { flex: 1, height: 50 } }) as HTMLInputElement;
+  const send = async () => {
+    const t = input.value.trim();
+    if (!t) return;
+    input.value = '';
+    try {
+      await sendLeagueMsg(l, t);
+    } catch {
+      input.value = t;
+      toast('Message non envoyé. Réessaie.');
+    }
+  };
+  input.addEventListener('keydown', (e) => e.key === 'Enter' && send());
+  const stop = watchLeagueChat(l.code, (msgs) => {
+    if (!msgs) return;
+    list.replaceChildren(...(msgs.length
+      ? msgs.map((m, i) => {
+        const mine = m.from === me;
+        const showName = !mine && msgs[i - 1]?.from !== m.from;
+        return h('div', { class: 'lchat-msg ' + (mine ? 'lchat-msg--me' : '') },
+          showName && h('span', { class: 'lchat-msg__who' }, m.name),
+          h('div', { class: 'bubble bubble--old ' + (mine ? 'bubble--me' : 'bubble--them') }, m.t),
+          h('span', { class: 'lchat-msg__at' }, msgTime(m.at)));
+      })
+      : [h('p', { class: 'empty' }, 'Personne n’a encore écrit. Lance la discussion !')]));
+    const last = msgs[msgs.length - 1];
+    if (last) markRead(l.code, last.at);
+    requestAnimationFrame(() => { scroller.scrollTop = scroller.scrollHeight; });
+  });
+  const close = () => { stop(); wrap.remove(); onClose(); };
+  const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Discussion du tournoi' },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+        h('span', { class: 'sheet__title', style: { flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, l.name),
+        button('Fermer', 'text', close)),
+      scroller,
+      h('div', { style: { display: 'flex', gap: 8 } }, input,
+        h('button', { class: 'send', type: 'button', 'aria-label': 'Envoyer', onclick: () => send() }, h('i')))));
+  (document.getElementById('app') ?? document.body).append(wrap);
+}
+
 /** Demande confirmation avant une action définitive (quitter, supprimer). */
 function confirmSheet(title: string, text: string, label: string, action: () => Promise<void>) {
   const close = () => wrap.remove();
@@ -437,6 +507,23 @@ export function leagueScreen(code: string): View {
   const teams = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   const soiree = h('div');
   const claims = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
+  // Discussion : écoutée dès l'ouverture de la page (lecture refusée si on n'est pas membre : carte cachée).
+  const chat = h('div');
+  let msgs: LeagueMsg[] | null = null;
+  const drawChat = () => {
+    const l = league;
+    const member = !!l?.members[currentUid()];
+    // Devenu membre page ouverte : la lecture, refusée jusque-là, est relancée.
+    if (member && msgs === null && !retried) {
+      retried = true;
+      stopChat();
+      stopChat = watchLeagueChat(code, onMsgs);
+    }
+    chat.replaceChildren(...(l && msgs && member ? [chatCard(l, currentUid(), msgs, () => openChatSheet(l, currentUid(), drawChat))] : []));
+  };
+  let retried = false;
+  const onMsgs = (m: LeagueMsg[] | null) => { msgs = m; drawChat(); };
+  let stopChat = watchLeagueChat(code, onMsgs);
   const stats = h('div');
   const exit = h('div');
   // Déclarations acceptées par tous, en cours d'enregistrement (une seule fois par téléphone)
@@ -492,6 +579,7 @@ export function leagueScreen(code: string): View {
     soiree.replaceChildren(soireeCard(l, me));
     stats.replaceChildren(statsCard(l));
     exit.replaceChildren(exitLinks(l, me));
+    drawChat();
     // Une déclaration acceptée par tous devient une victoire ; n'importe quel joueur l'enregistre (sans doublon).
     for (const o of l.offline)
       if (seated && claimApproved(l, o) && !settling.has(o.id)) {
@@ -534,6 +622,7 @@ export function leagueScreen(code: string): View {
         invite),
       soiree,
       claims,
+      chat,
       teams,
       stats,
       hist,
@@ -541,5 +630,5 @@ export function leagueScreen(code: string): View {
       exit),
     status,
     play);
-  return { el, cleanup: stop };
+  return { el, cleanup: () => { stop(); stopChat(); } };
 }

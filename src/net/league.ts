@@ -4,9 +4,10 @@
 //                           soiree = { id, at, place, by } (prochaine soirée), rsvp/<soirée>/<uid> = oui | peut | non
 //                           offline/<id> = { winner, by, at, playedAt, votes/<uid> = oui | non } (partie hors de l'app à valider)
 //   soirees/<code>          date de la prochaine soirée (le service de notifications y lit les rappels à envoyer)
+//   leagueChats/<code>/msgs/<id> = { from, name, t, at } (discussion du tournoi, réservée à ses membres)
 //   myLeagues/<uid>/<code>  true (tournois dont on fait partie)
 // L'équipe t réunit les places t et t + n/2, comme au jeu : les duos restent les mêmes de partie en partie.
-import { get, onValue, ref, runTransaction, serverTimestamp, set, update } from 'firebase/database';
+import { get, limitToLast, onValue, push, query, ref, runTransaction, serverTimestamp, set, update } from 'firebase/database';
 import { draftProfile } from '../app/profile';
 import { DEFAULT_VARIANTS, type Variants, cryptoRng } from '../engine';
 import type { CharId, ColorName } from '../ui/kit/data';
@@ -266,7 +267,42 @@ export async function leaveLeague(code: string) {
 /** Supprime le tournoi pour tout le monde (son créateur seulement) : scores, historique, soirée. */
 export async function deleteLeague(code: string) {
   const uid = await ensureAuth();
-  await update(ref(database()), { [`v2/leagues/${code}`]: null, [`v2/myLeagues/${uid}/${code}`]: null, [`v2/soirees/${code}`]: null });
+  await update(ref(database()), {
+    [`v2/leagues/${code}`]: null, [`v2/myLeagues/${uid}/${code}`]: null, [`v2/soirees/${code}`]: null, [`v2/leagueChats/${code}`]: null,
+  });
+}
+
+// ---------- Discussion du tournoi ----------
+
+export interface LeagueMsg {
+  id: string;
+  from: string;
+  name: string;
+  t: string;
+  at: number;
+}
+
+/** Les 100 derniers messages, du plus ancien au plus récent (null : pas membre, lecture refusée). */
+export function watchLeagueChat(code: string, cb: (msgs: LeagueMsg[] | null) => void): () => void {
+  let off = () => {};
+  let stopped = false;
+  void ensureAuth().then(() => {
+    if (stopped) return;
+    off = onValue(query(node('leagueChats', code, 'msgs'), limitToLast(100)), (s) => {
+      const raw = (s.val() ?? {}) as Record<string, Omit<LeagueMsg, 'id'>>;
+      cb(Object.entries(raw).map(([id, m]) => ({ id, ...m, at: m.at ?? 0 })).sort((a, b) => a.at - b.at));
+    }, () => cb(null));
+  }).catch(() => cb(null));
+  return () => { stopped = true; off(); };
+}
+
+/** Envoie un message à tout le tournoi ; les joueurs absents sont prévenus par notification. */
+export async function sendLeagueMsg(l: League, text: string) {
+  const uid = await ensureAuth();
+  const t = text.trim().slice(0, 300);
+  if (!t) return;
+  await push(node('leagueChats', l.code, 'msgs'), { from: uid, name: (draftProfile().nick || 'Toi').slice(0, 20), t, at: serverTimestamp() });
+  notifyPlayers(l.seats.filter((u) => u && u !== uid), 'leagueChat', { code: l.code, text: t.slice(0, 140) });
 }
 
 export async function getLeagueOnce(code: string): Promise<League | null> {
