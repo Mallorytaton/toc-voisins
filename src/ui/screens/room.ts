@@ -26,8 +26,14 @@ function seatView(s: RoomSnapshot, seat: number, room: Room): HTMLElement {
       h('button', { class: 'seat__invite', type: 'button', onclick: () => shareInvite(room) },
         h('span', null, 'En attente…'), h('span', null, 'Inviter')));
   const me = seat === s.mySeat;
-  const tag = me ? (p.host ? 'Toi · hôte' : 'Toi') : p.host ? 'Hôte' : p.bot ? 'Robot' : 'Prêt·e';
-  return h('div', { class: 'seat', style: { background: tint.l } },
+  const away = !p.bot && p.online === false;
+  const tag = me ? (p.host ? 'Toi · hôte' : 'Toi') : away ? 'Déconnecté·e' : p.host ? 'Hôte' : p.bot ? 'Robot' : 'Prêt·e';
+  if (s.status === 'playing' && s.mySeat < 0 && away && room.takeSeat)
+    return h('button', { class: 'seat seat__invite', type: 'button', style: { background: tint.l }, onclick: () => room.takeSeat!(seat) },
+      avatarRing(p.char, p.color, 38, tint.c, 3, 2, null),
+      h('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
+        h('span', { class: 'seat__name' }, p.name), h('span', null, 'Prendre sa place')));
+  return h('div', { class: 'seat', style: { background: tint.l, opacity: away ? 0.6 : 1 } },
     avatarRing(p.char, p.color, 38, tint.c, 3, 2, null),
     h('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
       h('span', { class: 'seat__name' }, p.name), h('span', { class: 'seat__tag' }, tag)));
@@ -71,12 +77,19 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     const joined = s.seats.filter(Boolean).length;
     const full = joined === s.n;
     const host = !!s.seats[s.mySeat]?.host;
-    status.textContent = full ? 'Tout le monde est là. On y va ?' : `${joined} / ${s.n} joueurs · on attend la gang…`;
+    status.textContent = s.status === 'playing' && s.mySeat < 0 ? 'Partie en cours. Reprends la place d’un joueur déconnecté.'
+      : full ? 'Tout le monde est là. On y va ?' : `${joined} / ${s.n} joueurs · on attend la gang…`;
     launch.textContent = full ? (host ? 'Lancer la partie' : 'L’hôte lance la partie…') : 'En attente…';
     launch.className = 'btn btn--lg btn--block ' + (full && host ? 'btn--primary' : 'btn--off');
     launch.disabled = !full || !host;
     bots.hidden = full || !host || !room.fillBots;
+    launch.hidden = s.status === 'playing';
     if (s.status === 'countdown' && !counting) countdown();
+    // Partie déjà lancée (retour dans la salle, reconnexion) : direction le plateau.
+    if (s.status === 'playing' && s.mySeat >= 0 && !counting) {
+      counting = true;
+      onStart();
+    }
   };
 
   const countdown = () => {

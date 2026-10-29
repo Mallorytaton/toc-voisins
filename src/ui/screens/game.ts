@@ -185,6 +185,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const sendEmote = (t: string) => {
     setEmotes(false);
     bubble(me, t);
+    src.emote?.(t);
     if (src.local) {
       const others = [...Array(N).keys()].filter((k) => k !== me);
       setTimeout(() => bubble(others[Math.floor(Math.random() * others.length)], REPLIES[Math.floor(Math.random() * REPLIES.length)]), 950);
@@ -639,6 +640,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
 
   const animate = async (prev: GameState, next: GameState, reset: boolean) => {
     if (reset) {
+      closeSheet();
       view = next;
       shown = next.lastCard;
       clearSel();
@@ -692,6 +694,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     queue.push({ prev, next: src.state, reset });
     void pump();
   });
+  const unsubEmote = src.onEmote?.((seat, t) => bubble(seat, t));
 
   // ---------- Pause et fin ----------
   let sheet: HTMLElement | null = null;
@@ -731,6 +734,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     cleanup: () => {
       disposed = true;
       unsub();
+      unsubEmote?.();
       stopTimer();
       clearTimeout(toastTimer);
       window.removeEventListener('resize', fit);

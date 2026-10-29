@@ -2,7 +2,9 @@
   "rules": {
     "index": {
       ".read": "auth != null",
-      ".indexOn": [".value"],
+      ".indexOn": [
+        ".value"
+      ],
       "$gid": {
         ".write": "auth != null && (!data.exists() || data.val() < now - 604800000)",
         ".validate": "newData.isNumber()"
@@ -53,6 +55,74 @@
       "$gid": {
         ".read": "auth != null && root.child('games/' + $gid + '/players/' + auth.uid).exists()",
         ".write": "auth != null && (root.child('games/' + $gid + '/players/' + auth.uid).exists() || (!newData.exists() && (!root.child('games/' + $gid).exists() || root.child('games/' + $gid + '/meta/createdAt').val() < now - 604800000)))"
+      }
+    },
+    "v2": {
+      "index": {
+        ".read": "auth != null",
+        ".indexOn": [
+          ".value"
+        ],
+        "$code": {
+          ".write": "auth != null && (!data.exists() || data.val() < now - 604800000)",
+          ".validate": "newData.isNumber()"
+        }
+      },
+      "rooms": {
+        "$code": {
+          ".read": "auth != null",
+          ".write": "auth != null && data.exists() && data.child('meta/createdAt').val() < now - 604800000 && !newData.exists()",
+          "meta": {
+            ".write": "auth != null && (!data.exists() || data.child('host').val() === auth.uid)",
+            ".validate": "newData.hasChildren(['host', 'createdAt', 'n', 'status']) && newData.child('host').val() === auth.uid && (newData.child('n').val() === 4 || newData.child('n').val() === 6) && (newData.child('status').val() === 'waiting' || newData.child('status').val() === 'countdown' || newData.child('status').val() === 'playing')"
+          },
+          "players": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && root.child('v2/rooms/' + $code + '/meta').exists()",
+              ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 20"
+            }
+          },
+          "seats": {
+            "$seat": {
+              ".write": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists() && ((!data.exists() && newData.val() === auth.uid && root.child('v2/rooms/' + $code + '/meta/status').val() === 'waiting') || (data.val() === auth.uid && !newData.exists()) || (data.exists() && data.val() !== 'bot' && newData.val() === auth.uid && root.child('v2/rooms/' + $code + '/presence/' + data.val()).val() !== true) || (root.child('v2/rooms/' + $code + '/meta/host').val() === auth.uid && root.child('v2/rooms/' + $code + '/meta/status').val() === 'waiting' && ((!data.exists() && newData.val() === 'bot') || (data.val() === 'bot' && !newData.exists()))))"
+            }
+          },
+          "presence": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid",
+              ".validate": "newData.isBoolean()"
+            }
+          },
+          "state": {
+            ".write": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists()",
+            ".validate": "newData.child('v').isNumber() && (!data.exists() || newData.child('v').val() === data.child('v').val() + 1)"
+          },
+          "turnAt": {
+            ".write": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists()",
+            ".validate": "newData.isNumber() && newData.val() <= now"
+          },
+          "emotes": {
+            "$seat": {
+              ".write": "auth != null && root.child('v2/rooms/' + $code + '/seats/' + $seat).val() === auth.uid",
+              ".validate": "newData.hasChildren(['t', 'at']) && newData.child('t').isString() && newData.child('t').val().length <= 40 && newData.child('at').val() <= now"
+            }
+          }
+        }
+      },
+      "hands": {
+        "$code": {
+          ".write": "auth != null && !newData.exists() && (!root.child('v2/rooms/' + $code).exists() || root.child('v2/rooms/' + $code + '/meta/createdAt').val() < now - 604800000)",
+          "$seat": {
+            ".read": "auth != null && (root.child('v2/rooms/' + $code + '/seats/' + $seat).val() === auth.uid || (root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists() && (root.child('v2/rooms/' + $code + '/seats/' + $seat).val() === 'bot' || root.child('v2/rooms/' + $code + '/presence/' + root.child('v2/rooms/' + $code + '/seats/' + $seat).val()).val() !== true)))",
+            ".write": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists()"
+          }
+        }
+      },
+      "decks": {
+        "$code": {
+          ".read": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists()",
+          ".write": "auth != null && (root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists() || (!newData.exists() && (!root.child('v2/rooms/' + $code).exists() || root.child('v2/rooms/' + $code + '/meta/createdAt').val() < now - 604800000)))"
+        }
       }
     }
   }

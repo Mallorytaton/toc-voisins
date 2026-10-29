@@ -9,6 +9,8 @@ export interface RoomPlayer {
   color: ColorName;
   host: boolean;
   bot?: boolean;
+  /** Connecté (en ligne) ; toujours vrai pour un robot. */
+  online?: boolean;
 }
 
 export interface RoomSnapshot {
@@ -26,8 +28,10 @@ export interface Room {
   /** Lien d'invitation à partager. */
   link(): string;
   launch(): void;
-  /** Partie sur l'appareil : remplit les places libres avec des robots. */
+  /** Remplit les places libres avec des robots (hôte seulement). */
   fillBots?(): void;
+  /** Reprend la place d'un joueur déconnecté pendant une partie. */
+  takeSeat?(seat: number): Promise<void>;
   leave(): void;
 }
 

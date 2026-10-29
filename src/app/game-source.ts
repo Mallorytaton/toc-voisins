@@ -29,6 +29,9 @@ export interface GameSource {
   restartDeal(): void;
   rematch(): void;
   leave(): void;
+  /** En ligne : envoie une émote à la table, et reçoit celles des autres. */
+  emote?(t: string): void;
+  onEmote?(cb: (seat: number, t: string) => void): () => void;
 }
 
 const BOT_THINK_MS = 850;
