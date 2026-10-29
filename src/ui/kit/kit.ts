@@ -63,10 +63,12 @@ export function avatar(char: CharId, color: ColorName, size = 64): HTMLElement {
 }
 
 /** Avatar posé sur un disque blanc cerclé de couleur (accueil, salle, classement). */
-export function avatarRing(char: CharId, color: ColorName, size: number, ring: string, pad = 4, ringW = 3): HTMLElement {
+export function avatarRing(
+  char: CharId, color: ColorName, size: number, ring: string, pad = 4, ringW = 3, drop: string | null = '0 6px 12px rgba(70,40,20,.15)',
+): HTMLElement {
   return h('div', {
     class: 'avatar-ring',
-    style: { padding: pad, boxShadow: `0 0 0 ${ringW}px ${ring},0 6px 12px rgba(70,40,20,.15)` },
+    style: { padding: pad, boxShadow: `0 0 0 ${ringW}px ${ring}` + (drop ? ',' + drop : '') },
   }, avatar(char, color, size));
 }
 

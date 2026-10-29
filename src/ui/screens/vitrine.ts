@@ -22,7 +22,7 @@ export function vitrineScreen(): HTMLElement {
   drawHand();
 
   return h('div', { class: 'screen screen--tabs' },
-    h('div', { class: 'blob', style: { left: -120, top: -90, width: 360, height: 360, background: 'var(--coral-l)', zIndex: 0 } }),
+    h('div', { class: 'blob', style: { left: -120, top: -90, width: 360, height: 360, background: 'var(--coral-l)' } }),
     h('header', { class: 'screen__head', style: { position: 'relative' } },
       h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4 } },
         h('span', { class: 't-mini' }, 'Étape 1 · design system'),

@@ -103,4 +103,15 @@ export function cardLook(card: string, o: CardOptions = {}): CardLook {
   return { r: rank, s, red, t: 'Le ' + rank, badge: '+' + rank, ...(n >= 10 ? BIG : SMALL), rule: `Avance de ${rank} cases.` };
 }
 
-export const EMOTES = ['Envoye donc !', 'Tabarnouche !', 'Bien joué !', 'Ayoye…', 'Bin voyons donc', 'GG la gang'];
+/**
+ * Couleur de chaque place, dans l'ordre des places du moteur (sens horaire, partenaire en face).
+ * Reprend la maquette vue depuis la place 0 : Soleil = corail + jaune, Bleuets = bleu + turquoise,
+ * Framboises = rose + violet.
+ */
+export const SEAT_COLORS: Record<4 | 6, ColorName[]> = {
+  4: ['coral', 'blue', 'yellow', 'teal'],
+  6: ['coral', 'blue', 'rose', 'yellow', 'teal', 'violet'],
+};
+export const TEAM_NAMES = ['Soleil', 'Bleuets', 'Framboises'];
+
+export const EMOTES =['Envoye donc !', 'Tabarnouche !', 'Bien joué !', 'Ayoye…', 'Bin voyons donc', 'GG la gang'];

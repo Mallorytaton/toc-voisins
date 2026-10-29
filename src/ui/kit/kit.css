@@ -209,11 +209,11 @@
   display: flex; flex-direction: column; gap: 16px;
 }
 .screen--tabs { padding-bottom: calc(var(--safe-bottom) + 120px); }
-/* Les ronds décoratifs restent derrière le contenu. */
-.screen > :not(.blob):not(.tabbar) { position: relative; }
+/* Les ronds décoratifs restent derrière le contenu de l'écran ou de la carte. */
+.screen, .hero { isolation: isolate; }
 .screen__head { display: flex; align-items: center; gap: 12px; }
 .spacer { flex: 1; }
-.blob { position: absolute; border-radius: 50%; pointer-events: none; }
+.blob { position: absolute; z-index: -1; border-radius: 50%; pointer-events: none; }
 
 /* ---- Toast ---- */
 .toast {
