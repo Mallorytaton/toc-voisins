@@ -74,11 +74,13 @@ for (let k = 0; k < 40; k++) {
 const mimiSeat = (await game(guest)).me;
 await guest.page.goto(`${base}#/accueil`);
 console.log('Mimi (place ' + mimiSeat + ') quitte la partie.');
-// Frédo joue ses tours jusqu'à ce que ce soit à Mimi (place 2)
+// Frédo joue ses tours jusqu'à ce que la partie attende Mimi : son tour de jeu, ou sa carte
+// d'échange si une nouvelle donne a commencé entre-temps.
+const waitsForMimi = (g) => g && ((g.phase === 'play' && g.turn === mimiSeat) || (g.phase === 'exchange' && !g.ex[mimiSeat] && g.ex.filter(Boolean).length === g.ex.length - 1));
 let waitingSince = 0;
 for (let k = 0; k < 120; k++) {
   const g = await game(host);
-  if (g?.phase === 'play' && g.turn === mimiSeat) { waitingSince = Date.now(); break; }
+  if (waitsForMimi(g)) { waitingSince = Date.now(); break; }
   if (k % 10 === 0) console.log('  état :', JSON.stringify(g), '| indice :', await hint(host));
   await act(host);
   await host.page.waitForTimeout(700);
@@ -87,7 +89,7 @@ if (!waitingSince) throw new Error('Le tour de Mimi n’est pas arrivé.');
 const v0 = (await game(host)).v;
 await host.page.waitForTimeout(40_000);
 const g1 = await game(host);
-console.log(`Après 40 s d’absence : tour ${g1.turn}, version ${g1.v} (avant ${v0}) → ${g1.v === v0 && g1.turn === mimiSeat ? 'on attend Mimi ✔' : 'joué à sa place ✘'}`);
+console.log(`Après 40 s d’absence (${g1.phase === 'exchange' ? 'échange' : 'tour de jeu'}) : version ${g1.v} (avant ${v0}) → ${g1.v === v0 && waitsForMimi(g1) ? 'on attend Mimi ✔' : 'joué à sa place ✘'}`);
 console.log('Frédo voit :', await hint(host), '|', await host.page.locator('.g-hint span').first().innerText());
 await shot(host, '02-attente');
 // L'accueil de Mimi
@@ -98,9 +100,9 @@ await shot(guest, '02-accueil');
 await guest.page.locator('.slow-row').first().click();
 await guest.page.waitForSelector('.game', { timeout: 20000 });
 let played = '';
-for (let k = 0; k < 30 && played !== 'joue'; k++) { played = await act(guest); if (played !== 'joue') await guest.page.waitForTimeout(700); }
+for (let k = 0; k < 30 && !played; k++) { played = await act(guest); if (!played) await guest.page.waitForTimeout(700); }
 await host.page.waitForTimeout(2500);
 const g2 = await game(host);
-console.log('Mimi revient et joue :', played === 'joue' && g2.v > v0 ? `oui (version ${g2.v}) ✔` : 'non ✘');
+console.log(`Mimi revient et ${played === 'donne' ? 'donne sa carte' : 'joue'} :`, played && g2.v > v0 ? `oui (version ${g2.v}) ✔` : 'non ✘');
 console.log(errors.length ? 'Erreurs : ' + errors.join('\n') : 'Aucune erreur.');
 await browser.close();
