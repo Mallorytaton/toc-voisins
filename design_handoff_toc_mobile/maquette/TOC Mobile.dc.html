@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#ece5db;-webkit-font-smoothing:antialiased}
+a{color:#f25a38;text-decoration:none}a:hover{color:#c9401f}
+*::-webkit-scrollbar{display:none}
+input::placeholder{color:#a8a1b3}
+@keyframes tocFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+@keyframes tocBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes tocRing{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.55);opacity:0}}
+@keyframes tocPop{0%{transform:scale(.3);opacity:0}45%{transform:scale(1.12);opacity:1}70%{transform:scale(.96)}100%{transform:scale(1);opacity:1}}
+@keyframes tocUp{0%{transform:translate(-50%,12px) scale(.9);opacity:0}100%{transform:translate(-50%,0) scale(1);opacity:1}}
+@keyframes tocShrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes tocDash{0%,100%{opacity:.35;transform:scale(.9)}50%{opacity:1;transform:scale(1.08)}}
+@keyframes tocIn{0%{transform:translateY(18px);opacity:0}100%{transform:translateY(0);opacity:1}}
+@keyframes tocWiggle{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(-2deg)}}
+@keyframes tocWiggle2{0%,100%{transform:rotate(4deg)}50%{transform:rotate(9deg)}}
+@keyframes tocDots{0%,100%{opacity:.3}50%{opacity:1}}
+@keyframes tocSquash{0%{transform:scale(1.35,.62)}35%{transform:scale(.84,1.22)}65%{transform:scale(1.08,.94)}100%{transform:scale(1)}}
+@keyframes tocShake{0%,100%{translate:0 0}15%{translate:-7px 4px}35%{translate:6px -5px}55%{translate:-4px 3px}75%{translate:3px -2px}}
+@keyframes tocGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(.9) saturate(1.9)}}
+@keyframes tocDeal{0%{translate:-30px -380px;scale:.3;opacity:0}55%{opacity:1}100%{translate:0 0;scale:1;opacity:1}}
+@keyframes tocPath{0%,100%{opacity:.2;scale:.6}50%{opacity:1;scale:1.15}}
+@keyframes tocThump{0%{scale:1}40%{scale:1.22}100%{scale:1}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:44px;padding:40px 24px 60px;box-sizing:border-box;font-family:Nunito,sans-serif;color:#2b2a3d;">
+
+<aside style="flex:0 1 250px;display:flex;flex-direction:column;gap:18px;padding-top:28px;">
+  <div style="display:flex;flex-direction:column;gap:6px;">
+    <span style="font:800 12px Nunito,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#8a8398;">Prototype iPhone</span>
+    <span style="font:800 34px/1 'Baloo 2',sans-serif;">TOC</span>
+    <span style="font:600 14px/1.45 Nunito,sans-serif;color:#6b6880;text-wrap:pretty;">Écrans navigables. Sur le plateau, touche une carte, puis « Jouer » : les billes avancent et les adversaires jouent leur tour.</span>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:6px;">
+    <sc-for list="{{ jump }}" as="j" hint-placeholder-count="8">
+      <button onClick="{{ j.go }}" style="display:flex;align-items:center;gap:10px;text-align:left;border:none;border-radius:14px;padding:10px 14px;background:{{ j.bg }};color:#2b2a3d;font:700 14px Nunito,sans-serif;cursor:pointer;box-shadow:{{ j.sh }};" style-hover="background:#fff;">
+        <span style="font:800 11px ui-monospace,Menlo,monospace;color:#a39cb0;width:20px;">{{ j.n }}</span>{{ j.l }}
+      </button>
+    </sc-for>
+  </div>
+</aside>
+
+<div style="flex:none;width:417px;height:876px;border-radius:66px;background:#1d1b24;padding:12px;box-sizing:border-box;box-shadow:0 40px 80px rgba(60,40,20,.28),inset 0 0 0 2px #3a3744;">
+<div style="position:relative;width:393px;height:852px;border-radius:54px;overflow:hidden;background:#fbf6ef;">
+
+<sc-if value="{{ isSplash }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="01 Splash" style="position:absolute;inset:0;overflow:hidden;background:#fbf6ef;display:flex;flex-direction:column;align-items:center;padding:0 28px 48px;box-sizing:border-box;">
+  <div style="position:absolute;left:-120px;top:-90px;width:360px;height:360px;border-radius:50%;background:#ffe3da;"></div>
+  <div style="position:absolute;right:-150px;top:290px;width:330px;height:330px;border-radius:50%;background:#dfe7ff;"></div>
+  <div style="position:absolute;left:-90px;bottom:-130px;width:310px;height:310px;border-radius:50%;background:#d4f4eb;"></div>
+  <div style="position:absolute;left:44px;top:128px;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, #ffc93c 55%, #d9a116 100%);box-shadow:0 12px 18px rgba(217,161,22,.35);animation:tocFloat 3.2s ease-in-out infinite;"></div>
+  <div style="position:absolute;left:302px;top:160px;width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, #ff6b4a 55%, #d9482a 100%);box-shadow:0 10px 14px rgba(217,72,42,.3);animation:tocFloat 2.6s ease-in-out .6s infinite;"></div>
+  <div style="position:absolute;left:300px;top:560px;width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, #2ec4a0 55%, #1d9c7e 100%);box-shadow:0 14px 20px rgba(29,156,126,.3);animation:tocFloat 3.6s ease-in-out 1.1s infinite;"></div>
+  <div style="position:absolute;left:52px;top:604px;width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, #4a7dff 55%, #2f5bd6 100%);box-shadow:0 10px 16px rgba(47,91,214,.3);animation:tocFloat 3s ease-in-out .3s infinite;"></div>
+  <div style="position:relative;margin-top:232px;display:flex;flex-direction:column;align-items:center;gap:22px;">
+    <span style="font:800 14px Nunito,sans-serif;letter-spacing:.26em;text-transform:uppercase;color:#6b6880;">Le jeu de</span>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <div style="width:92px;height:102px;border-radius:30px;background:#ff6b4a;display:flex;align-items:center;justify-content:center;font:800 76px/1 'Baloo 2',sans-serif;color:#fff;padding-top:8px;box-sizing:border-box;box-shadow:0 9px 0 #d9482a,0 22px 30px rgba(255,107,74,.35),inset 0 3px 0 rgba(255,255,255,.45);animation:tocWiggle 4s ease-in-out infinite;">T</div>
+      <div style="width:92px;height:102px;border-radius:30px;background:#4a7dff;display:flex;align-items:center;justify-content:center;box-shadow:0 9px 0 #2f5bd6,0 22px 30px rgba(74,125,255,.35),inset 0 3px 0 rgba(255,255,255,.45);transform:translateY(-8px);">
+        <div style="width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, #ffc93c 55%, #d9a116 100%);box-shadow:0 6px 0 rgba(0,0,0,.15),inset 0 -4px 6px rgba(0,0,0,.08);animation:tocBob 1.6s ease-in-out infinite;"></div>
+      </div>
+      <div style="width:92px;height:102px;border-radius:30px;background:#2ec4a0;display:flex;align-items:center;justify-content:center;font:800 76px/1 'Baloo 2',sans-serif;color:#fff;padding-top:8px;box-sizing:border-box;box-shadow:0 9px 0 #1d9c7e,0 22px 30px rgba(46,196,160,.35),inset 0 3px 0 rgba(255,255,255,.45);animation:tocWiggle2 4.4s ease-in-out infinite;">C</div>
+    </div>
+    <span style="font:600 22px/1.3 'Baloo 2',sans-serif;text-align:center;max-width:290px;text-wrap:pretty;margin-top:10px;">Le jeu qui brise des amitiés… pis qui en crée.</span>
+  </div>
+  <div style="flex:1;"></div>
+  <div style="position:relative;width:100%;display:flex;flex-direction:column;gap:16px;align-items:stretch;">
+    <button onClick="{{ toOnboard }}" style="height:62px;border:none;border-radius:22px;background:linear-gradient(180deg,#ff8466 0%,#f25a38 100%);color:#fff;font:800 21px/1 'Baloo 2',sans-serif;padding-top:3px;box-shadow:0 6px 0 #c9401f,0 16px 26px rgba(242,90,56,.32),inset 0 2px 0 rgba(255,255,255,.4);cursor:pointer;transition:transform .12s, box-shadow .12s;" style-active="transform:translateY(4px);box-shadow:0 2px 0 #c9401f,0 6px 12px rgba(242,90,56,.3);">Embarque !</button>
+    <button onClick="{{ toHome }}" style="border:none;background:none;font:800 15px Nunito,sans-serif;color:#6b6880;cursor:pointer;padding:6px;">J’ai déjà un compte</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isOnboard }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="02 Onboarding" style="position:absolute;inset:0;padding:62px 24px 44px;box-sizing:border-box;display:flex;flex-direction:column;background:#fbf6ef;">
+  <div style="display:flex;justify-content:space-between;align-items:center;height:40px;">
+    <span style="font:800 13px Nunito,sans-serif;color:#a39cb0;letter-spacing:.12em;">{{ slideNum }} / 3</span>
+    <button onClick="{{ toAvatar }}" style="border:none;background:none;font:800 15px Nunito,sans-serif;color:#6b6880;cursor:pointer;">Passer</button>
+  </div>
+  <div style="margin-top:12px;height:356px;border-radius:38px;background:{{ slideBg }};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 3px 0 rgba(255,255,255,.7),inset 0 -6px 0 rgba(0,0,0,.04);transition:background .4s;">
+    <sc-if value="{{ slide0 }}">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:22px;animation:tocIn .45s ease-out both;">
+        <div style="display:flex;align-items:flex-end;gap:6px;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;"><div style="padding:10px;border-radius:50%;background:#fff;box-shadow:0 0 0 5px #ff6b4a,0 14px 24px rgba(70,40,20,.18);"><dc-import name="Avatar" char="{{ char }}" color="{{ avColor }}" size="112" hint-size="112px,112px"></dc-import></div></div>
+          <div style="width:44px;height:44px;margin:0 4px 40px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font:800 28px/1 'Baloo 2',sans-serif;color:#f25a38;padding-top:3px;box-sizing:border-box;box-shadow:0 4px 0 #f0dccb;">+</div>
+          <div style="padding:10px;border-radius:50%;background:#fff;box-shadow:0 0 0 5px #ffc93c,0 14px 24px rgba(70,40,20,.18);"><dc-import name="Avatar" char="lunettes" color="yellow" size="112" hint-size="112px,112px"></dc-import></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:#fff;box-shadow:0 4px 0 #f0dccb;font:800 15px Nunito,sans-serif;">
+          <span style="width:12px;height:12px;border-radius:50%;background:#ff6b4a;"></span><span style="width:12px;height:12px;border-radius:50%;background:#ffc93c;margin-left:-4px;"></span>Équipe Soleil
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ slide1 }}">
+      <div style="position:relative;width:300px;height:220px;animation:tocIn .45s ease-out both;">
+        <div style="position:absolute;left:30px;top:40px;width:104px;height:148px;border-radius:20px;background:#fff;transform:rotate(-14deg);box-shadow:0 8px 0 #e6dccf,0 18px 28px rgba(70,40,20,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;"><span style="font:800 54px/1 'Baloo 2',sans-serif;color:#e5482a;">4</span><span style="font:800 11px Nunito,sans-serif;padding:4px 9px;border-radius:999px;background:#dfe7ff;color:#2f5bd6;">Recule 4</span></div>
+        <div style="position:absolute;left:166px;top:40px;width:104px;height:148px;border-radius:20px;background:#fff;transform:rotate(14deg);box-shadow:0 8px 0 #e6dccf,0 18px 28px rgba(70,40,20,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;"><span style="font:800 54px/1 'Baloo 2',sans-serif;color:#2b2a3d;">V</span><span style="font:800 11px Nunito,sans-serif;padding:4px 9px;border-radius:999px;background:#ece6ff;color:#6a4bd8;">Échange</span></div>
+        <div style="position:absolute;left:98px;top:14px;width:104px;height:148px;border-radius:20px;background:#fff;box-shadow:0 8px 0 #e6dccf,0 22px 32px rgba(70,40,20,.2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;animation:tocBob 2s ease-in-out infinite;"><span style="font:800 54px/1 'Baloo 2',sans-serif;color:#e5482a;">7</span><span style="font:800 11px Nunito,sans-serif;padding:4px 9px;border-radius:999px;background:#fff1c9;color:#9a6b00;">Divise</span></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ slide2 }}">
+      <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:20px;animation:tocIn .45s ease-out both;">
+        <div style="width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, #2ec4a0 55%, #1d9c7e 100%);box-shadow:0 14px 16px rgba(29,156,126,.3);animation:tocFloat 1.4s ease-in-out infinite;"></div>
+        <div style="display:flex;gap:14px;padding:16px 20px;border-radius:999px;background:#fff4e6;box-shadow:0 8px 0 #e6d2bc,0 18px 28px rgba(70,40,20,.15),inset 0 3px 0 #fff;">
+          <div style="width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, #2ec4a0 55%, #1d9c7e 100%);box-shadow:0 5px 0 #1d9c7e;"></div>
+          <div style="width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, #2ec4a0 55%, #1d9c7e 100%);box-shadow:0 5px 0 #1d9c7e;"></div>
+          <div style="width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, #2ec4a0 55%, #1d9c7e 100%);box-shadow:0 5px 0 #1d9c7e;"></div>
+          <div style="width:46px;height:46px;border-radius:50%;background:#e6d2bc;box-shadow:inset 0 4px 6px rgba(90,60,30,.3);"></div>
+        </div>
+        <span style="font:800 13px Nunito,sans-serif;color:#1d7f67;letter-spacing:.14em;text-transform:uppercase;">La maison</span>
+      </div>
+    </sc-if>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:30px;">
+    <span style="font:800 32px/1.1 'Baloo 2',sans-serif;text-wrap:pretty;">{{ slideTitle }}</span>
+    <span style="font:600 17px/1.5 Nunito,sans-serif;color:#6b6880;text-wrap:pretty;">{{ slideText }}</span>
+  </div>
+  <div style="flex:1;"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+    <div style="display:flex;gap:8px;">
+      <sc-for list="{{ dots }}" as="dt" hint-placeholder-count="3"><div style="height:10px;width:{{ dt.w }}px;border-radius:5px;background:{{ dt.c }};transition:all .3s;"></div></sc-for>
+    </div>
+    <button onClick="{{ nextSlide }}" style="height:60px;padding:3px 30px 0;border:none;border-radius:22px;background:linear-gradient(180deg,#ff8466 0%,#f25a38 100%);color:#fff;font:800 19px/1 'Baloo 2',sans-serif;box-shadow:0 6px 0 #c9401f,0 16px 26px rgba(242,90,56,.32),inset 0 2px 0 rgba(255,255,255,.4);cursor:pointer;transition:transform .12s, box-shadow .12s;" style-active="transform:translateY(4px);box-shadow:0 2px 0 #c9401f;">{{ slideCta }}</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAvatar }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="03 Choix du perso" style="position:absolute;inset:0;padding:60px 22px 40px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;background:#fbf6ef;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button onClick="{{ toOnboard }}" style="width:44px;height:44px;flex:none;border:none;border-radius:50%;background:#fff;font:800 26px/1 'Baloo 2',sans-serif;color:#2b2a3d;cursor:pointer;box-shadow:0 4px 0 #e6dccf,0 10px 16px rgba(110,80,50,.1);padding-bottom:2px;">‹</button>
+    <div style="display:flex;flex-direction:column;"><span style="font:800 26px/1.1 'Baloo 2',sans-serif;">Choisis ton perso</span><span style="font:600 13px Nunito,sans-serif;color:#6b6880;">Tu pourras le changer quand tu veux.</span></div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+    <div style="position:relative;width:186px;height:186px;border-radius:50%;background:{{ avLight }};display:flex;align-items:center;justify-content:center;box-shadow:inset 0 -8px 0 rgba(0,0,0,.05),inset 0 4px 0 rgba(255,255,255,.8),0 14px 26px rgba(110,80,50,.12);transition:background .3s;">
+      <dc-import name="Avatar" char="{{ char }}" color="{{ avColor }}" size="140" hint-size="140px,140px"></dc-import>
+    </div>
+    <span style="font:800 20px/1 'Baloo 2',sans-serif;padding:8px 16px 5px;border-radius:999px;background:#fff;box-shadow:0 4px 0 #e6dccf;">{{ charName }}</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
+    <sc-for list="{{ charList }}" as="ch" hint-placeholder-count="6">
+      <button onClick="{{ ch.pick }}" style="height:92px;border:none;border-radius:24px;background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:{{ ch.sh }};transition:box-shadow .2s, transform .2s;transform:{{ ch.tf }};">
+        <dc-import name="Avatar" char="{{ ch.id }}" color="{{ avColor }}" size="56" hint-size="56px,56px"></dc-import>
+        <span style="font:800 12px Nunito,sans-serif;color:#2b2a3d;">{{ ch.name }}</span>
+      </button>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <span style="font:800 13px Nunito,sans-serif;color:#6b6880;letter-spacing:.08em;text-transform:uppercase;">Ta couleur</span>
+    <div style="display:flex;justify-content:space-between;">
+      <sc-for list="{{ colorList }}" as="cl" hint-placeholder-count="6">
+        <button onClick="{{ cl.pick }}" style="width:44px;height:44px;border:none;border-radius:50%;cursor:pointer;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.8) 0 10%, rgba(255,255,255,0) 34%), {{ cl.c }};box-shadow:{{ cl.sh }};transition:box-shadow .2s;"></button>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <span style="font:800 13px Nunito,sans-serif;color:#6b6880;letter-spacing:.08em;text-transform:uppercase;">Ton surnom</span>
+    <input value="{{ nick }}" onChange="{{ onNick }}" maxlength="14" style="height:54px;border:none;border-radius:18px;background:#fff;padding:0 18px;font:800 18px Nunito,sans-serif;color:#2b2a3d;outline:none;box-shadow:inset 0 2px 4px rgba(110,80,50,.1),0 3px 0 #efe4d7;">
+  </div>
+  <div style="flex:1;"></div>
+  <button onClick="{{ toHome }}" style="height:60px;border:none;border-radius:22px;background:linear-gradient(180deg,#ff8466 0%,#f25a38 100%);color:#fff;font:800 20px/1 'Baloo 2',sans-serif;padding-top:3px;box-shadow:0 6px 0 #c9401f,0 16px 26px rgba(242,90,56,.32),inset 0 2px 0 rgba(255,255,255,.4);cursor:pointer;transition:transform .12s, box-shadow .12s;" style-active="transform:translateY(4px);box-shadow:0 2px 0 #c9401f;">C’est moi, ça !</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="04 Accueil" style="position:absolute;inset:0;overflow-y:auto;padding:58px 0 130px;box-sizing:border-box;background:#fbf6ef;">
+  <div style="padding:8px 20px 0;display:flex;flex-direction:column;gap:18px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="position:relative;padding:4px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px #ff6b4a,0 6px 12px rgba(70,40,20,.15);">
+        <dc-import name="Avatar" char="{{ char }}" color="{{ avColor }}" size="46" hint-size="46px,46px"></dc-import>
+        <span style="position:absolute;right:-6px;bottom:-4px;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;border-radius:11px;background:#2b2a3d;color:#fff;font:900 11px/22px Nunito,sans-serif;text-align:center;box-shadow:0 0 0 2px #fbf6ef;">14</span>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;">
+        <span style="font:800 20px/1 'Baloo 2',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Salut {{ nick }} !</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:64px;flex:none;height:8px;border-radius:4px;background:#efe4d7;overflow:hidden;"><div style="width:68%;height:100%;border-radius:4px;background:#2ec4a0;"></div></div>
+          <span style="font:700 12px Nunito,sans-serif;color:#6b6880;white-space:nowrap;">680 / 1000 XP</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;height:38px;padding:0 14px 0 6px;border-radius:19px;background:#fff;box-shadow:0 4px 0 #ece1d4,0 8px 14px rgba(110,80,50,.08);">
+        <div style="width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffe48a 0, #ffc93c 55%, #d9a116 100%);box-shadow:inset 0 0 0 3px rgba(217,161,22,.45);"></div>
+        <span style="font:800 16px/1 'Baloo 2',sans-serif;padding-top:2px;">2 450</span>
+      </div>
+    </div>
+
+    <span style="font:800 34px/1 'Baloo 2',sans-serif;margin-top:6px;">On joue ?</span>
+
+    <div style="display:flex;gap:6px;padding:6px;border-radius:24px;background:#f1e8dd;box-shadow:inset 0 2px 4px rgba(110,80,50,.1);">
+      <sc-for list="{{ modeOpts }}" as="mo" hint-placeholder-count="2">
+        <button onClick="{{ mo.pick }}" style="flex:1;height:56px;border:none;border-radius:18px;cursor:pointer;background:{{ mo.bg }};box-shadow:{{ mo.sh }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;transition:all .2s;">
+          <span style="font:800 17px/1.1 'Baloo 2',sans-serif;color:#2b2a3d;">{{ mo.l }}</span>
+          <span style="font:700 12px Nunito,sans-serif;color:#6b6880;">{{ mo.sub }}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="position:relative;overflow:hidden;border-radius:32px;padding:22px 22px 20px;background:#3560e6;color:#fff;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 0 #2547b8,0 22px 34px rgba(53,96,230,.3),inset 0 3px 0 rgba(255,255,255,.3);">
+      <div style="position:absolute;right:-26px;top:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 9%, rgba(255,255,255,0) 30%), radial-gradient(circle at 50% 48%, #ffc93c 55%, #d9a116 100%);box-shadow:0 14px 20px rgba(0,0,0,.18);"></div>
+      <div style="position:absolute;right:76px;top:30px;width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, #ff6b4a 55%, #d9482a 100%);box-shadow:0 8px 12px rgba(0,0,0,.2);animation:tocBob 2.2s ease-in-out infinite;"></div>
+      <span style="align-self:flex-start;font:900 11px Nunito,sans-serif;letter-spacing:.16em;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.18);">ENTRE AMIS</span>
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:250px;">
+        <span style="font:800 30px/1 'Baloo 2',sans-serif;">Partie privée</span>
+        <span style="font:600 15px/1.4 Nunito,sans-serif;text-wrap:pretty;">Crée ta salle, invite ta gang pis placez-vous en équipes.</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;">
+          <div style="padding:2px;border-radius:50%;background:#fff;"><dc-import name="Avatar" char="lunettes" color="yellow" size="30" hint-size="30px,30px"></dc-import></div>
+          <div style="padding:2px;border-radius:50%;background:#fff;margin-left:-8px;"><dc-import name="Avatar" char="casquette" color="teal" size="30" hint-size="30px,30px"></dc-import></div>
+          <div style="padding:2px;border-radius:50%;background:#fff;margin-left:-8px;"><dc-import name="Avatar" char="couronne" color="blue" size="30" hint-size="30px,30px"></dc-import></div>
+        </div>
+        <span style="font:700 13px Nunito,sans-serif;">Mimi, Coco pis 2 autres en ligne</span>
+      </div>
+      <button onClick="{{ toRoom }}" style="height:56px;border:none;border-radius:20px;background:#fff;color:#2547b8;font:800 19px/1 'Baloo 2',sans-serif;padding-top:3px;cursor:pointer;box-shadow:0 5px 0 #c9d6ff,inset 0 2px 0 #fff;transition:transform .12s, box-shadow .12s;" style-active="transform:translateY(4px);box-shadow:0 1px 0 #c9d6ff;">Créer une salle · {{ modeShort }}</button>
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <input value="{{ code }}" onChange="{{ onCode }}" placeholder="Code de salle (ex. TOC-4821)" style="flex:1;min-width:0;height:54px;border:none;border-radius:18px;background:#fff;padding:0 16px;font:700 15px Nunito,sans-serif;color:#2b2a3d;outline:none;box-shadow:inset 0 2px 4px rgba(110,80,50,.1),0 3px 0 #efe4d7;">
+      <button onClick="{{ toRoom }}" style="height:54px;padding:3px 20px 0;border:none;border-radius:18px;background:#2b2a3d;color:#fff;font:800 17px/1 'Baloo 2',sans-serif;cursor:pointer;box-shadow:0 5px 0 #15141f;" style-active="transform:translateY(3px);box-shadow:0 2px 0 #15141f;">Rejoindre</button>
+    </div>
+
+    <div style="position:relative;overflow:hidden;border-radius:32px;padding:22px;background:#ffc93c;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 0 #d9a116,0 22px 34px rgba(217,161,22,.3),inset 0 3px 0 rgba(255,255,255,.5);">
+      <div style="position:absolute;right:-40px;bottom:-50px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.25);"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font:900 11px Nunito,sans-serif;letter-spacing:.16em;padding:6px 10px;border-radius:999px;background:#2b2a3d;color:#ffc93c;">TOURNOI · 4 JOUEURS</span>
+        <span style="font:800 13px Nunito,sans-serif;">Gros lot : 5 000</span>
+      </div>
+      <span style="font:800 28px/1 'Baloo 2',sans-serif;">La Coupe du Vendredi</span>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <span style="font:800 12px Nunito,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#5a4300;">Commence dans</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <sc-for list="{{ clock }}" as="ck" hint-placeholder-count="3">
+            <div style="display:flex;flex-direction:column;align-items:center;width:62px;padding:8px 0 6px;border-radius:16px;background:#fff;box-shadow:0 4px 0 #e6b52a;">
+              <span style="font:800 26px/1 'Baloo 2',sans-serif;font-variant-numeric:tabular-nums;">{{ ck.v }}</span>
+              <span style="font:800 10px Nunito,sans-serif;color:#6b6880;text-transform:uppercase;">{{ ck.u }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;justify-content:space-between;font:800 13px Nunito,sans-serif;"><span>{{ regCount }} / 64 inscrits</span><span>16 équipes</span></div>
+        <div style="height:10px;border-radius:5px;background:rgba(43,42,61,.14);overflow:hidden;"><div style="height:100%;width:{{ regPct }}%;border-radius:5px;background:#2b2a3d;transition:width .5s;"></div></div>
+      </div>
+      <button onClick="{{ toggleReg }}" style="height:56px;border:none;border-radius:20px;background:{{ regBg }};color:#fff;font:800 19px/1 'Baloo 2',sans-serif;padding-top:3px;cursor:pointer;box-shadow:0 5px 0 {{ regSh }};transition:background .2s;" style-active="transform:translateY(4px);">{{ regLabel }}</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isRoom }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="05 Salle privée" style="position:absolute;inset:0;padding:60px 20px 40px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px;background:#fbf6ef;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button onClick="{{ toHome }}" style="width:44px;height:44px;flex:none;border:none;border-radius:50%;background:#fff;font:800 26px/1 'Baloo 2',sans-serif;color:#2b2a3d;cursor:pointer;box-shadow:0 4px 0 #e6dccf,0 10px 16px rgba(110,80,50,.1);padding-bottom:2px;">‹</button>
+    <span style="flex:1;font:800 26px/1 'Baloo 2',sans-serif;padding-top:3px;">Salle privée</span>
+    <span style="font:800 12px Nunito,sans-serif;padding:7px 11px;border-radius:999px;background:#fff;box-shadow:0 3px 0 #ece1d4;">{{ modeLabel }}</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;padding:14px 14px 14px 18px;border-radius:24px;background:#fff;box-shadow:0 6px 0 #ece1d4,0 14px 24px rgba(110,80,50,.08);">
+    <div style="flex:1;display:flex;flex-direction:column;gap:2px;">
+      <span style="font:800 11px Nunito,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#6b6880;">Code de la salle</span>
+      <span style="font:800 28px/1.05 'Baloo 2',sans-serif;letter-spacing:.06em;">TOC-4821</span>
+    </div>
+    <button onClick="{{ copyCode }}" style="height:46px;padding:2px 18px 0;border:none;border-radius:16px;background:{{ copyBg }};color:{{ copyCol }};font:800 16px/1 'Baloo 2',sans-serif;cursor:pointer;box-shadow:0 4px 0 {{ copySh }};transition:all .2s;">{{ copyLabel }}</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <sc-for list="{{ teams }}" as="tm" hint-placeholder-count="2">
+      <div style="padding:14px;border-radius:26px;background:#fff;box-shadow:0 6px 0 #ece1d4,0 14px 24px rgba(110,80,50,.08);display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:14px;height:14px;border-radius:50%;background:{{ tm.c1 }};"></span><span style="width:14px;height:14px;border-radius:50%;background:{{ tm.c2 }};margin-left:-8px;box-shadow:0 0 0 2px #fff;"></span>
+          <span style="font:800 17px/1 'Baloo 2',sans-serif;padding-top:2px;">{{ tm.name }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+          <sc-for list="{{ tm.seats }}" as="st" hint-placeholder-count="2">
+            <div style="height:62px;border-radius:18px;background:{{ st.bg }};display:flex;align-items:center;gap:10px;padding:0 10px;box-sizing:border-box;transition:background .3s;">
+              <sc-if value="{{ st.filled }}">
+                <div style="flex:none;padding:3px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px {{ st.ring }};animation:tocPop .5s cubic-bezier(.3,1.5,.5,1) both;"><dc-import name="Avatar" char="{{ st.char }}" color="{{ st.av }}" size="38" hint-size="38px,38px"></dc-import></div>
+                <div style="min-width:0;display:flex;flex-direction:column;gap:1px;">
+                  <span style="font:800 15px/1.1 'Baloo 2',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ st.name }}</span>
+                  <span style="font:800 11px Nunito,sans-serif;color:#1d7f67;">{{ st.tag }}</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ st.empty }}">
+                <div style="flex:none;width:42px;height:42px;border-radius:50%;border:2.5px dashed #c9bfb3;box-sizing:border-box;animation:tocDash 1.4s ease-in-out infinite;"></div>
+                <div style="display:flex;flex-direction:column;gap:1px;"><span style="font:700 13px Nunito,sans-serif;color:#8a8398;">En attente…</span><span style="font:800 12px Nunito,sans-serif;color:#f25a38;">Inviter</span></div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="flex:1;"></div>
+  <span style="text-align:center;font:700 14px Nunito,sans-serif;color:#6b6880;">{{ roomStatus }}</span>
+  <button onClick="{{ launch }}" style="height:62px;border:none;border-radius:22px;background:{{ launchBg }};color:#fff;font:800 20px/1 'Baloo 2',sans-serif;padding-top:3px;box-shadow:{{ launchSh }};cursor:pointer;transition:all .25s;" style-active="transform:translateY(4px);">{{ launchLabel }}</button>
+  <sc-if value="{{ counting }}">
+    <div style="position:absolute;inset:0;background:rgba(251,246,239,.88);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;z-index:40;">
+      <span style="font:800 16px Nunito,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#6b6880;">La partie commence</span>
+      {{ countEl }}
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isGame }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="06 Plateau de jeu" style="position:absolute;inset:0;background:#f5ede3;overflow:hidden;">
+  <div style="position:absolute;left:-140px;top:420px;width:300px;height:300px;border-radius:50%;background:#ffe9df;"></div>
+  <div style="position:absolute;right:-160px;top:60px;width:320px;height:320px;border-radius:50%;background:#e6ecff;"></div>
+  <div style="position:absolute;left:16px;right:16px;top:56px;height:50px;display:flex;align-items:center;gap:10px;">
+    <button onClick="{{ openPause }}" style="width:44px;height:44px;flex:none;border:none;border-radius:50%;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;box-shadow:0 4px 0 #e6dccf,0 8px 14px rgba(110,80,50,.1);"><span style="width:4px;height:14px;border-radius:2px;background:#2b2a3d;"></span><span style="width:4px;height:14px;border-radius:2px;background:#2b2a3d;"></span></button>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;">
+      <span style="font:800 11px Nunito,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8a8398;">Manche 2 · Donne {{ deal }}</span>
+      <span style="font:800 19px/1.15 'Baloo 2',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">{{ turnTitle }}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:20px;background:#fff;box-shadow:0 4px 0 #e6dccf;">
+      <sc-for list="{{ score }}" as="sc" hint-placeholder-count="2">
+        <div style="display:flex;align-items:center;gap:4px;">
+          <span style="width:10px;height:10px;border-radius:50%;background:{{ sc.c1 }};"></span><span style="width:10px;height:10px;border-radius:50%;background:{{ sc.c2 }};margin-left:-6px;box-shadow:0 0 0 1.5px #fff;"></span>
+          <span style="font:800 16px/1 'Baloo 2',sans-serif;padding-top:2px;">{{ sc.n }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="position:absolute;left:16px;top:132px;width:360px;height:360px;animation:{{ boardAnim }};">
+    <sc-if value="{{ isSquare }}"><div style="position:absolute;inset:0;border-radius:44px;background:#fff4e6;box-shadow:0 10px 0 #ecd6bf,0 28px 44px rgba(120,80,40,.22),inset 0 4px 0 rgba(255,255,255,.95),inset 0 -10px 18px rgba(180,130,80,.12);"></div>
+      <div style="position:absolute;left:95px;top:95px;width:170px;height:170px;border-radius:50%;background:#f6e6d3;box-shadow:inset 0 4px 8px rgba(150,100,60,.18),0 2px 0 #fff;"></div></sc-if>
+    <sc-if value="{{ isRound }}"><div style="position:absolute;inset:0;border-radius:44px;background:#fff4e6;box-shadow:0 10px 0 #ecd6bf,0 28px 44px rgba(120,80,40,.22),inset 0 4px 0 rgba(255,255,255,.95),inset 0 -10px 18px rgba(180,130,80,.12);"></div>
+      <div style="position:absolute;left:122px;top:122px;width:116px;height:116px;border-radius:50%;background:#f6e6d3;box-shadow:inset 0 4px 8px rgba(150,100,60,.18),0 2px 0 #fff;"></div></sc-if>
+    <sc-for list="{{ pads }}" as="pd" hint-placeholder-count="0">
+      <div style="position:absolute;left:{{ pd.x }}px;top:{{ pd.y }}px;width:{{ pd.w }}px;height:{{ pd.h }}px;border-radius:{{ pd.r }}px;background:{{ pd.bg }};transform:rotate({{ pd.rot }}deg);box-shadow:inset 0 2px 4px rgba(120,80,40,.12),0 1px 0 #fff;animation:{{ pd.anim }};"></div>
+    </sc-for>
+    <sc-for list="{{ holes }}" as="h" hint-placeholder-count="0">
+      <div style="position:absolute;left:{{ h.x }}px;top:{{ h.y }}px;width:{{ h.s }}px;height:{{ h.s }}px;border-radius:50%;background:{{ h.bg }};box-shadow:{{ h.sh }};"></div>
+    </sc-for>
+    <sc-for list="{{ pathDots }}" as="pt" hint-placeholder-count="0">
+      <div style="position:absolute;left:{{ pt.x }}px;top:{{ pt.y }}px;width:{{ pt.s }}px;height:{{ pt.s }}px;border-radius:50%;background:#ff6b4a;box-shadow:0 0 0 2px rgba(255,255,255,.85);animation:{{ pt.anim }};z-index:350;"></div>
+    </sc-for>
+    <div style="position:absolute;inset:0;transform:scale({{ pileScale }});pointer-events:none;">
+    <div style="position:absolute;left:119px;top:142px;width:54px;height:76px;">
+      <div style="position:absolute;left:4px;top:4px;width:54px;height:76px;border-radius:12px;background:#2f5bd6;"></div>
+      <div style="position:absolute;inset:0;border-radius:12px;background:#4a7dff;box-shadow:inset 0 0 0 4px #fff,inset 0 0 0 6px #4a7dff,inset 0 0 0 7px rgba(255,255,255,.5),0 6px 10px rgba(40,60,140,.25);display:flex;align-items:center;justify-content:center;font:800 15px/1 'Baloo 2',sans-serif;color:#fff;">TOC</div>
+    </div>
+    <div style="position:absolute;left:187px;top:142px;width:54px;height:76px;border-radius:12px;background:#fff;box-shadow:0 5px 0 #e6dccf,0 8px 14px rgba(70,40,20,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;transform:rotate(6deg);transition:all .3s;animation:{{ dAnim }};">
+      <span style="font:800 30px/1 'Baloo 2',sans-serif;color:{{ discard.col }};">{{ discard.r }}</span>
+      <span style="font:700 16px/1 sans-serif;color:{{ discard.col }};">{{ discard.s }}</span>
+    </div>
+    </div>
+    <sc-if value="{{ ghost.show }}">
+      <div style="position:absolute;left:{{ ghost.x }}px;top:{{ ghost.y }}px;width:{{ ghost.s }}px;height:{{ ghost.s }}px;border-radius:50%;border:3px dashed {{ ghost.c }};box-sizing:border-box;background:rgba(255,255,255,.6);animation:tocDash 1s ease-in-out infinite;z-index:400;"></div>
+    </sc-if>
+    <sc-for list="{{ pawns }}" as="p" hint-placeholder-count="0">
+      <div style="position:absolute;left:{{ p.x }}px;top:{{ p.y }}px;width:{{ p.s }}px;height:{{ p.s }}px;z-index:{{ p.z }};transition:left {{ p.dur }} ease-out, top {{ p.dur }} ease-out;">
+        <div style="width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 10%, rgba(255,255,255,0) 32%), radial-gradient(circle at 50% 48%, {{ p.c }} 55%, {{ p.d }} 100%);box-shadow:{{ p.sh }};animation:{{ p.anim }};transform-origin:50% 90%;"></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ players }}" as="pl" hint-placeholder-count="0">
+      <div style="position:absolute;left:{{ pl.left }}px;top:{{ pl.top }}px;width:{{ pl.size }}px;height:{{ pl.size }}px;z-index:900;transform:scale({{ pl.sc }});transition:transform .4s cubic-bezier(.3,1.6,.5,1);">
+        <sc-if value="{{ pl.active }}"><div style="position:absolute;inset:-6px;border-radius:50%;background:{{ pl.ring }};animation:tocRing 1.3s ease-out infinite;"></div></sc-if>
+        <div style="position:absolute;inset:-3px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px {{ pl.ring }},0 6px 12px rgba(70,40,20,.25);"></div>
+        <div style="position:absolute;inset:0;"><dc-import name="Avatar" char="{{ pl.char }}" color="{{ pl.av }}" size="{{ pl.size }}" hint-size="40px,40px"></dc-import></div>
+        <span style="position:absolute;left:{{ pl.bL }};right:{{ pl.bR }};top:-6px;min-width:18px;height:18px;border-radius:9px;background:#2b2a3d;color:#fff;font:900 10px/18px Nunito,sans-serif;text-align:center;box-shadow:0 0 0 2px #fff;">{{ pl.cards }}</span>
+        <sc-if value="{{ pl.isOther }}"><span style="position:absolute;left:{{ pl.tagL }};top:{{ pl.tagT }};transform:{{ pl.tagTx }};white-space:nowrap;font:900 10px/1 Nunito,sans-serif;padding:4px 7px;border-radius:999px;background:#fff;color:#2b2a3d;box-shadow:0 2px 0 #e6dccf;">{{ pl.name }}</span></sc-if>
+      </div>
+    </sc-for>
+    <sc-for list="{{ bubbles }}" as="bb" hint-placeholder-count="0">
+      <div style="position:absolute;left:{{ bb.x }}px;top:{{ bb.y }}px;z-index:1000;transform:translateX(-50%);white-space:nowrap;font:800 15px/1 'Baloo 2',sans-serif;padding:9px 14px 6px;border-radius:18px;background:#2b2a3d;color:#fff;box-shadow:0 6px 14px rgba(43,42,61,.25);animation:tocUp .35s cubic-bezier(.3,1.5,.5,1) both;">{{ bb.t }}</div>
+    </sc-for>
+    {{ fxBoard }}
+  </div>
+
+  {{ fxScreen }}
+  <sc-if value="{{ toastShow }}">
+    <div style="position:absolute;left:50%;top:298px;z-index:30;white-space:nowrap;font:800 19px/1 'Baloo 2',sans-serif;padding:13px 20px 10px;border-radius:20px;background:#fff;color:#2b2a3d;box-shadow:0 6px 0 #e6dccf,0 16px 30px rgba(70,40,20,.2);animation:tocUp .35s cubic-bezier(.3,1.5,.5,1) both;">{{ toast }}</div>
+  </sc-if>
+
+  <sc-if value="{{ emoteOpen }}">
+    <div style="position:absolute;left:16px;top:388px;width:270px;z-index:35;padding:12px;border-radius:24px;background:#fff;box-shadow:0 8px 0 #e6dccf,0 20px 36px rgba(70,40,20,.2);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;animation:tocIn .25s ease-out both;">
+      <sc-for list="{{ emotes }}" as="em" hint-placeholder-count="6">
+        <button onClick="{{ em.send }}" style="height:44px;border:none;border-radius:14px;background:#f6efe6;color:#2b2a3d;font:800 15px/1 'Baloo 2',sans-serif;padding-top:2px;cursor:pointer;" style-hover="background:#ffe3da;" style-active="transform:scale(.95);">{{ em.t }}</button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;left:16px;right:16px;top:520px;display:flex;align-items:center;gap:10px;">
+    <button onClick="{{ toggleEmote }}" style="width:54px;height:54px;flex:none;border:none;border-radius:50%;background:{{ emoteBg }};cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #e6dccf,0 8px 14px rgba(110,80,50,.1);transition:background .2s;">
+      <div style="position:relative;width:26px;height:20px;border-radius:9px;background:#2b2a3d;display:flex;align-items:center;justify-content:center;gap:3px;"><span style="width:4px;height:4px;border-radius:50%;background:#fff;"></span><span style="width:4px;height:4px;border-radius:50%;background:#fff;"></span><span style="width:4px;height:4px;border-radius:50%;background:#fff;"></span><span style="position:absolute;left:5px;bottom:-4px;width:8px;height:8px;background:#2b2a3d;transform:rotate(45deg);border-radius:2px;"></span></div>
+    </button>
+    <div style="flex:1;min-width:0;min-height:54px;padding:8px 14px;box-sizing:border-box;border-radius:20px;background:#fff;display:flex;flex-direction:column;justify-content:center;gap:2px;box-shadow:0 4px 0 #e6dccf;">
+      <span style="font:800 16px/1.1 'Baloo 2',sans-serif;">{{ hintT }}</span>
+      <span style="font:600 12px/1.3 Nunito,sans-serif;color:#6b6880;text-wrap:pretty;">{{ hintS }}</span>
+    </div>
+    <sc-if value="{{ canPlay }}">
+      <button onClick="{{ play }}" style="height:54px;padding:3px 18px 0;flex:none;border:none;border-radius:20px;background:linear-gradient(180deg,#ff8466 0%,#f25a38 100%);color:#fff;font:800 18px/1 'Baloo 2',sans-serif;box-shadow:0 5px 0 #c9401f,0 12px 20px rgba(242,90,56,.32),inset 0 2px 0 rgba(255,255,255,.4);cursor:pointer;animation:tocPop .35s cubic-bezier(.3,1.5,.5,1) both;" style-active="transform:translateY(4px);box-shadow:0 1px 0 #c9401f;">Jouer</button>
+    </sc-if>
+  </div>
+  <div style="position:absolute;left:86px;right:16px;top:588px;height:5px;border-radius:3px;background:rgba(43,42,61,.08);overflow:hidden;">
+    <sc-if value="{{ myTurn }}"><div style="width:100%;height:100%;border-radius:3px;background:#ff6b4a;transform-origin:left;animation:tocShrink 30s linear both;"></div></sc-if>
+  </div>
+
+  <div style="position:absolute;left:0;top:606px;width:393px;height:200px;">
+    <sc-for list="{{ cards }}" as="cd" hint-placeholder-count="5">
+      <div onClick="{{ cd.pick }}" style-hover="translate:0 -8px;" style="position:absolute;left:{{ cd.x }}px;top:{{ cd.y }}px;width:80px;height:116px;border-radius:16px;background:#fff;cursor:pointer;z-index:{{ cd.z }};opacity:{{ cd.op }};transform:rotate({{ cd.rot }}deg);transform-origin:50% 120%;animation:{{ cd.anim }};box-shadow:{{ cd.sh }};transition:top .28s cubic-bezier(.3,1.5,.5,1), left .28s ease, transform .28s cubic-bezier(.3,1.5,.5,1), box-shadow .2s, opacity .2s;display:flex;flex-direction:column;padding:8px;box-sizing:border-box;">
+        <div style="display:flex;flex-direction:column;align-items:flex-start;line-height:1;">
+          <span style="font:800 20px/1 'Baloo 2',sans-serif;color:{{ cd.col }};">{{ cd.r }}</span>
+          <span style="font:700 13px/1 sans-serif;color:{{ cd.col }};">{{ cd.s }}</span>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;font:700 34px/1 sans-serif;color:{{ cd.col }};margin-top:-8px;">{{ cd.s }}</div>
+        <span style="align-self:center;font:900 10px/1 Nunito,sans-serif;padding:5px 7px;border-radius:999px;background:{{ cd.bbg }};color:{{ cd.bc }};white-space:nowrap;">{{ cd.badge }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ paused }}">
+    <div style="position:absolute;inset:0;z-index:45;background:rgba(43,42,61,.35);backdrop-filter:blur(6px);display:flex;flex-direction:column;justify-content:flex-end;">
+      <div style="padding:26px 22px 44px;border-radius:36px 36px 0 0;background:#fbf6ef;display:flex;flex-direction:column;gap:12px;animation:tocIn .3s ease-out both;">
+        <span style="font:800 30px/1 'Baloo 2',sans-serif;">Pause</span>
+        <span style="font:600 15px Nunito,sans-serif;color:#6b6880;margin-bottom:8px;">La gang t’attend, fais ça vite !</span>
+        <button onClick="{{ closePause }}" style="height:58px;border:none;border-radius:22px;background:linear-gradient(180deg,#ff8466 0%,#f25a38 100%);color:#fff;font:800 19px/1 'Baloo 2',sans-serif;padding-top:3px;box-shadow:0 6px 0 #c9401f;cursor:pointer;" style-active="transform:translateY(4px);box-shadow:0 2px 0 #c9401f;">Reprendre</button>
+        <button onClick="{{ restart }}" style="height:56px;border:none;border-radius:22px;background:#fff;color:#2b2a3d;font:800 18px/1 'Baloo 2',sans-serif;padding-top:3px;box-shadow:0 5px 0 #e6dccf;cursor:pointer;" style-active="transform:translateY(3px);">Recommencer la donne</button>
+        <button onClick="{{ toHome }}" style="height:56px;border:none;border-radius:22px;background:#fff;color:#d9482a;font:800 18px/1 'Baloo 2',sans-serif;padding-top:3px;box-shadow:0 5px 0 #e6dccf;cursor:pointer;" style-active="transform:translateY(3px);">Quitter la partie</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isFriends }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="07 Ta gang" style="position:absolute;inset:0;padding-top:58px;box-sizing:border-box;display:flex;flex-direction:column;background:#fbf6ef;">
+  <div style="padding:8px 20px 0;display:flex;flex-direction:column;gap:14px;">
+    <span style="font:800 34px/1 'Baloo 2',sans-serif;">Ta gang</span>
+    <div style="display:flex;gap:6px;padding:6px;border-radius:22px;background:#f1e8dd;box-shadow:inset 0 2px 4px rgba(110,80,50,.1);">
+      <sc-for list="{{ subTabs }}" as="sb" hint-placeholder-count="2">
+        <button onClick="{{ sb.pick }}" style="flex:1;height:44px;border:none;border-radius:16px;cursor:pointer;background:{{ sb.bg }};box-shadow:{{ sb.sh }};font:800 16px/1 'Baloo 2',sans-serif;padding-top:2px;color:#2b2a3d;transition:all .2s;">{{ sb.l }}</button>
+      </sc-for>
+    </div>
+  </div>
+  <sc-if value="{{ subAmis }}">
+    <div style="flex:1;overflow-y:auto;padding:16px 20px 130px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:22px;background:#2b2a3d;color:#fff;">
+        <div style="flex:1;display:flex;flex-direction:column;gap:2px;"><span style="font:800 11px Nunito,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#c9c4d6;">Ton code ami</span><span style="font:800 21px/1.1 'Baloo 2',sans-serif;letter-spacing:.04em;">FREDO#2741</span></div>
+        <button style="height:42px;padding:2px 16px 0;border:none;border-radius:14px;background:#ffc93c;color:#2b2a3d;font:800 15px/1 'Baloo 2',sans-serif;cursor:pointer;box-shadow:0 4px 0 #d9a116;" style-active="transform:translateY(3px);box-shadow:0 1px 0 #d9a116;">Partager</button>
+      </div>
+      <span style="font:800 13px Nunito,sans-serif;color:#6b6880;letter-spacing:.08em;text-transform:uppercase;margin-top:8px;">En ligne · {{ onlineCount }}</span>
+      <sc-for list="{{ friendsOn }}" as="f" hint-placeholder-count="4">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:22px;background:#fff;box-shadow:0 4px 0 #ece1d4;">
+          <div style="position:relative;flex:none;"><dc-import name="Avatar" char="{{ f.char }}" color="{{ f.av }}" size="46" hint-size="46px,46px"></dc-import><span style="position:absolute;right:0;bottom:2px;width:13px;height:13px;border-radius:50%;background:{{ f.dot }};box-shadow:0 0 0 3px #fff;"></span></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;"><span style="font:800 17px/1.1 'Baloo 2',sans-serif;">{{ f.name }}</span><span style="font:700 12px Nunito,sans-serif;color:#6b6880;">{{ f.status }}</span></div>
+          <sc-if value="{{ f.canInvite }}"><button onClick="{{ f.invite }}" style="height:40px;padding:2px 14px 0;border:none;border-radius:14px;background:{{ f.bBg }};color:{{ f.bCol }};font:800 15px/1 'Baloo 2',sans-serif;cursor:pointer;box-shadow:0 4px 0 {{ f.bSh }};transition:all .2s;">{{ f.bLabel }}</button></sc-if>
+          <sc-if value="{{ f.inGame }}"><span style="font:800 12px Nunito,sans-serif;padding:7px 10px;border-radius:12px;background:#fff1c9;color:#7a5600;">En partie</span></sc-if>
+        </div>
+      </sc-for>
+      <span style="font:800 13px Nunito,sans-serif;color:#6b6880;letter-spacing:.08em;text-transform:uppercase;margin-top:8px;">Hors ligne</span>
+      <sc-for list="{{ friendsOff }}" as="f" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:22px;background:#f6efe6;">
+          <div style="position:relative;flex:none;opacity:.6;filter:saturate(.4);"><dc-import name="Avatar" char="{{ f.char }}" color="{{ f.av }}" size="46" hint-size="46px,46px"></dc-import></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;"><span style="font:800 17px/1.1 'Baloo 2',sans-serif;color:#4a4860;">{{ f.name }}</span><span style="font:700 12px Nunito,sans-serif;color:#6b6880;">{{ f.status }}</span></div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ subChat }}">
+    <div style="margin:14px 20px 0;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:20px;background:#fff;box-shadow:0 4px 0 #ece1d4;">
+      <dc-import name="Avatar" char="lunettes" color="yellow" size="38" hint-size="38px,38px"></dc-import>
+      <div style="flex:1;display:flex;flex-direction:column;"><span style="font:800 16px/1.1 'Baloo 2',sans-serif;">Équipe Soleil</span><span style="font:700 12px Nunito,sans-serif;color:#1d7f67;">Toi + Mimi · en ligne</span></div>
+      <div style="display:flex;"><span style="width:14px;height:14px;border-radius:50%;background:#ff6b4a;"></span><span style="width:14px;height:14px;border-radius:50%;background:#ffc93c;margin-left:-5px;box-shadow:0 0 0 2px #fff;"></span></div>
+    </div>
+    <div ref="{{ chatRef }}" style="flex:1;overflow-y:auto;padding:16px 20px 12px;display:flex;flex-direction:column;gap:8px;">
+      <span style="align-self:center;font:800 11px Nunito,sans-serif;color:#a39cb0;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">Aujourd’hui</span>
+      <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="3">
+        <div style="align-self:{{ m.align }};max-width:78%;padding:11px 15px;border-radius:{{ m.radius }};background:{{ m.bg }};color:{{ m.col }};font:700 15px/1.4 Nunito,sans-serif;box-shadow:0 3px 0 {{ m.sh }};animation:tocIn .25s ease-out both;">{{ m.t }}</div>
+      </sc-for>
+      <sc-if value="{{ typing }}">
+        <div style="align-self:flex-start;display:flex;gap:4px;padding:14px 16px;border-radius:20px 20px 20px 6px;background:#fff;box-shadow:0 3px 0 #ece1d4;"><span style="width:7px;height:7px;border-radius:50%;background:#a39cb0;animation:tocDots 1s infinite;"></span><span style="width:7px;height:7px;border-radius:50%;background:#a39cb0;animation:tocDots 1s .2s infinite;"></span><span style="width:7px;height:7px;border-radius:50%;background:#a39cb0;animation:tocDots 1s .4s infinite;"></span></div>
+      </sc-if>
+    </div>
+    <div style="padding:0 20px 112px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;gap:8px;overflow-x:auto;">
+        <sc-for list="{{ quick }}" as="q" hint-placeholder-count="4">
+          <button onClick="{{ q.send }}" style="flex:none;height:36px;padding:2px 14px 0;border:none;border-radius:18px;background:#fff;color:#2b2a3d;font:800 14px/1 'Baloo 2',sans-serif;cursor:pointer;box-shadow:0 3px 0 #ece1d4;" style-active="transform:translateY(2px);">{{ q.t }}</button>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onDraftKey }}" placeholder="Écris à Mimi…" style="flex:1;min-width:0;height:50px;border:none;border-radius:18px;background:#fff;padding:0 16px;font:700 15px Nunito,sans-serif;color:#2b2a3d;outline:none;box-shadow:inset 0 2px 4px rgba(110,80,50,.1),0 3px 0 #efe4d7;">
+        <button onClick="{{ sendDraft }}" style="width:50px;height:50px;flex:none;border:none;border-radius:18px;background:linear-gradient(180deg,#ff8466 0%,#f25a38 100%);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #c9401f;" style-active="transform:translateY(3px);box-shadow:0 1px 0 #c9401f;"><div style="width:0;height:0;border-left:15px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent;margin-left:4px;"></div></button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isRanking }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="08 Classement" style="position:absolute;inset:0;background:#fbf6ef;">
+  <div style="position:absolute;inset:0;overflow-y:auto;padding:58px 20px 200px;box-sizing:border-box;">
+    <div style="padding-top:8px;display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;">
+        <span style="font:800 34px/1 'Baloo 2',sans-serif;">Classement</span>
+        <span style="font:800 12px Nunito,sans-serif;padding:7px 11px;border-radius:999px;background:#fff;box-shadow:0 3px 0 #ece1d4;white-space:nowrap;">Saison 4 · finit dans 12 j</span>
+      </div>
+      <div style="display:flex;gap:6px;padding:6px;border-radius:22px;background:#f1e8dd;box-shadow:inset 0 2px 4px rgba(110,80,50,.1);">
+        <sc-for list="{{ rankTabs }}" as="rt" hint-placeholder-count="3">
+          <button onClick="{{ rt.pick }}" style="flex:1;height:44px;border:none;border-radius:16px;cursor:pointer;background:{{ rt.bg }};box-shadow:{{ rt.sh }};font:800 16px/1 'Baloo 2',sans-serif;padding-top:2px;color:#2b2a3d;transition:all .2s;">{{ rt.l }}</button>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:10px;padding:18px 4px 0;">
+        <sc-for list="{{ podium }}" as="pd" hint-placeholder-count="3">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;animation:tocIn .4s ease-out both;">
+            <div style="padding:4px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px {{ pd.c }},0 8px 14px rgba(70,40,20,.15);"><dc-import name="Avatar" char="{{ pd.char }}" color="{{ pd.av }}" size="{{ pd.size }}" hint-size="60px,60px"></dc-import></div>
+            <span style="font:800 15px/1.1 'Baloo 2',sans-serif;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ pd.name }}</span>
+            <span style="font:800 12px Nunito,sans-serif;color:#6b6880;margin-top:-4px;">{{ pd.pts }} pts</span>
+            <div style="width:100%;height:{{ pd.h }}px;border-radius:24px 24px 14px 14px;background:{{ pd.c }};box-shadow:0 7px 0 {{ pd.d }},inset 0 3px 0 rgba(255,255,255,.45);display:flex;justify-content:center;padding-top:10px;box-sizing:border-box;font:800 40px/1 'Baloo 2',sans-serif;color:{{ pd.nc }};">{{ pd.num }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
+        <sc-for list="{{ rankList }}" as="r" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px 10px 10px;border-radius:20px;background:#fff;box-shadow:0 4px 0 #ece1d4;">
+            <span style="width:28px;text-align:center;font:800 17px/1 'Baloo 2',sans-serif;color:#8a8398;padding-top:2px;">{{ r.rank }}</span>
+            <dc-import name="Avatar" char="{{ r.char }}" color="{{ r.av }}" size="40" hint-size="40px,40px"></dc-import>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;"><span style="font:800 16px/1.1 'Baloo 2',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.name }}</span><span style="font:700 12px Nunito,sans-serif;color:#6b6880;">{{ r.region }}</span></div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;"><span style="font:800 16px/1.1 'Baloo 2',sans-serif;">{{ r.pts }}</span><span style="font:800 11px Nunito,sans-serif;color:{{ r.tc }};">{{ r.trend }}</span></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  <div style="position:absolute;left:16px;right:16px;bottom:110px;display:flex;align-items:center;gap:12px;padding:10px 14px 10px 10px;border-radius:22px;background:#fff;box-shadow:0 0 0 3px #ff6b4a,0 12px 24px rgba(242,90,56,.25);">
+    <span style="width:34px;text-align:center;font:800 17px/1 'Baloo 2',sans-serif;color:#d9482a;padding-top:2px;">{{ meRank }}</span>
+    <dc-import name="Avatar" char="{{ char }}" color="{{ avColor }}" size="40" hint-size="40px,40px"></dc-import>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;"><span style="font:800 16px/1.1 'Baloo 2',sans-serif;">{{ nick }} (toi)</span><span style="font:700 12px Nunito,sans-serif;color:#6b6880;">{{ meNext }}</span></div>
+    <span style="font:800 16px/1 'Baloo 2',sans-serif;">{{ mePts }}</span>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showTabs }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;left:16px;right:16px;bottom:26px;height:72px;z-index:20;border-radius:30px;background:#fff;display:flex;padding:8px;box-sizing:border-box;gap:6px;box-shadow:0 8px 0 #ece1d4,0 18px 34px rgba(110,80,50,.16);">
+    <button onClick="{{ toHome }}" style="flex:1;border:none;border-radius:22px;background:{{ tHome.bg }};cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:background .2s;">
+      <div style="position:relative;width:22px;height:22px;"><div style="position:absolute;left:5px;top:0;width:12px;height:12px;border-radius:50%;background:{{ tHome.c }};"></div><div style="position:absolute;left:2px;top:12px;width:18px;height:9px;border-radius:7px 7px 3px 3px;background:{{ tHome.c }};"></div></div>
+      <span style="font:800 12px Nunito,sans-serif;color:{{ tHome.c }};">Jouer</span>
+    </button>
+    <button onClick="{{ toFriends }}" style="flex:1;border:none;border-radius:22px;background:{{ tFriends.bg }};cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:background .2s;">
+      <div style="position:relative;width:26px;height:22px;"><div style="position:absolute;left:2px;top:2px;width:10px;height:10px;border-radius:50%;background:{{ tFriends.c }};"></div><div style="position:absolute;left:0;top:13px;width:14px;height:8px;border-radius:7px 7px 3px 3px;background:{{ tFriends.c }};"></div><div style="position:absolute;left:13px;top:0;width:11px;height:11px;border-radius:50%;background:{{ tFriends.c }};opacity:.6;"></div><div style="position:absolute;left:11px;top:12px;width:15px;height:9px;border-radius:7px 7px 3px 3px;background:{{ tFriends.c }};opacity:.6;"></div></div>
+      <span style="font:800 12px Nunito,sans-serif;color:{{ tFriends.c }};">Ta gang</span>
+    </button>
+    <button onClick="{{ toRanking }}" style="flex:1;border:none;border-radius:22px;background:{{ tRank.bg }};cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:background .2s;">
+      <div style="display:flex;align-items:flex-end;gap:3px;height:22px;"><div style="width:6px;height:12px;border-radius:2px;background:{{ tRank.c }};"></div><div style="width:6px;height:20px;border-radius:2px;background:{{ tRank.c }};"></div><div style="width:6px;height:15px;border-radius:2px;background:{{ tRank.c }};"></div></div>
+      <span style="font:800 12px Nunito,sans-serif;color:{{ tRank.c }};">Classement</span>
+    </button>
+  </div>
+</sc-if>
+
+<div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:6px 34px 0 46px;box-sizing:border-box;z-index:50;pointer-events:none;font:800 16px Nunito,sans-serif;color:#2b2a3d;">
+  <span>9:41</span>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <div style="display:flex;align-items:flex-end;gap:2px;height:11px;"><div style="width:3px;height:4px;border-radius:1px;background:#2b2a3d;"></div><div style="width:3px;height:6px;border-radius:1px;background:#2b2a3d;"></div><div style="width:3px;height:8px;border-radius:1px;background:#2b2a3d;"></div><div style="width:3px;height:11px;border-radius:1px;background:#2b2a3d;"></div></div>
+    <div style="width:25px;height:12px;border:1.5px solid rgba(43,42,61,.45);border-radius:4px;padding:1.5px;box-sizing:border-box;"><div style="width:75%;height:100%;border-radius:1.5px;background:#2b2a3d;"></div></div>
+  </div>
+</div>
+<div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:18px;background:#000;z-index:60;"></div>
+<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#2b2a3d;z-index:60;"></div>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;splash&quot;,&quot;onboard&quot;,&quot;avatar&quot;,&quot;home&quot;,&quot;room&quot;,&quot;game&quot;,&quot;friends&quot;,&quot;ranking&quot;],&quot;default&quot;:&quot;splash&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;players&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;4&quot;,&quot;6&quot;],&quot;default&quot;:&quot;4&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;showHints&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Plateau&quot;}}">
+const COL={coral:{c:'#ff6b4a',d:'#d9482a',l:'#ffe3da'},blue:{c:'#4a7dff',d:'#2f5bd6',l:'#dfe7ff'},yellow:{c:'#ffc93c',d:'#d9a116',l:'#fff1c9'},teal:{c:'#2ec4a0',d:'#1d9c7e',l:'#d4f4eb'},violet:{c:'#9b7bff',d:'#7656e0',l:'#ece6ff'},rose:{c:'#ff6fae',d:'#d94b8a',l:'#ffe2ef'}};
+const CHARS=[{id:'tuque',name:'Ti-Loup'},{id:'lunettes',name:'Mimi'},{id:'couronne',name:'Le Boss'},{id:'casquette',name:'Coco'},{id:'chignon',name:'Ginette'},{id:'bandeau',name:'Pinotte'}];
+const AVC=['coral','blue','yellow','teal','violet','rose'];
+const BOTS={Mimi:{char:'lunettes',av:'yellow'},Coco:{char:'casquette',av:'teal'},'Le Boss':{char:'couronne',av:'blue'},Ginette:{char:'chignon',av:'violet'},Pinotte:{char:'bandeau',av:'rose'}};
+const LAYOUT={4:[['Mimi','yellow'],['Coco','teal'],[null,'coral'],['Le Boss','blue']],6:[['Mimi','yellow'],['Coco','teal'],['Ginette','violet'],[null,'coral'],['Le Boss','blue'],['Pinotte','rose']]};
+const TEAMS={4:[{n:'Soleil',sides:[2,0]},{n:'Bleuets',sides:[1,3]}],6:[{n:'Soleil',sides:[3,0]},{n:'Bleuets',sides:[1,4]},{n:'Framboises',sides:[2,5]}]};
+const JOIN={4:[null,'Mimi','Coco','Le Boss'],6:[null,'Mimi','Coco','Le Boss','Ginette','Pinotte']};
+const H=16;
+const PAT=[[['t',15],['lane',1],['res',2],['res',3]],[['t',6],['t',33],['res',2],['res',3]],[['t',33],['res',1],['res',2],['res',3]],[['t',14],['lane',0],['res',2],['res',3]],[['t',2],['t',26],['res',2],['res',3]]];
+const MEPAT=[['t',10],['t',27],['lane',0],['res',3]];
+const CARDS={
+ A:{r:'A',s:'♠',red:0,t:'As',badge:'Sortir',fx:'out',n:1,rule:'Sors un pion de ta réserve, ou avance de 1.',bg:'#d4f4eb',bc:'#16705a'},
+ R:{r:'R',s:'♠',red:0,t:'Roi',badge:'Sortir',fx:'out',n:13,rule:'Sors un pion de ta réserve, ou avance de 13.',bg:'#d4f4eb',bc:'#16705a'},
+ '4':{r:'4',s:'♥',red:1,t:'Le 4',badge:'Recule 4',fx:'back',n:4,rule:'Recule de 4 cases. Le raccourci des pros.',bg:'#dfe7ff',bc:'#2f5bd6'},
+ '7':{r:'7',s:'♦',red:1,t:'Le 7',badge:'Divise',fx:'fwd',n:7,rule:'Avance de 7, ou partage les 7 entre deux pions.',bg:'#fff1c9',bc:'#8a5f00'},
+ V:{r:'V',s:'♣',red:0,t:'Valet',badge:'Échange',fx:'swap',rule:'Échange ta place avec un pion adverse.',bg:'#ece6ff',bc:'#6a4bd8'},
+ D:{r:'D',s:'♥',red:1,t:'Dame',badge:'+12',fx:'fwd',n:12,rule:'Avance de 12 cases.',bg:'#ffe3da',bc:'#c9401f'},
+ '10':{r:'10',s:'♦',red:1,t:'Le 10',badge:'+10',fx:'fwd',n:10,rule:'Avance de 10 cases.',bg:'#ffe3da',bc:'#c9401f'},
+ '8':{r:'8',s:'♣',red:0,t:'Le 8',badge:'+8',fx:'fwd',n:8,rule:'Avance de 8 cases.',bg:'#ecebf3',bc:'#4a4860'},
+ '2':{r:'2',s:'♥',red:1,t:'Le 2',badge:'+2',fx:'fwd',n:2,rule:'Avance de 2 cases.',bg:'#ecebf3',bc:'#4a4860'}
+};
+const EMOTES=['Envoye donc !','Tabarnouche !','Bien joué !','Ayoye…','Bin voyons donc','GG la gang'];
+const REPLIES=['Ayoye !','Tu vas voir…','Hahaha','Pas pire pantoute','Bin voyons'];
+const SLIDES=[
+ {t:'Tu joues jamais tout seul',x:'Ton partenaire est assis en face de toi. Vous gagnez ensemble quand tous vos pions sont rentrés.',bg:'#ffe3da'},
+ {t:'Des cartes, pas de dés',x:'Chaque carte a son pouvoir : le 4 recule, le 7 se divise, le Valet échange. Pas de chance, juste de la stratégie.',bg:'#fff1c9'},
+ {t:'Rentre tes pions à la maison',x:'Fais le tour du plateau et rentre tes 4 pions avant les autres. Attention : on peut te renvoyer dans ta réserve !',bg:'#d4f4eb'}
+];
+const FR=[['Mimi','lunettes','yellow','on','Dans le lobby'],['Coco','casquette','teal','game','En partie · Manche 3'],['Le Boss','couronne','blue','on','En ligne'],['Ginette','chignon','violet','on','En ligne'],['Pinotte','bandeau','rose','off','Vue il y a 2 h'],['Ti-Mé','tuque','blue','off','Vu hier'],['Chantal','lunettes','coral','off','Vue il y a 3 jours']];
+const QUICK=['J’arrive !','Une autre ?','Bien joué partner','Garde ton 7'];
+const MIMI=['Haha, on les a !','Ok, j’te suis.','Envoye, lance la salle !','Deal.'];
+const mk=(rows)=>rows.map((r,i)=>({name:r[0],region:r[1],pts:r[2],trend:r[3],char:CHARS[i%6].id,av:AVC[(i*5+2)%6]}));
+const RK={
+ amis:mk([['Mimi','Sherbrooke',2480,'▲ 1'],['Le Boss','Québec',2310,'▼ 1'],['Coco','Lévis',2105,'—'],['Ginette','Rimouski',1990,'▲ 2'],['Pinotte','Gatineau',1620,'▼ 1'],['Ti-Mé','Saguenay',1405,'—'],['Chantal','Laval',1210,'▲ 1']]),
+ quebec:mk([['Jean-Guy B.','Saguenay',4820,'—'],['Chantal R.','Québec',4655,'▲ 2'],['Maxime T.','Laval',4510,'▼ 1'],['Sophie L.','Trois-Rivières',4390,'▲ 1'],['Réjean P.','Rimouski',4215,'▼ 2'],['Karine B.','Gatineau',4120,'—'],['Mathieu G.','Montréal',3980,'▲ 3'],['Nathalie D.','Sherbrooke',3870,'▼ 1'],['Stéphane V.','Lévis',3755,'—'],['Ti-Mé','Saguenay',3690,'▲ 1']]),
+ monde:mk([['Léa M.','Lyon',6410,'▲ 1'],['Pieter V.','Bruxelles',6280,'▼ 1'],['Camille R.','Genève',6105,'—'],['Jean-Guy B.','Saguenay',5990,'▲ 4'],['Aïcha K.','Dakar',5870,'▲ 2'],['Hugo P.','Toulouse',5720,'▼ 2'],['Olivia T.','Toronto',5655,'—'],['Marc-André L.','Montréal',5530,'▲ 1'],['Inès B.','Marseille',5410,'▼ 3'],['Nora S.','Liège',5300,'—']])
+};
+const ME_RANK={amis:['#5','1 840','Encore 150 pts pour dépasser Ginette'],quebec:['#27','1 840','Top 30 au Québec'],monde:['#312','1 840','Top 5 % mondial']};
+const fmt=n=>n.toLocaleString('fr-CA');
+const r1=n=>Math.round(n*10)/10;
+
+const FX_PAL=['#ff6b4a','#4a7dff','#ffc93c','#2ec4a0','#9b7bff','#ff6fae'];
+function FxItem({it}){
+  const ref=React.useRef(null);
+  React.useLayoutEffect(()=>{const el=ref.current;if(!el||!el.animate)return;const kids=[...el.children],D=it.ms||600;
+    const A=(e,k,o)=>e&&e.animate(k,Object.assign({duration:D,easing:'cubic-bezier(.2,.8,.3,1)',fill:'forwards'},o||{}));
+    if(it.kind==='puff')A(kids[0],[{transform:'scale(.5)',opacity:.7},{transform:'scale(1.9)',opacity:0}]);
+    else if(it.kind==='ring')A(kids[0],[{transform:'scale(.3)',opacity:1},{transform:'scale(3.2)',opacity:0}]);
+    else if(it.kind==='burst'||it.kind==='confetti'){const cf=it.kind==='confetti';kids.forEach((k,i)=>{const a=(i/kids.length)*Math.PI*2+Math.random()*.5,d=(cf?55:26)+Math.random()*(cf?50:20),dx=Math.cos(a)*d,dy=Math.sin(a)*d,r=(Math.random()-.5)*720;
+      A(k,[{transform:'translate(0,0) rotate(0deg) scale(1)',opacity:1},{transform:'translate('+dx+'px,'+(dy-18)+'px) rotate('+(r/2)+'deg) scale(1)',opacity:1,offset:.45},{transform:'translate('+(dx*1.15)+'px,'+(dy+34)+'px) rotate('+r+'deg) scale(.5)',opacity:0}]);});}
+    else if(it.kind==='float')A(kids[0],[{transform:'translate(-50%,-20%) scale(.3)',opacity:0},{transform:'translate(-50%,-110%) scale(1.2)',opacity:1,offset:.22},{transform:'translate(-50%,-150%) scale(1)',opacity:1,offset:.7},{transform:'translate(-50%,-230%) scale(.9)',opacity:0}],{easing:'ease-out'});
+    else if(it.kind==='card'){const mx=(it.x0+it.x1)/2,my=Math.min(it.y0,it.y1)-70;
+      A(kids[0],[{transform:'translate('+it.x0+'px,'+it.y0+'px) rotate('+it.r0+'deg) scale('+it.s0+')'},{transform:'translate('+mx+'px,'+my+'px) rotate('+((it.r0+it.r1)/2+180)+'deg) scale('+((it.s0+it.s1)/2*1.2)+')',offset:.5},{transform:'translate('+it.x1+'px,'+it.y1+'px) rotate('+(it.r1+360)+'deg) scale('+it.s1+')'}],{easing:'cubic-bezier(.45,0,.25,1)'});}
+    else if(it.kind==='banner'){A(kids[0],[{transform:'translateX(-115%) skewY(-5deg)'},{transform:'translateX(0) skewY(-5deg)',offset:.2},{transform:'translateX(2%) skewY(-5deg)',offset:.78},{transform:'translateX(115%) skewY(-5deg)'}],{easing:'cubic-bezier(.6,0,.3,1)'});
+      A(kids[1],[{transform:'translate(-50%,-50%) scale(.4)',opacity:0},{transform:'translate(-50%,-50%) scale(1.15)',opacity:1,offset:.24},{transform:'translate(-50%,-50%) scale(1)',opacity:1,offset:.76},{transform:'translate(-50%,-50%) scale(1.4)',opacity:0}]);}
+  },[]);
+  const k=it.kind,c=it.c||'#ff6b4a',E=React.createElement,ch=[];
+  if(k==='puff'){const s=it.s||16;ch.push(E('div',{key:0,style:{position:'absolute',left:-s/2,top:-s/2,width:s,height:s,borderRadius:'50%',background:c,opacity:0}}));}
+  else if(k==='ring')ch.push(E('div',{key:0,style:{position:'absolute',left:-12,top:-12,width:24,height:24,borderRadius:'50%',border:'3px solid '+c,boxSizing:'border-box',opacity:0}}));
+  else if(k==='burst'){for(let i=0;i<12;i++){const z=4+(i%3)*2;ch.push(E('div',{key:i,style:{position:'absolute',left:-z/2,top:-z/2,width:z,height:z,borderRadius:'50%',background:i%3===0?'#fff':i%3===1?c:'#ffc93c',boxShadow:'0 1px 2px rgba(0,0,0,.18)'}}));}}
+  else if(k==='confetti'){for(let i=0;i<22;i++)ch.push(E('div',{key:i,style:{position:'absolute',left:-3,top:-5,width:i%2?6:8,height:i%2?10:6,borderRadius:2,background:FX_PAL[i%6]}}));}
+  else if(k==='float')ch.push(E('div',{key:0,style:{position:'absolute',left:0,top:0,whiteSpace:'nowrap',font:"800 "+(it.fs||20)+"px/1 'Baloo 2',sans-serif",color:c,textShadow:'0 2px 0 #fff,0 -2px 0 #fff,2px 0 0 #fff,-2px 0 0 #fff,2px 2px 0 #fff,-2px -2px 0 #fff,0 6px 10px rgba(0,0,0,.2)',opacity:0}},it.t));
+  else if(k==='card')ch.push(E('div',{key:0,style:{position:'absolute',left:-40,top:-58,width:80,height:116,borderRadius:16,background:'#fff',boxShadow:'0 6px 0 #e6dccf,0 16px 24px rgba(70,40,20,.25)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:2}},E('span',{key:'r',style:{font:"800 40px/1 'Baloo 2',sans-serif",color:it.col}},it.r),E('span',{key:'s',style:{font:'700 22px/1 sans-serif',color:it.col}},it.su)));
+  else if(k==='banner'){ch.push(E('div',{key:0,style:{position:'absolute',left:-20,top:-46,width:433,height:92,background:'linear-gradient(180deg,#ff8466,#f25a38)',boxShadow:'0 8px 0 #c9401f,0 24px 40px rgba(242,90,56,.35)',transform:'translateX(-115%)'}}));
+    ch.push(E('div',{key:1,style:{position:'absolute',left:196,top:0,whiteSpace:'nowrap',font:"800 34px/1 'Baloo 2',sans-serif",color:'#fff',textShadow:'0 3px 0 #c9401f',opacity:0,paddingTop:4}},it.t));}
+  return E('div',{ref,style:{position:'absolute',left:it.x||0,top:it.y||0,width:0,height:0,pointerEvents:'none'}},ch);
+}
+function FxLayer({items,z}){return React.createElement('div',{style:{position:'absolute',left:0,top:0,width:0,height:0,pointerEvents:'none',zIndex:z}},items.map(it=>React.createElement(FxItem,{key:it.id,it})));}
+class Component extends DCLogic {
+  state={screen:'splash',slide:0,char:'tuque',avColor:'coral',nick:'Frédo',mode:4,sub:'amis',rankTab:'quebec',registered:false,now:Date.now(),copied:false,joined:1,count:0,pawns:[],hand:[],sel:null,active:2,discard:'R',toast:'',bubbles:{},emoteOpen:false,paused:false,hopId:null,lift:false,fx:[],landId:null,fly:{},liftAmt:9,dealing:false,shake:false,dPulse:false,busy:false,deal:1,invited:{},code:'',draft:'',typing:false,
+    msgs:[{me:0,t:'On se fait une revanche contre les Bleuets à soir ?'},{me:1,t:'Certain. Garde ton Valet pour Le Boss.'},{me:0,t:'Deal. Pis toi, sors tes pions plus vite, mon chum.'}]};
+  timers=[];
+  chatRef=el=>{this.chatEl=el;};
+  componentDidMount(){
+    this.t0=Date.now();
+    const m=Number(this.props.players)===6?6:4;
+    this.setState({mode:m},()=>this.go(this.props.startScreen||'splash'));
+    this.clock=setInterval(()=>{if(this.state.screen==='home')this.setState({now:Date.now()});},1000);
+  }
+  componentWillUnmount(){this.clearT();clearInterval(this.clock);}
+  componentDidUpdate(pp,ps){
+    if(pp.players!==this.props.players){const m=Number(this.props.players)===6?6:4;if(m!==this.state.mode)this.setMode(m);}
+    if(pp.startScreen!==this.props.startScreen&&this.props.startScreen)this.go(this.props.startScreen);
+    if(this.chatEl&&(ps.msgs!==this.state.msgs||ps.typing!==this.state.typing||ps.sub!==this.state.sub))this.chatEl.scrollTop=99999;
+  }
+  later(f,ms){this.timers.push(setTimeout(f,ms));}
+  clearT(){this.timers.forEach(clearTimeout);this.timers=[];}
+  meSide(N){return N===4?2:3;}
+  setMode(m){this.clearT();this.setState({mode:m},()=>{const sc=this.state.screen;if(sc==='game')this.initGame();if(sc==='room')this.startRoom();});}
+  go(k){
+    this.clearT();
+    const upd={screen:k,emoteOpen:false,paused:false,count:0,fx:[],fly:{}};
+    if(k==='onboard')upd.slide=0;
+    this.setState(upd,()=>{if(k==='room')this.startRoom();if(k==='game')this.initGame();});
+  }
+  geom(N){
+    if(this._g&&this._g.N===N)return this._g;
+    const c=180,P=N===4?{f:0.45,w:92,rin:226,rout:410,rg:4,tg:4,cg:4,ls:45,av:494}:{f:0.39,w:80,rin:80*Math.sqrt(3),rout:360,rg:6,tg:4,cg:0,ls:37,av:452};
+    const f=P.f,sj=P.rg+3,T=N*H,th0=N===4?-135:-90,rad=Math.PI/180;
+    const pt=(a,p,r,t)=>[c+(a[0]*r+p[0]*t)*f,c+(a[1]*r+p[1]*t)*f];
+    const lerp=(A,B,t)=>[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t];
+    const box=(cx,cy,w,h,rot,r)=>({x:r1(cx-w/2),y:r1(cy-h/2),w:r1(w),h:r1(h),r:r1(r),rot:r1(rot)});
+    const ax=[];for(let k=0;k<N;k++){const th=th0+k*360/N,a=[Math.cos(th*rad),Math.sin(th*rad)];ax.push({th,a,p:[-a[1],a[0]]});}
+    const track=[],lanes=[],res=[],avs=[],arms=[];
+    for(let k=0;k<N;k++){
+      const {th,a,p}=ax[k],nx=ax[(k+1)%N];
+      const Li=pt(a,p,P.rin,-P.w),Lo=pt(a,p,P.rout,-P.w),Ro=pt(a,p,P.rout,P.w),Ri=pt(a,p,P.rin,P.w),nL=pt(nx.a,nx.p,P.rin,-P.w);
+      [[Li,Lo,P.rg],[Lo,Ro,P.tg],[Ro,Ri,P.rg],[Ri,nL,P.cg]].forEach(([A,B,n])=>{for(let i=0;i<n;i++)track.push(lerp(A,B,i/n));});
+      lanes.push([1,2,3,4].map(i=>pt(a,p,P.rout-P.ls*i,0)));
+      avs.push(pt(a,p,P.av,0));
+      const bt=th+180/N,b=[Math.cos(bt*rad),Math.sin(bt*rad)],q=[-b[1],b[0]];
+      const rp=N===4?[[-55,335],[-20,300],[20,300],[55,335]]:[[-20,310],[20,310],[-20,350],[20,350]];
+      res.push(rp.map(([t,r])=>pt(b,q,r,t)));
+      const r0=N===4?P.rin-30:P.rin+24,rE=P.rout+30,pc=pt(a,p,(r0+rE)/2,0),pw=(2*P.w+62)*f,lc=pt(a,p,P.rout-P.ls*2.5,0),rc=pt(b,q,N===4?320:330,0);
+      arms.push({pad:box(pc[0],pc[1],(rE-r0)*f,pw,th,pw*0.34),lpad:box(lc[0],lc[1],(P.ls*3+44)*f,44*f,th,22*f),
+        rpad:N===4?box(rc[0],rc[1],150*f,80*f,bt+90,40*f):box(rc[0],rc[1],84*f,84*f,bt,26*f)});
+    }
+    this._g={N,T,sj,track,lanes,res,avs,arms};
+    return this._g;
+  }
+  pos(p,g){if(p.kind==='t')return g.track[p.v];if(p.kind==='lane')return g.lanes[p.side][p.v];return g.res[p.side][p.v];}
+  initGame(){
+    const N=this.state.mode,g=this.geom(N),me=this.meSide(N);let oi=0;const pawns=[];
+    for(let k=0;k<N;k++){const pat=k===me?MEPAT:PAT[(oi++)%PAT.length],st=k*H+g.sj;
+      pat.forEach(([kind,v],i)=>pawns.push({id:k+'-'+i,side:k,kind,v:kind==='t'?(st+v)%g.T:v}));}
+    this.setState({pawns,hand:['A','4','7','V','D'],sel:null,active:me,discard:'R',toast:'',bubbles:{},busy:false,paused:false,emoteOpen:false,deal:1,hopId:null,fx:[],fly:{},landId:null,dealing:true,shake:false,dPulse:false});this.later(()=>this.setState({dealing:false}),1500);this.later(()=>this.fx({layer:'screen',kind:'banner',x:0,y:312,t:'C’EST PARTI !',ms:1500}),250);
+  }
+  startRoom(){const N=this.state.mode;this.setState({joined:1,copied:false,count:0});for(let i=1;i<N;i++)this.later(()=>this.setState({joined:i+1}),650*i+350);}
+  launch(){
+    const s=this.state;if(s.joined<s.mode||s.count)return;
+    const seq=[3,2,1,'TOC !'];
+    seq.forEach((v,i)=>this.later(()=>this.setState({count:v}),i*800));
+    this.later(()=>this.go('game'),seq.length*800+200);
+  }
+  opps(N){const mine=TEAMS[N][0].sides;return this.state.pawns.filter(p=>!mine.includes(p.side)&&p.kind==='t');}
+  plan(key){
+    const s=this.state,N=s.mode,c=CARDS[key],me=this.meSide(N),T=this.geom(N).T;
+    const mine=s.pawns.filter(p=>p.side===me),onT=mine.filter(p=>p.kind==='t');
+    if(c.fx==='out'){const r=mine.find(p=>p.kind==='res');if(r)return{pawn:r.id,type:'out',dest:{kind:'t',v:me*H+this.geom(N).sj}};}
+    if(c.fx==='swap'){const a=onT[0];if(!a)return null;const os=this.opps(N);if(!os.length)return null;
+      const o=os.reduce((b,x)=>((x.v-a.v+T)%T)<((b.v-a.v+T)%T)?x:b);return{pawn:a.id,type:'swap',with:o.id,dest:{kind:'t',v:o.v}};}
+    const n=c.fx==='back'?-c.n:c.n;const a=c.fx==='back'?(onT[1]||onT[0]):onT[0];if(!a)return null;
+    return{pawn:a.id,type:'move',n,dest:{kind:'t',v:((a.v+n)%T+T)%T}};
+  }
+  nameOf(k){const nm=LAYOUT[this.state.mode][k][0];return nm||this.state.nick||'Toi';}
+  showToast(t,ms){this.setState({toast:t});this.later(()=>this.setState(s=>s.toast===t?{toast:''}:null),ms||1700);}
+  fx(o,ms){const id=(this.fxN=(this.fxN||0)+1);if(o.kind==='float')o={...o,x:Math.min(300,Math.max(60,o.x)),y:Math.max(40,o.y)};this.setState(s=>({fx:[...s.fx,{...o,id}]}));this.later(()=>this.setState(s=>({fx:s.fx.filter(q=>q.id!==id)})),(ms||o.ms||700)+80);}
+  pc(p){return COL[LAYOUT[this.state.mode][p.side][1]].c;}
+  xy(p){return this.pos(p,this.geom(this.state.mode));}
+  land(id,n,label){
+    const p=this.state.pawns.find(q=>q.id===id);if(!p)return;const [x,y]=this.xy(p),c=this.pc(p);
+    this.fx({kind:'ring',x,y,c,ms:550});this.fx({kind:'burst',x,y,c,ms:650});
+    this.fx({kind:'float',x,y:y-12,c,t:label||(n>0?'+'+n:String(n)),fs:Math.abs(n)>=10?26:20,ms:950});
+    this.setState({landId:id});this.later(()=>this.setState(s=>s.landId===id?{landId:null}:null),440);
+    this.capture(id);
+  }
+  capture(id){
+    const s=this.state,m=s.pawns.find(p=>p.id===id);if(!m||m.kind!=='t')return false;
+    const v=s.pawns.find(p=>p.id!==id&&p.kind==='t'&&p.v===m.v);if(!v)return false;
+    const slot=[0,1,2,3].find(i=>!s.pawns.some(p=>p.side===v.side&&p.kind==='res'&&p.v===i));
+    const [x,y]=this.xy(m);
+    this.fx({kind:'confetti',x,y,ms:1100});this.fx({kind:'float',x,y:y-22,c:'#2b2a3d',t:'BOUM !',fs:30,ms:1100});
+    this.setState({shake:true});this.later(()=>this.setState({shake:false}),470);
+    this.later(()=>this.flyTo(v.id,{kind:'res',v:slot==null?0:slot},36),200);
+    this.later(()=>this.showToast('Retour à la réserve, '+this.nameOf(v.side)+' !',1900),300);
+    return true;
+  }
+  flyTo(id,dest,amt,done){
+    this.setState(s=>({fly:{...s.fly,[id]:true},lift:true,liftAmt:amt||30,pawns:s.pawns.map(p=>p.id===id?{...p,...dest}:p)}));
+    this.later(()=>this.setState({lift:false}),300);
+    this.later(()=>{this.setState(s=>{const fl={...s.fly};delete fl[id];return{fly:fl};});done&&done();},640);
+  }
+  flyCard(key,x0,y0,r0,s0){
+    const c=CARDS[key],ds=this.state.mode===4?1:0.72;
+    this.fx({layer:'screen',kind:'card',x:0,y:0,x0,y0,x1:16+180+34*ds,y1:312,r0,r1:6,s0,s1:0.68*ds,r:c.r,su:c.s,col:c.red?'#e5482a':'#2b2a3d',ms:460});
+    this.later(()=>{this.setState({discard:key,dPulse:true});this.later(()=>this.setState({dPulse:false}),360);},450);
+  }
+  hop(id,steps,dir,done,speed){
+    const T=this.geom(this.state.mode).T;let n=0;const sp=speed||150;
+    const tick=()=>{
+      if(n>=steps){this.setState({hopId:null,lift:false});this.land(id,steps*dir);done&&done();return;}
+      n++;const cur=this.state.pawns.find(p=>p.id===id);if(cur){const [x,y]=this.xy(cur);this.fx({kind:'puff',x,y,c:this.pc(cur),s:12,ms:380});}
+      this.setState(st=>({hopId:id,lift:true,pawns:st.pawns.map(p=>p.id===id?{...p,v:(p.v+dir+T)%T}:p)}));
+      this.later(()=>this.setState({lift:false}),sp*0.5);this.later(tick,sp);
+    };tick();
+  }
+  pick(i){
+    const s=this.state,me=this.meSide(s.mode);
+    if(s.active!==me||s.busy){this.showToast('Patience, c’est pas ton tour !');return;}
+    this.setState({sel:s.sel===i?null:i,emoteOpen:false});
+  }
+  play(){
+    const s=this.state;if(s.sel==null||s.busy)return;
+    const key=s.hand[s.sel],pl=this.plan(key);
+    let t='Carte défaussée.';
+    if(pl){if(pl.type==='out')t='Un pion de sorti. Envoye !';else if(pl.type==='swap')t='Échange ! Désolé, '+this.nameOf(Number(pl.with.split('-')[0]))+'.';else if(pl.n<0)t='Recule pour mieux sauter !';else t=pl.n>=10?'Grosse avance !':'Beau coup !';}
+    const n=s.hand.length,m=s.sel-(n-1)/2;
+    this.flyCard(key,196.5+m*60,666,0,1);
+    this.setState({hand:s.hand.filter((_,i)=>i!==s.sel),sel:null,busy:true});
+    this.showToast(t);
+    const done=()=>this.later(()=>this.nextTurn(),900);
+    this.later(()=>{
+      if(!pl){done();return;}
+      if(pl.type==='move')this.hop(pl.pawn,Math.abs(pl.n),Math.sign(pl.n),done);
+      else if(pl.type==='out')this.flyTo(pl.pawn,{kind:'t',v:pl.dest.v},32,()=>{const p=this.state.pawns.find(q=>q.id===pl.pawn);const [x,y]=this.xy(p);this.fx({kind:'confetti',x,y,ms:1000});this.land(pl.pawn,0,'SORTI !');done();});
+      else{const a=s.pawns.find(p=>p.id===pl.pawn),o=s.pawns.find(p=>p.id===pl.with);
+        this.flyTo(a.id,{v:o.v},26);
+        this.flyTo(o.id,{v:a.v},26,()=>{[a.id,o.id].forEach(id=>{const p=this.state.pawns.find(q=>q.id===id);const [x,y]=this.xy(p);this.fx({kind:'ring',x,y,c:this.pc(p),ms:550});this.fx({kind:'burst',x,y,c:this.pc(p),ms:650});});
+          const [x,y]=this.xy(this.state.pawns.find(q=>q.id===a.id));this.fx({kind:'float',x,y:y-14,c:'#6a4bd8',t:'ÉCHANGE !',fs:22,ms:1000});done();});}
+    },380);
+  }
+  nextTurn(){
+    const s=this.state,N=s.mode,me=this.meSide(N),nx=(s.active+1)%N;
+    if(nx===me){const upd={active:me,busy:false};if(!s.hand.length){upd.hand=['R','10','8','2'];upd.deal=s.deal+1;upd.dealing=true;this.later(()=>this.setState({dealing:false}),1500);this.later(()=>this.showToast('Nouvelle donne : 4 cartes !'),900);}
+      this.setState(upd);this.fx({layer:'screen',kind:'banner',x:0,y:312,t:'À TOI DE JOUER !',ms:1500});return;}
+    this.setState({active:nx});
+    this.later(()=>{
+      const st=this.state;if(st.screen!=='game')return;
+      const pw=st.pawns.find(p=>p.side===nx&&p.kind==='t'),keys=['2','8','10','D','7'],key=keys[Math.floor(Math.random()*keys.length)];
+      const [ax,ay]=this.geom(N).avs[nx];this.flyCard(key,ax+16,ay+132,-20,0.35);
+      if(Math.random()<0.3)this.bubble(nx,REPLIES[Math.floor(Math.random()*REPLIES.length)]);
+      this.later(()=>{if(pw)this.hop(pw.id,CARDS[key].n,1,()=>this.later(()=>this.nextTurn(),650),110);else this.later(()=>this.nextTurn(),600);},430);
+    },850);
+  }
+  bubble(k,t){this.setState(s=>({bubbles:{...s.bubbles,[k]:t}}));this.later(()=>this.setState(s=>{if(s.bubbles[k]!==t)return null;const b={...s.bubbles};delete b[k];return{bubbles:b};}),2200);}
+  emote(t){
+    const N=this.state.mode,me=this.meSide(N);this.setState({emoteOpen:false});this.bubble(me,t);
+    const others=[...Array(N).keys()].filter(k=>k!==me),k=others[Math.floor(Math.random()*others.length)];
+    this.later(()=>this.bubble(k,REPLIES[Math.floor(Math.random()*REPLIES.length)]),950);
+  }
+  send(t){
+    t=(t||'').trim();if(!t)return;
+    this.setState(s=>({msgs:[...s.msgs,{me:1,t}],draft:''}));
+    this.later(()=>this.setState({typing:true}),400);
+    this.later(()=>this.setState(s=>({typing:false,msgs:[...s.msgs,{me:0,t:MIMI[Math.floor(Math.random()*MIMI.length)]}]})),1600);
+  }
+  seg(on){return on?{bg:'#fff',sh:'0 4px 0 #e6dccf,0 8px 14px rgba(110,80,50,.1)'}:{bg:'transparent',sh:'none'};}
+  renderVals(){
+    const s=this.state,N=s.mode,g=this.geom(N),me=this.meSide(N),lay=LAYOUT[N],hints=this.props.showHints??true,nick=s.nick||'Toi',sc=s.screen;
+    const go=k=>()=>this.go(k);
+    const JUMP=[['splash','Splash'],['onboard','Onboarding'],['avatar','Choix du perso'],['home','Accueil'],['room','Salle privée'],['game','Plateau de jeu'],['friends','Ta gang & chat'],['ranking','Classement']];
+    const jump=JUMP.map(([k,l],i)=>({n:String(i+1).padStart(2,'0'),l,go:go(k),bg:sc===k?'#fff':'transparent',sh:sc===k?'0 4px 0 #ddd2c4':'none'}));
+    const sl=SLIDES[s.slide];
+    const myTurn=sc==='game'&&s.active===me&&!s.busy;
+    // board
+    const hs=N===4?13.5:10.5,ss=N===4?16.5:13,rs=N===4?13.5:10.5,ps=N===4?17:13.5;
+    const holes=[],pads=[];
+    if(sc==='game'){
+      g.track.forEach(([x,y],i)=>{const k=Math.floor(i/H),st=i%H===g.sj,cc=COL[lay[k][1]],z=st?ss:hs;
+        holes.push({x:r1(x-z/2),y:r1(y-z/2),s:z,bg:st?cc.l:'#ead8c4',sh:st?`inset 0 2px 3px rgba(0,0,0,.18),0 0 0 ${N===4?3:2}px ${cc.c}`:'inset 0 2px 3px rgba(90,60,30,.28),0 1px 0 rgba(255,255,255,.9)'});});
+      g.arms.forEach((am,k)=>{const cc=COL[lay[k][1]],ln=g.lanes[k];pads.push({...am.rpad,bg:cc.l,anim:k===s.active?'tocGlow 1.3s ease-in-out infinite':'none'},{...am.lpad,bg:cc.l,anim:'none'});
+        ln.forEach(([x,y])=>holes.push({x:r1(x-hs/2),y:r1(y-hs/2),s:hs,bg:cc.c,sh:'inset 0 2px 3px rgba(0,0,0,.3),0 1px 0 rgba(255,255,255,.8)'}));
+        g.res[k].forEach(([x,y])=>holes.push({x:r1(x-rs/2),y:r1(y-rs/2),s:rs,bg:'rgba(90,60,30,.14)',sh:'inset 0 2px 3px rgba(90,60,30,.25)'}));
+      });
+    }
+    const plan=(myTurn&&s.sel!=null&&s.hand[s.sel])?this.plan(s.hand[s.sel]):null;
+    const pawns=sc==='game'?s.pawns.map(p=>{const [x,y]=this.pos(p,g),cc=COL[lay[p.side][1]],sel=hints&&plan&&plan.pawn===p.id,tgt=hints&&plan&&plan.with===p.id,hop=s.hopId===p.id,fl=!!s.fly[p.id],lift=s.lift&&(hop||fl)?(fl?s.liftAmt:(N===4?11:8)):0;
+      return{x:r1(x-ps/2),y:r1(y-ps*0.62-lift),s:ps,c:cc.c,d:cc.d,z:Math.round(y)+(hop||fl?500:0)+(sel?300:0),dur:fl?'.6s':hop?'.13s':'.5s',anim:sel?'tocBob .8s ease-in-out infinite':s.landId===p.id?'tocSquash .42s ease-out':'none',
+        sh:sel?`0 0 0 3px #fff,0 0 0 6px ${cc.c},0 8px 12px rgba(0,0,0,.25)`:tgt?'0 0 0 3px #fff,0 0 0 6px #2b2a3d,0 8px 12px rgba(0,0,0,.25)':`0 ${r1(ps*0.16)}px 0 ${cc.d},0 ${r1(ps*0.32)}px ${r1(ps*0.4)}px rgba(70,40,20,.32)`};}):[];
+    let ghost={show:false},pathDots=[],willCap=false;
+    if(plan&&hints&&plan.type!=='swap'){const [x,y]=this.pos({...plan.dest,side:me},g),z=ps+8;willCap=plan.type==='move'&&s.pawns.some(p=>p.kind==='t'&&p.v===plan.dest.v&&p.id!==plan.pawn);ghost={show:true,x:r1(x-z/2),y:r1(y-z/2),s:z,c:willCap?'#2b2a3d':COL.coral.c};
+      if(plan.type==='move'){const a=s.pawns.find(p=>p.id===plan.pawn),dir=Math.sign(plan.n),dz=hs*0.5;for(let i=1;i<Math.abs(plan.n);i++){const [px,py]=g.track[(a.v+i*dir+g.T)%g.T];pathDots.push({x:r1(px-dz/2),y:r1(py-dz/2),s:r1(dz),anim:'tocPath 1.1s ease-in-out '+(i*0.07).toFixed(2)+'s infinite'});}}}
+    const players=sc==='game'?lay.map(([nm,col],k)=>{const isMe=nm===null,b=isMe?{char:s.char,av:s.avColor}:BOTS[nm],size=N===4?40:34,[x,y]=g.avs[k],vert=Math.abs(x-180)<20,tg=vert&&y<180?{tagL:(size+8)+'px',tagT:(size/2-9)+'px',tagTx:'none'}:y<180?{tagL:'50%',tagT:'-20px',tagTx:'translateX(-50%)'}:{tagL:'50%',tagT:(size+5)+'px',tagTx:'translateX(-50%)'};
+      return{left:r1(x-size/2),top:r1(y-size/2),size,char:b.char,av:b.av,ring:COL[col].c,active:s.active===k,sc:s.active===k?1.14:1,isOther:!isMe,name:nm||nick,cards:isMe?s.hand.length:4,...tg,bL:x>200?'-8px':'auto',bR:x>200?'auto':'-8px',_x:x,_y:y,_k:k};}):[];
+    const bubbles=players.filter(p=>s.bubbles[p._k]).map(p=>({t:s.bubbles[p._k],x:r1(Math.min(290,Math.max(70,p._x))),y:r1(p._y<60?p._y+p.size/2+18:p._y-p.size/2-44)}));
+    const n=s.hand.length;
+    const cards=s.hand.map((k,i)=>{const c=CARDS[k],m=i-(n-1)/2,sel=s.sel===i;
+      return{x:r1(196.5-40+m*60),y:sel?2:r1(34+m*m*5),rot:sel?0:r1(m*6),z:sel?20:i+1,r:c.r,s:c.s,col:c.red?'#e5482a':'#2b2a3d',badge:c.badge,bbg:c.bg,bc:c.bc,op:myTurn?1:.6,
+        sh:sel?'0 0 0 3px #ff6b4a,0 8px 0 #e6dccf,0 22px 30px rgba(242,90,56,.3)':'0 6px 0 #e6dccf,0 12px 20px rgba(70,40,20,.14)',anim:s.dealing?'tocDeal .6s cubic-bezier(.2,1.25,.4,1) '+(i*0.1).toFixed(2)+'s both':'none',pick:()=>this.pick(i)};});
+    let hintT,hintS;
+    if(!myTurn){hintT=s.active===me?'Beau coup…':this.nameOf(s.active)+' réfléchit…';hintS='Prépare ton prochain coup.';}
+    else if(s.sel==null){hintT='À ton tour !';hintS='Choisis une carte dans ta main.';}
+    else{const c=CARDS[s.hand[s.sel]];hintT=willCap?c.t+' · capture !':c.t;hintS=c.rule;}
+    const score=TEAMS[N].map(t=>({c1:COL[lay[t.sides[0]][1]].c,c2:COL[lay[t.sides[1]][1]].c,n:s.pawns.filter(p=>t.sides.includes(p.side)&&p.kind==='lane').length}));
+    // room
+    const teams=TEAMS[N].map(t=>({name:'Équipe '+t.n,c1:COL[lay[t.sides[0]][1]].c,c2:COL[lay[t.sides[1]][1]].c,seats:t.sides.map(sd=>{const nm=lay[sd][0],isMe=nm===null,idx=JOIN[N].indexOf(nm),filled=idx<s.joined,b=isMe?{char:s.char,av:s.avColor}:BOTS[nm];
+      return{filled,empty:!filled,name:isMe?nick:nm,tag:isMe?'Toi · hôte':'Prêt·e',char:b.char,av:b.av,ring:COL[lay[sd][1]].c,bg:filled?COL[lay[sd][1]].l:'#f6efe6'};})}));
+    const full=s.joined>=N;
+    const countEl=s.count?React.createElement('div',{key:String(s.count),style:{width:190,height:190,borderRadius:'50%',background:'linear-gradient(180deg,#ff8466,#f25a38)',boxShadow:'0 10px 0 #c9401f,0 30px 50px rgba(242,90,56,.35),inset 0 4px 0 rgba(255,255,255,.4)',display:'flex',alignItems:'center',justifyContent:'center',font:s.count==='TOC !'?"800 52px/1 'Baloo 2',sans-serif":"800 104px/1 'Baloo 2',sans-serif",color:'#fff',paddingTop:8,boxSizing:'border-box',animation:'tocPop .6s cubic-bezier(.3,1.5,.5,1) both'}},String(s.count)):null;
+    // home
+    const left=Math.max(0,this.t0?(this.t0+(2*3600+14*60+36)*1000-s.now):0),hh=Math.floor(left/3600000),mm=Math.floor(left/60000)%60,ss2=Math.floor(left/1000)%60,p2=v=>String(v).padStart(2,'0');
+    const regCount=s.registered?42:41;
+    const tab=k=>sc===k?{bg:'#ffe3da',c:'#d9482a'}:{bg:'transparent',c:'#a39cb0'};
+    // friends
+    const fr=FR.map(([name,char,av,st,status])=>{const inv=!!s.invited[name];return{name,char,av,status,st,dot:st==='on'?'#2ec4a0':'#ffc93c',canInvite:st==='on',inGame:st==='game',bLabel:inv?'Invité·e':'Inviter',bBg:inv?'#d4f4eb':'linear-gradient(180deg,#ff8466,#f25a38)',bCol:inv?'#16705a':'#fff',bSh:inv?'#b4e8d9':'#c9401f',invite:()=>this.setState(x=>({invited:{...x.invited,[name]:!x.invited[name]}}))};});
+    const msgs=s.msgs.map(m=>m.me?{t:m.t,align:'flex-end',bg:'#ff6b4a',col:'#fff',sh:'#d9482a',radius:'20px 20px 6px 20px'}:{t:m.t,align:'flex-start',bg:'#fff',col:'#2b2a3d',sh:'#ece1d4',radius:'20px 20px 20px 6px'});
+    // ranking
+    const rk=RK[s.rankTab],P=[[1,'#4a7dff','#2f5bd6',96,'#fff',56],[0,'#ffc93c','#d9a116',128,'#2b2a3d',66],[2,'#ff6b4a','#d9482a',76,'#fff',56]];
+    const podium=P.map(([i,c,d,h,nc,size])=>({...rk[i],pts:fmt(rk[i].pts),num:i+1,c,d,h,nc,size}));
+    const rankList=rk.slice(3).map((r,i)=>({...r,rank:i+4,pts:fmt(r.pts),tc:r.trend[0]==='▲'?'#16705a':r.trend[0]==='▼'?'#d9482a':'#a39cb0'}));
+    const mr=ME_RANK[s.rankTab];
+    return {
+      jump,
+      isSplash:sc==='splash',isOnboard:sc==='onboard',isAvatar:sc==='avatar',isHome:sc==='home',isRoom:sc==='room',isGame:sc==='game',isFriends:sc==='friends',isRanking:sc==='ranking',
+      showTabs:sc==='home'||sc==='friends'||sc==='ranking',
+      toOnboard:go('onboard'),toAvatar:go('avatar'),toHome:go('home'),toRoom:go('room'),toFriends:go('friends'),toRanking:go('ranking'),
+      slideNum:s.slide+1,slideBg:sl.bg,slideTitle:sl.t,slideText:sl.x,slide0:s.slide===0,slide1:s.slide===1,slide2:s.slide===2,
+      slideCta:s.slide===2?'Choisir mon perso':'Suivant',
+      nextSlide:()=>s.slide<2?this.setState({slide:s.slide+1}):this.go('avatar'),
+      dots:[0,1,2].map(i=>({w:i===s.slide?28:10,c:i===s.slide?'#f25a38':'#e2d6c8'})),
+      char:s.char,avColor:s.avColor,nick,avLight:COL[s.avColor].l,charName:CHARS.find(c=>c.id===s.char).name,
+      charList:CHARS.map(c=>({...c,pick:()=>this.setState({char:c.id}),sh:c.id===s.char?`0 0 0 3px ${COL[s.avColor].c},0 6px 0 ${COL[s.avColor].d}`:'0 5px 0 #ece1d4',tf:c.id===s.char?'translateY(-2px)':'none'})),
+      colorList:AVC.map(k=>({c:COL[k].c,pick:()=>this.setState({avColor:k}),sh:k===s.avColor?`0 0 0 4px #fbf6ef,0 0 0 7px ${COL[k].c}`:`0 4px 0 ${COL[k].d}`})),
+      onNick:e=>this.setState({nick:e.target.value}),
+      modeOpts:[{l:'4 joueurs',sub:'2 équipes de 2',v:4},{l:'6 joueurs',sub:'3 équipes de 2',v:6}].map(o=>({...o,...this.seg(o.v===N),pick:()=>this.setMode(o.v)})),
+      modeShort:N===4?'4 joueurs':'6 joueurs',modeLabel:N===4?'4 joueurs · 2 équipes':'6 joueurs · 3 équipes',
+      code:s.code,onCode:e=>this.setState({code:e.target.value}),
+      clock:[{v:p2(hh),u:'h'},{v:p2(mm),u:'min'},{v:p2(ss2),u:'s'}],
+      regCount,regPct:Math.round(regCount/64*100),regLabel:s.registered?'T’es inscrit !':'M’inscrire',regBg:s.registered?'#1d9c7e':'#2b2a3d',regSh:s.registered?'#16705a':'#15141f',
+      toggleReg:()=>this.setState({registered:!s.registered}),
+      copyCode:()=>{this.setState({copied:true});this.later(()=>this.setState({copied:false}),1600);},
+      copyLabel:s.copied?'Copié !':'Copier',copyBg:s.copied?'#d4f4eb':'#2b2a3d',copyCol:s.copied?'#16705a':'#fff',copySh:s.copied?'#b4e8d9':'#15141f',
+      teams,roomStatus:full?'Tout le monde est là. On y va ?':`${s.joined} / ${N} joueurs · on attend la gang…`,
+      launch:()=>this.launch(),launchLabel:full?'Lancer la partie':'En attente…',
+      launchBg:full?'linear-gradient(180deg,#ff8466 0%,#f25a38 100%)':'#d8cfc4',launchSh:full?'0 6px 0 #c9401f,0 16px 26px rgba(242,90,56,.32),inset 0 2px 0 rgba(255,255,255,.4)':'0 6px 0 #c4b9ac',
+      counting:!!s.count,countEl,
+      deal:s.deal,turnTitle:s.active===me?'À toi de jouer, '+nick:'Tour de '+this.nameOf(s.active),score,
+      pathDots,boardAnim:s.shake?'tocShake .45s ease-out':'none',dAnim:s.dPulse?'tocThump .35s ease-out':'none',fxBoard:React.createElement(FxLayer,{items:s.fx.filter(q=>q.layer!=='screen'),z:1100}),fxScreen:React.createElement(FxLayer,{items:s.fx.filter(q=>q.layer==='screen'),z:38}),isSquare:N===4,isRound:N===6,pileScale:N===4?1:0.72,pads,holes,pawns,ghost,players,bubbles,
+      discard:{r:CARDS[s.discard].r,s:CARDS[s.discard].s,col:CARDS[s.discard].red?'#e5482a':'#2b2a3d'},
+      toastShow:!!s.toast,toast:s.toast,
+      emoteOpen:s.emoteOpen,toggleEmote:()=>this.setState({emoteOpen:!s.emoteOpen}),emoteBg:s.emoteOpen?'#ffe3da':'#fff',
+      emotes:EMOTES.map(t=>({t,send:()=>this.emote(t)})),
+      hintT,hintS,canPlay:myTurn&&s.sel!=null,play:()=>this.play(),myTurn,cards,
+      paused:s.paused,openPause:()=>this.setState({paused:true}),closePause:()=>this.setState({paused:false}),restart:()=>{this.clearT();this.initGame();},
+      tHome:tab('home'),tFriends:tab('friends'),tRank:tab('ranking'),
+      subTabs:[['amis','Amis'],['chat','Chat d’équipe']].map(([k,l])=>({l,...this.seg(s.sub===k),pick:()=>this.setState({sub:k})})),
+      subAmis:s.sub==='amis',subChat:s.sub==='chat',
+      friendsOn:fr.filter(f=>f.st!=='off'),friendsOff:fr.filter(f=>f.st==='off'),onlineCount:fr.filter(f=>f.st!=='off').length,
+      msgs,typing:s.typing,chatRef:this.chatRef,draft:s.draft,onDraft:e=>this.setState({draft:e.target.value}),
+      onDraftKey:e=>{if(e.key==='Enter')this.send(s.draft);},sendDraft:()=>this.send(s.draft),
+      quick:QUICK.map(t=>({t,send:()=>this.send(t)})),
+      rankTabs:[['amis','Amis'],['quebec','Québec'],['monde','Monde']].map(([k,l])=>({l,...this.seg(s.rankTab===k),pick:()=>this.setState({rankTab:k})})),
+      podium,rankList,meRank:mr[0],mePts:mr[1],meNext:mr[2]
+    };
+  }
+}
+</script>
+</body>
+</html>
