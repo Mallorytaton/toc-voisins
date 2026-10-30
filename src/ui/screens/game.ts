@@ -442,6 +442,77 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     render();
   };
 
+  // ---------- Initiation : une leçon au moment où elle sert ----------
+  interface Lesson { id: string; title: string; text: () => string; ranks: () => string[]; when: () => boolean }
+  const reserve = () => view.pawns[me].some((pw) => pw.p < 0);
+  const onTrack = () => view.pawns[me].filter((pw) => pw.p >= 0 && !inHome(N, pw.p)).length;
+  const has = (r: string) => myHand().some((c) => rankOf(c) === r);
+  const myMoves = () => myHand().flatMap((c) => legalMovesFor(view, me, c));
+  const homeBefore = () => view.pawns[me].filter((pw) => inHome(N, pw.p)).length;
+  const LESSONS: Lesson[] = [
+    {
+      id: 'echange', title: 'L’échange', ranks: () => (has('9') ? ['9'] : []), when: () => giving(),
+      text: () => `Passe une carte à ${nameOf(partner(N, me))}, face cachée.${has('9') ? ' Garde l’As, le Roi et le 7 : donne le 9.' : ' Garde tes As, Rois et 7.'}`,
+    },
+    {
+      id: 'sortir', title: 'Sortir une bille', ranks: () => ['A', 'K'], when: () => myTurn() && reserve() && (has('A') || has('K')),
+      text: () => 'L’As et le Roi sortent une bille de ta réserve sur ta case de départ. Touche l’As, puis Jouer.',
+    },
+    {
+      id: 'boum', title: 'BOUM !', when: () => myTurn() && myMoves().some((m) => m.kind !== 'discard' && applyMove(view, m).lastCaptures.some((c) => teamOf(N, c.s) !== teamOf(N, me))),
+      ranks: () => myMoves().filter((m) => m.kind !== 'discard' && applyMove(view, m).lastCaptures.some((c) => teamOf(N, c.s) !== teamOf(N, me))).map((m) => rankOf(m.card)),
+      text: () => 'Une de tes cartes tombe pile sur une bille adverse : elle retourne dans sa réserve !',
+    },
+    {
+      id: 'maison', title: 'Rentrer à la maison', when: () => myTurn() && myMoves().some((m) => m.kind !== 'discard' && applyMove(view, m).pawns[me].filter((pw) => inHome(N, pw.p)).length > homeBefore()),
+      ranks: () => myMoves().filter((m) => m.kind !== 'discard' && applyMove(view, m).pawns[me].filter((pw) => inHome(N, pw.p)).length > homeBefore()).map((m) => rankOf(m.card)),
+      text: () => 'Au compte exact, ta bille entre dans ta maison. Les 4 rentrées, tu joues celles de ton partenaire.',
+    },
+    {
+      id: 'sept', title: 'Le 7 se partage', ranks: () => ['7'], when: () => myTurn() && has('7') && onTrack() >= 2,
+      text: () => 'Touche le 7, puis tes deux billes : chacune reçoit une part des 7 pas.',
+    },
+    {
+      id: 'quatre', title: 'Le 4 recule', ranks: () => ['4'], when: () => myTurn() && has('4') && onTrack() >= 1,
+      text: () => 'Le 4 fait reculer de 4 trous. Juste après ton départ, ça te rapproche de ta maison !',
+    },
+    {
+      id: 'valet', title: 'Le Valet échange', ranks: () => ['J'], when: () => myTurn() && myMoves().some((m) => m.kind === 'swap'),
+      text: () => 'Le Valet échange une de tes billes avec une autre bille du parcours, même adverse.',
+    },
+    {
+      id: 'avancer', title: 'Avancer', ranks: () => [], when: () => myTurn() && myMoves().some((m) => m.kind === 'step' && m.steps > 0 && !['7', '4'].includes(rankOf(m.card))),
+      text: () => 'Les autres cartes avancent d’autant de trous : le 9 de 9, la Dame de 12.',
+    },
+    {
+      id: 'defausse', title: 'Aucun coup possible', ranks: () => [], when: () => myTurn() && myMoves().every((m) => m.kind === 'discard'),
+      text: () => 'Aucune carte ne peut jouer : tu passes, et tu défausses.',
+    },
+  ];
+  const learned = new Set<string>();
+  let lesson: Lesson | null = null;
+  let lessonNo = 0;
+  let lessonFor = '';
+  /**
+   * La leçon à montrer maintenant (une seule à la fois), recalculée à chaque nouvel état et quand ton tour
+   * commence vraiment (après les animations). Une leçon compte comme vue dès qu'elle s'affiche.
+   */
+  const currentLesson = () => {
+    if (!src.initiation) return null;
+    const active = myTurn() || giving();
+    const id = `${view.v}|${view.phase}|${myHand().join()}|${active}`;
+    if (id !== lessonFor) {
+      lessonFor = id;
+      lesson = active ? LESSONS.find((l) => !learned.has(l.id) && l.when()) ?? null : null;
+      if (lesson) {
+        learned.add(lesson.id);
+        lessonNo = learned.size;
+        if (lessonNo === LESSONS.length) setTimeout(() => toast('Dernière leçon : tu connais toutes les règles !', 2200), 300);
+      }
+    }
+    return lesson;
+  };
+
   // ---------- Minuteur de tour ----------
   let turnTimer = 0;
   let timerFor = '';
@@ -532,6 +603,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       el.style.transform = `rotate(${on ? 0 : r1(m * 6)}deg)`;
       el.style.zIndex = String(on ? 20 : i + 1);
       el.style.opacity = active ? '1' : '.6';
+      const ls = sel === null ? currentLesson() : null;
+      if (ls && ls.ranks().includes(rankOf(card))) el.classList.add('pcard--coach');
       if (dealing) {
         el.classList.add('pcard--deal');
         el.style.animationDelay = (i * 0.1).toFixed(2) + 's';
@@ -575,7 +648,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     let t: string, sub: string, label = '';
     if (view.phase === 'over') { t = 'Partie terminée'; sub = 'Bien joué, tout le monde !'; }
     else if (view.phase === 'exchange') {
-      if (view.exchange[me]) { t = 'Carte donnée'; sub = src.slow ? 'On attend les autres : ils donneront leur carte en revenant.' : 'On attend que tout le monde échange.'; }
+      if (!view.exchange[me] && sel === null && currentLesson()) {
+        const ls = currentLesson()!;
+        t = `Leçon ${lessonNo} sur ${LESSONS.length} · ${ls.title}`;
+        sub = ls.text();
+      } else if (view.exchange[me]) { t = 'Carte donnée'; sub = src.slow ? 'On attend les autres : ils donneront leur carte en revenant.' : 'On attend que tout le monde échange.'; }
       else if (sel === null) { t = 'Échange'; sub = `Choisis une carte à passer à ${nameOf(partner(N, me))}.`; }
       else { t = cardLook(myHand()[sel]).t; sub = `Elle part chez ${nameOf(partner(N, me))}, face cachée.`; label = 'Donner'; }
     } else if (!myTurn()) {
@@ -587,6 +664,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         t = view.phase === 'play' && view.turn !== me ? `${nameOf(view.turn)} réfléchit…` : 'Beau coup…';
         sub = 'Prépare ton prochain coup.';
       }
+    } else if (sel === null && currentLesson()) {
+      const ls = currentLesson()!;
+      t = `Leçon ${lessonNo} sur ${LESSONS.length} · ${ls.title}`;
+      sub = ls.text();
     } else if (sel === null) { t = 'À ton tour !'; sub = 'Choisis une carte dans ta main.'; }
     else if (tip) { t = 'Astuce'; sub = tip; label = pl.chosen ? (pl.chosen.kind === 'discard' ? 'Défausser' : 'Jouer') : ''; }
     else {
@@ -862,6 +943,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   render();
   requestAnimationFrame(fit);
   if (view.phase !== 'deal') src.settled();
+  if (src.initiation)
+    openSheet(
+      h('span', { class: 'sheet__title' }, 'Partie d’initiation'),
+      h('span', { class: 'sheet__text' }, `Tu joues avec ${nameOf(partner(N, me))}, en face de toi, contre deux robots. Le but : faire le tour du plateau avec tes 4 billes et les rentrer dans ta maison avant l’autre équipe.`),
+      h('span', { class: 'sheet__text' }, 'Je t’explique chaque carte au moment où elle sert, juste au-dessus de ta main.'),
+      button('C’est parti !', 'primary', closeSheet, { size: 'md', block: true }));
 
   return {
     el: root,

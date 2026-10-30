@@ -160,17 +160,27 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   };
   const stopSlow = DEMO || !navigator.onLine ? () => {} : watchMyGames(drawSlow);
 
+  // Partie d'initiation : en haut tant que le joueur n'a jamais joué, en bas ensuite.
+  const learn = h('div', { class: 'card learn-card' },
+    h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 } },
+      h('span', { class: 't-label' }, 'Nouveau au TOC ?'),
+      h('span', { class: 't-body' }, 'Une partie contre des robots où chaque carte est expliquée.')),
+    button('Apprendre', 'dark', () => go('/initiation'), { size: 'xs' }));
+  const fresh = !p.xp;
+
   // Le milieu défile si besoin (parties à ton rythme, tournois) ; l'en-tête et les onglets restent en place.
   const el = h('div', { class: 'screen screen--tabs home', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 10px)' } },
     head,
     h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14, margin: '0 -20px', padding: '2px 20px 10px' } },
       resume,
       slowCard,
+      fresh && learn,
       h('span', { class: 't-screen' }, 'On joue ?'),
       segmented<4 | 6>([{ value: 4, label: '4 joueurs', sub: '2 équipes de 2' }, { value: 6, label: '6 joueurs', sub: '3 équipes de 2' }], mode, setMode),
       privateCard,
       h('div', { style: { display: 'flex', gap: 10 } }, code, button('Rejoindre', 'dark', join, { size: 'md' })),
-      leagues),
+      leagues,
+      !fresh && learn),
     tabbar('home', (t) => go(t === 'home' ? ROUTES.home : t === 'friends' ? ROUTES.friends : ROUTES.ranking)));
   return { el, cleanup: () => { stopFriends(); stopLeagues(); stopSlow(); } };
 }

@@ -30,6 +30,7 @@ import { refreshPush } from './net/push';
 import { setBadge } from './net/badge';
 import { watchMyGames } from './net/slow';
 import { unlockAudio } from './ui/sound';
+import { DEFAULT_VARIANTS } from './engine';
 
 registerSW({ immediate: true });
 document.addEventListener('pointerdown', unlockAudio, { passive: true });
@@ -72,11 +73,11 @@ function quitSession() {
 // Accès de test automatisé (?debug dans l'adresse).
 if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __toc: { game: () => currentGame, recordLeagueGame } });
 
-function startLocalGame(s: RoomSnapshot) {
+function startLocalGame(s: RoomSnapshot, initiation = false) {
   const p = getProfile()!;
   currentGame = new LocalGame(s.code, s.seats.map((x, k) => k === s.mySeat
     ? { name: p.nick, char: p.char, color: p.color, bot: false, online: true }
-    : { name: x!.name, char: x!.char, color: x!.color, bot: true, online: false }), s.variants);
+    : { name: x!.name, char: x!.char, color: x!.color, bot: true, online: false }), initiation ? DEFAULT_VARIANTS : s.variants, initiation);
   go('/partie');
 }
 
@@ -148,6 +149,12 @@ function router() {
     return void openOnlineRoom(room[1], n, params.get('ligue'));
   }
   if (path === '/tournoi/nouveau') return setView(newLeagueScreen());
+  // Partie d'initiation : à 4, contre des robots, sur l'appareil (aussi hors ligne).
+  if (path === '/initiation') {
+    const r = new LocalRoom(4);
+    r.fillBots();
+    return startLocalGame(r.snapshot(), true);
+  }
   const lg = /^\/tournoi\/(\d{4})$/.exec(path);
   if (lg) {
     if (!navigator.onLine) return message('Pas de réseau', 'Les tournois se jouent en ligne. Réessaie quand tu es connecté.');

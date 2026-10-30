@@ -1,9 +1,6 @@
 // Source d'une partie : locale contre des robots, ou en ligne (Firebase).
 // L'écran du plateau anime chaque changement d'état, puis appelle settled().
-import {
-  DEFAULT_VARIANTS, type GameState, type Move, type Variants, applyMove, botGift, botMove, cloneState, cryptoRng, deal,
-  giveCard, newGame, rematch,
-} from '../engine';
+import { applyMove, botGift, botMove, cloneState, cryptoRng, deal, DEFAULT_VARIANTS, type GameState, giveCard, type Move, newGame, type Rank, rankOf, rematch, type Variants } from '../engine';
 import type { CharId, ColorName } from '../ui/kit/data';
 
 export interface SeatPlayer {
@@ -20,6 +17,8 @@ export interface GameSource {
   readonly code: string;
   /** Partie à ton rythme : pas de minuteur, chacun joue quand il revient. */
   readonly slow?: boolean;
+  /** Partie d'initiation : première main préparée, robots plus gentils, leçons pendant la partie. */
+  readonly initiation?: boolean;
   players: SeatPlayer[];
   state: GameState;
   /** cb(prev, reset) : reset = l'état a été remplacé (donne recommencée), sans animation. */
@@ -38,6 +37,23 @@ export interface GameSource {
 
 const BOT_THINK_MS = 850;
 
+/** Donne ces valeurs à la main de `seat`, en échangeant ses autres cartes avec le paquet ou un robot. */
+function stackHand(st: GameState, seat: number, ranks: Rank[]) {
+  const hand = st.hands[seat];
+  for (const r of ranks) {
+    if (hand.some((c) => rankOf(c) === r)) continue;
+    const spare = hand.findIndex((c) => !ranks.includes(rankOf(c) as Rank));
+    if (spare < 0) return;
+    let pile = st.deck, k = st.deck.findIndex((c) => rankOf(c) === r);
+    for (let s = 0; k < 0 && s < st.hands.length; s++) {
+      if (s === seat) continue;
+      pile = st.hands[s];
+      k = pile.findIndex((c) => rankOf(c) === r);
+    }
+    if (k >= 0) [hand[spare], pile[k]] = [pile[k], hand[spare]];
+  }
+}
+
 /** Partie sur l'appareil : le joueur à la place 0, des robots ailleurs. */
 export class LocalGame implements GameSource {
   readonly local = true;
@@ -47,7 +63,7 @@ export class LocalGame implements GameSource {
   private timer = 0;
   private dealStart: GameState | null = null;
 
-  constructor(readonly code: string, public players: SeatPlayer[], variants: Variants = DEFAULT_VARIANTS) {
+  constructor(readonly code: string, public players: SeatPlayer[], variants: Variants = DEFAULT_VARIANTS, readonly initiation = false) {
     const n = players.length;
     // Le donneur est à droite du joueur : c'est lui qui commence.
     this.state = newGame(n, variants, n - 1);
@@ -78,7 +94,8 @@ export class LocalGame implements GameSource {
       const s = st.exchange.findIndex((c, k) => !c && this.players[k].bot);
       if (s >= 0) this.timer = window.setTimeout(() => this.set(giveCard(this.state, s, botGift(this.state, s))), 250);
     } else if (st.phase === 'play' && this.players[st.turn].bot)
-      this.timer = window.setTimeout(() => this.set(applyMove(this.state, botMove(this.state, cryptoRng))), BOT_THINK_MS);
+      // En initiation, les robots jouent plus au hasard : on apprend sans se faire écraser.
+      this.timer = window.setTimeout(() => this.set(applyMove(this.state, botMove(this.state, cryptoRng, this.initiation ? 14 : undefined))), BOT_THINK_MS);
   }
 
   restartDeal() {
@@ -104,7 +121,10 @@ export class LocalGame implements GameSource {
 
   private dealNow() {
     if (this.state.phase !== 'deal') return;
-    this.set(deal(this.state, cryptoRng));
+    const next = deal(this.state, cryptoRng);
+    // Initiation : la première main montre les règles dans l'ordre (sortir, partager le 7, reculer de 4).
+    if (this.initiation && next.dealNo === 0) stackHand(next, this.mySeat, ['A', 'K', '7', '4', '9']);
+    this.set(next);
     this.dealStart = cloneState(this.state);
   }
 
