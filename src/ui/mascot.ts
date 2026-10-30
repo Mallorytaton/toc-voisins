@@ -85,11 +85,11 @@ function arms(mood: MascotMood): { back: string; front: string } {
 const crown = `<path d="M206 78 L214 36 L238 60 L256 26 L274 60 L298 36 L306 78 Z" fill="#ffc93c" stroke="#d9a116" stroke-width="5" stroke-linejoin="round"/>`
   + `<circle cx="256" cy="58" r="7" fill="#ff6b4a"/>`;
 
-/** Le dessin SVG de Toc. `ground` : son ombre au sol (pas dans l'icône, où il est coupé). */
-export function mascotSvg(mood: MascotMood = 'content', o: { viewBox?: string; ground?: boolean } = {}): string {
+/** Le dessin SVG de Toc. `ground` : son ombre au sol (pas dans l'icône, où il est coupé) ; `arms` : sans bras (favicon). */
+export function mascotSvg(mood: MascotMood = 'content', o: { viewBox?: string; ground?: boolean; arms?: boolean } = {}): string {
   const k = ++seq;
   const head = `hd${k}`, body = `bd${k}`, gloss = `gl${k}`;
-  const { back, front } = arms(mood);
+  const { back, front } = o.arms === false ? { back: '', front: '' } : arms(mood);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${o.viewBox ?? '0 0 512 512'}" aria-hidden="true">
 <defs>
 <clipPath id="${head}"><circle cx="256" cy="168" r="112"/></clipPath>
