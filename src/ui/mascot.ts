@@ -113,6 +113,17 @@ ${mood === 'vainqueur' ? crown : ''}
 </svg>`;
 }
 
+/** Toc et une phrase dessous : écrans vides, messages. */
+export function tocSays(text: string, mood: MascotMood = 'content', size = 84): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'toc-says';
+  const p = document.createElement('p');
+  p.className = 'empty';
+  p.textContent = text;
+  el.append(mascot(mood, size, 'buste'), p);
+  return el;
+}
+
 /** Toc dans la page : `crop` 'buste' ne garde que la tête et les épaules (coach, bulles). */
 export function mascot(mood: MascotMood = 'content', size = 96, crop: 'entier' | 'buste' = 'entier'): HTMLElement {
   const el = document.createElement('span');

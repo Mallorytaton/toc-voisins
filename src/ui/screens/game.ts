@@ -946,7 +946,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (won) buzz([80, 60, 80, 60, 200]);
     for (let k = 0; k < 3; k++) setTimeout(() => fx('board', { kind: 'confetti', x: 120 + k * 60, y: 160 + (k % 2) * 40, ms: 1200 }), k * 250);
     setTimeout(() => openSheet(
-      src.initiation ? mascot(won ? 'vainqueur' : 'surpris', 120) : h('span'),
+      mascot(won ? 'vainqueur' : 'surpris', 120),
       h('span', { class: 'sheet__title' }, won ? 'Victoire !' : 'Partie perdue'),
       h('span', { class: 'sheet__text' }, `L’équipe ${TEAM_NAMES[st.winner]} a rentré toutes ses billes${won ? '. Bravo l’équipe !' : '. Revanche ?'}`),
       button('Revanche', 'primary', () => { closeSheet(); src.rematch(); }, { size: 'md', block: true }),

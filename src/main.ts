@@ -31,6 +31,7 @@ import { setBadge } from './net/badge';
 import { watchMyGames } from './net/slow';
 import { unlockAudio } from './ui/sound';
 import { DEFAULT_VARIANTS } from './engine';
+import { mascot } from './ui/mascot';
 
 registerSW({ immediate: true });
 document.addEventListener('pointerdown', unlockAudio, { passive: true });
@@ -191,7 +192,8 @@ function router() {
 }
 
 function message(title: string, text: string) {
-  setView(h('div', { class: 'screen', style: { justifyContent: 'center', textAlign: 'center' } },
+  setView(h('div', { class: 'screen', style: { justifyContent: 'center', textAlign: 'center', alignItems: 'center' } },
+    mascot('surpris', 150),
     h('span', { class: 't-title' }, title),
     h('p', { class: 't-body' }, text),
     button('Retour à l’accueil', 'primary', () => go(ROUTES.home), { block: true })));

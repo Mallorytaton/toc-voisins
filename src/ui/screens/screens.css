@@ -221,6 +221,8 @@
 .lchat-msg .bubble { max-width: 85%; }
 /* Accueil : partie d'initiation */
 .learn-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+/* Démarrage : Toc sous le logo */
+.splash__toc { margin-top: 6px; animation: tocBob 2.6s ease-in-out infinite; transform-origin: 50% 100%; }
 .league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {

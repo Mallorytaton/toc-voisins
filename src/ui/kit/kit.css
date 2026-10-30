@@ -238,6 +238,8 @@
 .mascot { display: inline-block; flex: none; }
 .mascot > svg { width: 100%; height: 100%; display: block; }
 .sheet > .mascot { align-self: center; margin: -8px 0 -4px; }
+.toc-says { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 8px; }
+.toc-says > .empty { margin: 0; }
 .scroll-y { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 /* Dans une zone qui défile, les cartes gardent leur taille (sinon elles s'écrasent au lieu de défiler). */
 .scroll-y > * { flex-shrink: 0; }

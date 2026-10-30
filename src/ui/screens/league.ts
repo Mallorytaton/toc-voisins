@@ -12,6 +12,7 @@ import { ROUTES, go } from '../nav';
 import { savedMode } from './home';
 import { variantsCard } from './rules';
 import { DEFAULT_VARIANTS, type Variants } from '../../engine';
+import { tocSays } from '../mascot';
 
 type View = { el: HTMLElement; cleanup: () => void };
 
@@ -386,7 +387,7 @@ function openChatSheet(l: League, me: string, onClose: () => void) {
           h('div', { class: 'bubble bubble--old ' + (mine ? 'bubble--me' : 'bubble--them') }, m.t),
           h('span', { class: 'lchat-msg__at' }, msgTime(m.at)));
       })
-      : [h('p', { class: 'empty' }, 'Personne n’a encore écrit. Lance la discussion !')]));
+      : [tocSays('Personne n’a encore écrit. Lance la discussion !', 'content')]));
     const last = msgs[msgs.length - 1];
     if (last) markRead(l.code, last.at);
     requestAnimationFrame(() => { scroller.scrollTop = scroller.scrollHeight; });
@@ -540,7 +541,7 @@ export function leagueScreen(code: string): View {
     league = l;
     if (!l) {
       title.textContent = 'Tournoi introuvable';
-      teams.replaceChildren(h('p', { class: 'empty' }, `Aucun tournoi T-${code}. Vérifie le code.`));
+      teams.replaceChildren(tocSays(`Aucun tournoi T-${code}. Vérifie le code.`, 'surpris'));
       hist.hidden = true;
       play.hidden = true;
       return;

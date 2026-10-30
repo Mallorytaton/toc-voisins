@@ -9,6 +9,7 @@ import { COL } from '../kit/data';
 import { avatar, avatarRing, button, segmented, tabbar, type Tab } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { savedMode } from './home';
+import { tocSays } from '../mascot';
 
 type View = { el: HTMLElement; cleanup: () => void };
 const fmt = (n: number) => n.toLocaleString('fr-FR');
@@ -68,7 +69,7 @@ function friendsPane(): View {
         ...on.map((f) => friendRow(f, invited)),
         ...(off.length ? [h('span', { class: 't-label', style: { marginTop: 8 } }, 'Hors ligne'), ...off.map((f) => friendRow(f, invited))] : []),
       ]
-      : [h('p', { class: 'empty' }, 'Pas encore d’amis. Partage ton code ami, ou ajoute celui d’un ami.')]));
+      : [tocSays('Pas encore d’amis. Partage ton code ami, ou ajoute celui d’un ami.', 'content')]));
   };
   const field = h('input', { class: 'field', placeholder: 'Code ami (ex. MIMI#4821)', 'aria-label': 'Code ami à ajouter', autocapitalize: 'characters', style: { flex: 1 } });
   const add = async () => {
@@ -108,7 +109,7 @@ function chatPane(): { head: HTMLElement; body: HTMLElement; foot: HTMLElement |
       h('span', { style: { font: '700 12px var(--text)', color: '#1d7f67' } }, partner ? `Toi + ${partner.name}` : 'Pas encore de partenaire')),
     h('div', { class: 'duo' }, h('span', { style: { background: COL.coral.c } }), h('span', { style: { background: COL.yellow.c, marginLeft: -5 } })));
   if (!partner) {
-    list.replaceChildren(h('p', { class: 'empty' }, 'Joue une partie en ligne : ton chat avec ton partenaire s’ouvrira ici.'));
+    list.replaceChildren(tocSays('Joue une partie en ligne : ton chat avec ton partenaire s’ouvrira ici.', 'concentre'));
     return { head, body: scroller, foot: null, cleanup: () => {} };
   }
   let lines: { me: boolean; t: string }[] = DEMO ? DEMO_CHAT.slice() : [];
@@ -227,7 +228,7 @@ export function rankingScreen(): View {
   const render = (rk: RankRow[], mine: [string, number, string] | null) => {
     const p = draftProfile();
     if (!rk.length) {
-      body.replaceChildren(h('p', { class: 'empty' }, real ? 'Personne au classement pour l’instant. Gagne une partie en ligne pour y entrer !' : 'Chargement du classement…'));
+      body.replaceChildren(real ? tocSays('Personne au classement pour l’instant. Gagne une partie en ligne pour y entrer !', 'vainqueur') : h('p', { class: 'empty' }, 'Chargement du classement…'));
       me.hidden = true;
       return;
     }

@@ -7,6 +7,7 @@ import { h } from '../dom';
 import { CHARS, COL, COLOR_NAMES, type CharId, type ColorName } from '../kit/data';
 import { avatar, backButton, bille, button } from '../kit/kit';
 import { ROUTES, go, takeLink } from '../nav';
+import { mascot } from '../mascot';
 
 const blob = (style: Record<string, string | number>) => h('div', { class: 'blob', style });
 
@@ -38,7 +39,8 @@ export function splashScreen(): HTMLElement {
     h('div', { class: 'splash__hero' },
       h('span', { class: 'splash__kicker' }, 'Le jeu de'),
       logo(),
-      h('span', { class: 'splash__tagline' }, 'Le jeu qui brise des amitiés… et qui en crée.')),
+      h('span', { class: 'splash__tagline' }, 'Le jeu qui brise des amitiés… et qui en crée.'),
+      h('div', { class: 'splash__toc deco-anim' }, mascot('content', 170))),
     h('div', { class: 'spacer' }),
     h('div', { class: 'splash__actions' },
       button('C’est parti !', 'primary', () => go(ROUTES.onboard), { size: 'lg', block: true }),
