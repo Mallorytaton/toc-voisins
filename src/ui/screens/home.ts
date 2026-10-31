@@ -12,6 +12,7 @@ import { h, toast } from '../dom';
 import { avatar, avatarRing, bille, button, duo, segmented, tabbar } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { confirmSheet } from '../confirm';
+import { nudgePlayers } from '../../net/push';
 
 const fmt = (n: number) => n.toLocaleString('fr-FR');
 const MODE_KEY = 'toc.mode';
@@ -160,7 +161,25 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   const slowList = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } });
   const slowCard = h('div', { class: 'card slow-card', hidden: true },
     h('span', { class: 't-label' }, 'À ton rythme'), slowList);
+  const NUDGE_KEY = (code: string) => 'toc.secouer.' + code;
+  const nudgedAt = (code: string) => { try { return Number(localStorage.getItem(NUDGE_KEY(code)) ?? 0); } catch { return 0; } };
+  const canNudge = (g: SlowGame) => g.status === 'theirs' && g.waiting.length > 0 && Date.now() - g.at > 3_600_000 && Date.now() - nudgedAt(g.code) > 12 * 3_600_000;
+  let lastSlow: SlowGame[] = [];
+  const nudge = async (g: SlowGame) => {
+    const names = g.waiting.map((w) => w.name).join(' et ');
+    try {
+      const sent = await nudgePlayers(g.waiting.map((w) => w.uid), g.code);
+      try { localStorage.setItem(NUDGE_KEY(g.code), String(Date.now())); } catch { /* sans stockage */ }
+      toast(sent > 0 ? `${names} ${g.waiting.length > 1 ? 'ont été secoués' : 'a été secoué·e'} !`
+        : sent < 0 ? 'Déjà secoué·e il y a moins de 12 h. Patience !'
+          : `${names} n’a pas activé les notifications : le tour l’attend dans l’app.`, 2600);
+    } catch {
+      toast('Relance impossible pour l’instant. Réessaie.');
+    }
+    drawSlow(lastSlow);
+  };
   const drawSlow = (list: SlowGame[]) => {
+    lastSlow = list;
     slowCard.hidden = !list.length;
     slowList.replaceChildren(...list.slice(0, 3).map((g) => h('div', { class: 'slow-row' + (g.status === 'mine' ? ' slow-row--mine' : '') },
       h('button', { class: 'slow-row__main', type: 'button', onclick: () => go('/salle/' + g.code) },
@@ -168,6 +187,8 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
         h('span', { class: 'slow-row__status' },
           g.status === 'mine' ? 'À toi de jouer' : g.status === 'waiting' ? 'En attente des joueurs'
             : g.status === 'over' ? 'Terminée' : g.who ? `Tour de ${g.who} · ${ago(g.at)}` : `On attend les autres · ${ago(g.at)}`)),
+      // La partie attend quelqu'un depuis plus d'une heure : on peut le secouer (une fois toutes les 12 h).
+      canNudge(g) && h('button', { class: 'slow-row__nudge', type: 'button', onclick: () => nudge(g) }, g.waiting.length === 1 ? `Secouer ${g.waiting[0].name}` : 'Secouer'),
       // L'hôte supprime la partie pour tous ; une partie terminée se retire simplement de la liste.
       (g.host || g.status === 'over') && h('button', {
         class: 'slow-row__x', type: 'button', 'aria-label': g.host ? `Supprimer « ${g.title} »` : `Retirer « ${g.title} »`,

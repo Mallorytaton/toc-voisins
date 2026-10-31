@@ -90,12 +90,22 @@ export async function refreshPush() {
   if (pushState() === 'on') await register();
 }
 
-export type NotifyKind = 'invite' | 'league' | 'turn' | 'chat' | 'leagueChat' | 'soiree' | 'offline';
+export type NotifyKind = 'invite' | 'league' | 'turn' | 'nudge' | 'chat' | 'leagueChat' | 'soiree' | 'offline';
 
 /** Demande au service de prévenir ces joueurs. Sans attente ni message d'erreur : ce n'est qu'un bonus. */
 export function notifyPlayers(to: string[], kind: NotifyKind, extra: { code?: string; text?: string } = {}) {
   if (!NOTIFY_URL || !to.length || !navigator.onLine) return;
   void call('/notify', { to, kind, ...extra }).catch((e) => console.warn('notification', e));
+}
+
+/**
+ * « Secouer » les joueurs qu'une partie à ton rythme attend. Renvoie le nombre de téléphones prévenus,
+ * ou -1 si une relance a déjà été envoyée pour cette partie il y a moins de 12 h.
+ */
+export async function nudgePlayers(to: string[], code: string): Promise<number> {
+  if (!NOTIFY_URL || !to.length) return 0;
+  const r = await call('/notify', { to, kind: 'nudge', code });
+  return r.limited ? -1 : Number(r.sent) || 0;
 }
 
 /** La proposition d'activer les notifications revient au plus une fois par semaine. */

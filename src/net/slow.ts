@@ -13,6 +13,8 @@ export interface SlowGame {
   at: number;
   /** Tu es l'hôte : tu peux supprimer la partie */
   host: boolean;
+  /** Les joueurs (humains) que la partie attend : celui dont c'est le tour, ou ceux qui n'ont pas donné leur carte */
+  waiting: { uid: string; name: string }[];
 }
 
 const BOT = 'bot';
@@ -37,15 +39,20 @@ function view(code: string, raw: RawRoom | null, me: string): SlowGame | null {
   const at = raw.turnAt ?? 0;
   const host = raw.meta.host === me;
   const st = raw.state;
-  if (raw.meta.status !== 'playing' || !st) return { code, title, status: 'waiting', who: '', at, host };
-  if (st.phase === 'over') return { code, title, status: 'over', who: '', at, host };
+  const human = (u: string) => !!u && u !== BOT && u !== me;
+  const waitFor = (uids: string[]) => uids.filter(human).map((uid) => ({ uid, name: name(uid) }));
+  if (raw.meta.status !== 'playing' || !st) return { code, title, status: 'waiting', who: '', at, host, waiting: [] };
+  if (st.phase === 'over') return { code, title, status: 'over', who: '', at, host, waiting: [] };
   const mySeat = seats.indexOf(me);
   if (st.phase === 'exchange') {
     const ex = arr<string>(st.exchange, n, () => '');
-    return { code, title, status: mySeat >= 0 && !ex[mySeat] ? 'mine' : 'theirs', who: '', at, host };
+    return {
+      code, title, status: mySeat >= 0 && !ex[mySeat] ? 'mine' : 'theirs', who: '', at, host,
+      waiting: waitFor(seats.filter((_, k) => !ex[k])),
+    };
   }
   const turn = st.turn ?? 0;
-  return { code, title, status: seats[turn] === me ? 'mine' : 'theirs', who: name(seats[turn]), at, host };
+  return { code, title, status: seats[turn] === me ? 'mine' : 'theirs', who: name(seats[turn]), at, host, waiting: waitFor([seats[turn]]) };
 }
 
 /** Retire une partie (terminée) de ta liste, sans la supprimer pour les autres. */

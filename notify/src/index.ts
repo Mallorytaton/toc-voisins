@@ -24,8 +24,8 @@ interface Env {
   FIREBASE_API_KEY: string;
 }
 
-type Kind = 'invite' | 'league' | 'turn' | 'chat' | 'leagueChat' | 'soiree' | 'offline';
-const KINDS: Kind[] = ['invite', 'league', 'turn', 'chat', 'leagueChat', 'soiree', 'offline'];
+type Kind = 'invite' | 'league' | 'turn' | 'nudge' | 'chat' | 'leagueChat' | 'soiree' | 'offline';
+const KINDS: Kind[] = ['invite', 'league', 'turn', 'nudge', 'chat', 'leagueChat', 'soiree', 'offline'];
 const ORIGINS = ['https://mallorytaton.github.io', 'http://localhost:5180', 'http://localhost:4173'];
 const TEAM_NAMES = ['Soleil', 'Myrtilles', 'Framboises'];
 const MAX_DEVICES = 5;
@@ -63,7 +63,11 @@ export default {
   },
 
   async scheduled(_event: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
-    ctx.waitUntil(remindSoirees(env).catch((e) => console.log('rappels : échec', String(e))));
+    ctx.waitUntil((async () => {
+      const db = new Db(env.DB_URL, await serviceToken(env));
+      await remindSoirees(env, db).catch((e) => console.log('rappels : échec', String(e)));
+      await remindSlowGames(env, db).catch((e) => console.log('relances : échec', String(e)));
+    })().catch((e) => console.log('tâche planifiée : échec', String(e))));
   },
 };
 
@@ -171,14 +175,23 @@ async function notify(env: Env, db: Db, me: string, b: Record<string, unknown>) 
       if (!text) return { sent: 0 };
       msg = { title: name, body: text, url: `${app}#/amis`, tag: `chat-${me}`, renotify: true, ttl: 43_200, urgency: 'normal' };
     }
-  } else if (kind === 'turn') {
+  } else if (kind === 'turn' || kind === 'nudge') {
     if (!code) return { sent: 0 };
+    // « Secouer » : une relance par partie et par joueur qui secoue, toutes les 12 h au plus.
+    if (kind === 'nudge') {
+      const key = `nudge:${code}:${me}`;
+      if (await env.SUBS.get(key)) return { sent: 0, tried: 0, limited: true };
+      await env.SUBS.put(key, '1', { expirationTtl: 12 * 3600 });
+    }
     const [seatsRaw, meta] = await Promise.all([db.get<Record<string, string>>(`rooms/${code}/seats`), db.get<{ slow?: boolean; title?: string }>(`rooms/${code}/meta`)]);
     const seats = Object.values(seatsRaw ?? {});
     if (!seats.includes(me)) return { sent: 0 };
     allowed = (u) => seats.includes(u);
     // À ton rythme : chaque tour compte, le message attend quelques jours ; en direct, il ne vaut que deux minutes.
-    msg = meta?.slow
+    const gameTitle = (meta?.title ?? `Partie TOC-${code}`).slice(0, 30);
+    msg = kind === 'nudge'
+      ? { title: `${name} te secoue !`, body: `${gameTitle} : c’est à toi de jouer.`, url: `${app}?g=${code}`, tag: `turn-${code}`, renotify: true, ttl: 3 * 86_400, urgency: 'normal', badge: code }
+      : meta?.slow
       ? { title: 'À toi de jouer !', body: `${(meta.title ?? `Partie TOC-${code}`).slice(0, 30)} : c’est ton tour, joue quand tu veux.`, url: `${app}?g=${code}`, tag: `turn-${code}`, renotify: true, ttl: 3 * 86_400, urgency: 'normal', badge: code }
       : { title: 'C’est ton tour !', body: `Ta partie TOC-${code} t’attend.`, url: `${app}?g=${code}`, tag: `turn-${code}`, renotify: false, ttl: 120, urgency: 'high' };
   } else {
@@ -298,8 +311,7 @@ interface LeagueForReminder {
  * la veille, un « Tu viens ? » à ceux qui n'ont pas répondu (si la soirée a été proposée il y a plus de 6 h).
  * Chaque rappel ne part qu'une fois (marque dans KV).
  */
-async function remindSoirees(env: Env) {
-  const db = new Db(env.DB_URL, await serviceToken(env));
+async function remindSoirees(env: Env, db: Db) {
   const all = (await db.get<Record<string, number>>('soirees')) ?? {};
   const now = Date.now();
   for (const [code, at] of Object.entries(all)) {
@@ -339,6 +351,54 @@ async function remindSoirees(env: Env) {
           url, tag: `rappel-${code}`, renotify: true, ttl: 12 * 3600, urgency: 'normal',
         }, 'rappel veille');
       }
+    }
+  }
+}
+
+// ---------- Relance automatique des parties à ton rythme (tâche planifiée) ----------
+
+const DAY = 86_400_000;
+/** L'index d'une partie à ton rythme vaut « dernier coup + 23 jours » (voir session.ts). */
+const SLOW_SHIFT = 23 * DAY;
+
+interface RoomForReminder {
+  meta?: { slow?: boolean; status?: string; title?: string };
+  seats?: Record<string, string> | string[];
+  state?: { phase?: string; turn?: number; exchange?: Record<string, string> | string[] };
+  turnAt?: number;
+}
+
+/**
+ * Une partie à ton rythme attend un joueur depuis plus de 24 h : Toc le relance, une fois par jour d'attente
+ * (et plus après 7 jours : on laisse tranquille une partie abandonnée).
+ */
+async function remindSlowGames(env: Env, db: Db) {
+  const index = (await db.get<Record<string, number>>('index')) ?? {};
+  const now = Date.now();
+  for (const [code, v] of Object.entries(index)) {
+    const last = Number(v) - SLOW_SHIFT;
+    if (!(last <= now - DAY && last >= now - 7 * DAY)) continue;
+    const r = await db.get<RoomForReminder>(`rooms/${code}`);
+    const st = r?.state;
+    if (!r?.meta?.slow || r.meta.status !== 'playing' || !st || st.phase === 'over') continue;
+    const waited = now - (r.turnAt ?? now);
+    if (waited < DAY) continue;
+    const days = Math.floor(waited / DAY);
+    const mark = `auto:${code}:${r.turnAt}:${days}`;
+    if (await env.SUBS.get(mark)) continue;
+    await env.SUBS.put(mark, '1', { expirationTtl: 2 * 86_400 });
+    const seat = (k: number) => String((Array.isArray(r.seats) ? r.seats[k] : r.seats?.[String(k)]) ?? '');
+    const given = (k: number) => !!(Array.isArray(st.exchange) ? st.exchange[k] : st.exchange?.[String(k)]);
+    const n = Array.isArray(r.seats) ? r.seats.length : Object.keys(r.seats ?? {}).length;
+    const targets = (st.phase === 'exchange' ? [...Array(n).keys()].filter((k) => !given(k)) : [st.turn ?? 0])
+      .map(seat).filter((u) => u && u !== 'bot');
+    const title = (r.meta.title ?? `Ta partie TOC-${code}`).slice(0, 30);
+    for (const u of targets) {
+      if (await looking(db, u)) continue;
+      await pushTo(env, u, {
+        title: 'Toc s’impatiente !', body: `${title} t’attend depuis ${days > 1 ? days + ' jours' : 'hier'} : c’est à toi de jouer.`,
+        url: `${env.APP_URL}?g=${code}`, tag: `turn-${code}`, renotify: true, ttl: DAY / 1000, urgency: 'normal', badge: code,
+      }, 'relance auto');
     }
   }
 }

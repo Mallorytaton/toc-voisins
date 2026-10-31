@@ -201,6 +201,8 @@
 .slow-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .slow-row { display: flex; align-items: center; gap: 6px; width: 100%; border-radius: 16px; background: var(--app); }
 .slow-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 0 10px 14px; border: none; background: none; cursor: pointer; text-align: left; }
+.slow-row__nudge { flex: none; height: 34px; padding: 2px 12px 0; border: none; border-radius: 12px; cursor: pointer; font: 800 13px/1 var(--display); background: var(--yellow); color: var(--ink); box-shadow: 0 3px 0 var(--yellow-d); white-space: nowrap; }
+.slow-row__nudge:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--yellow-d); }
 .slow-row__x { flex: none; width: 40px; height: 40px; margin-right: 4px; border: none; border-radius: 12px; background: none; cursor: pointer; font: 800 22px/1 var(--display); color: var(--ink-3); }
 .slow-row__x:hover, .slow-row__x:focus-visible { color: var(--coral-d); background: rgba(0, 0, 0, .04); }
 .resume-del { color: rgba(255, 255, 255, .75); }
