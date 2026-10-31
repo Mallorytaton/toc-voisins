@@ -7,12 +7,13 @@
 //   invites/<uid>/<de>     { code, name, at }
 //   chats/<a_b>/msgs/<id>  { from, t, at } ; chats/<a_b>/typing/<uid> = true
 import {
-  get, limitToLast, onDisconnect, onValue, orderByChild, push, query, ref, remove, serverTimestamp, set, update,
+  get, limitToLast, onDisconnect, onValue, orderByChild, push, query, ref, remove, runTransaction, serverTimestamp, set, update,
 } from 'firebase/database';
 import { type Profile, draftProfile, getProfile, saveProfile } from '../app/profile';
 import type { CharId, ColorName } from '../ui/kit/data';
 import { database, ensureAuth, node, serverNow } from './firebase';
 import { notifyPlayers } from './push';
+import { type GameResult, type PlayerStats, addGame } from '../app/player-stats';
 
 export interface PublicProfile {
   nick: string;
@@ -114,6 +115,24 @@ export async function lookupFriendCode(raw: string): Promise<{ uid: string; nick
   const [p, f] = await Promise.all([get(node('users', other)), get(node('friends', me, other))]);
   const pub = p.val() as PublicProfile | null;
   return { uid: other, nick: pub?.nick ?? code.split(/[#-]/)[0], char: pub?.char ?? 'tuque', color: pub?.color ?? 'coral', mine: other === me, already: !!f.val() };
+}
+
+export type { PlayerStats } from '../app/player-stats';
+
+/** Ajoute une partie terminée à la fiche du joueur (une seule fois par partie, sur ce téléphone). */
+export async function recordPlayerStats(key: string, r: GameResult) {
+  try {
+    if (localStorage.getItem('toc.stats.last') === key) return;
+    localStorage.setItem('toc.stats.last', key);
+  } catch { /* sans stockage, on compte quand même */ }
+  const me = await uid();
+  await runTransaction(node('users', me, 'stats'), (cur: Partial<PlayerStats> | null) => addGame(cur, r));
+}
+
+/** Le profil public et la fiche d'un joueur (null s'il n'existe pas). */
+export async function playerProfile(id: string): Promise<(PublicProfile & { stats?: PlayerStats }) | null> {
+  await uid();
+  return (await get(node('users', id))).val();
 }
 
 /** Ajoute un ami par son code (ex. FREDO#2741). Renvoie son surnom. */

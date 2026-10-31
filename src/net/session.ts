@@ -25,7 +25,7 @@ import { DEMO_GUESTS } from '../ui/demo';
 import { type CharId, type ColorName, SEAT_COLORS } from '../ui/kit/data';
 import { WEEK, arr, database, ensureAuth, list, node, serverNow } from './firebase';
 import { recordLeagueGame } from './league';
-import { awardGame } from './social';
+import { awardGame, recordPlayerStats } from './social';
 import { notifyPlayers } from './push';
 
 type Status = 'waiting' | 'countdown' | 'playing';
@@ -126,6 +126,8 @@ export function normalizePublic(raw: Record<string, unknown>): PublicState {
     stats: {
       captures: arr((raw.stats as Record<string, unknown> | undefined)?.captures, n, () => 0),
       exits: arr((raw.stats as Record<string, unknown> | undefined)?.exits, n, () => 0),
+      // Firebase efface les objets vides : chaque place retrouve son compteur de cartes.
+      cards: arr<Record<string, number> | null>((raw.stats as Record<string, unknown> | undefined)?.cards, n, () => ({})).map((c) => ({ ...(c ?? {}) })),
     },
     startedAt: (raw.startedAt as number) ?? 0,
     v: (raw.v as number) ?? 0,
@@ -725,8 +727,15 @@ export class OnlineGame implements GameSource {
     this.state = next;
     const reset = prev.phase === 'over' && next.phase !== 'over';
     // Fin de partie : XP, jetons et points de classement (une fois par partie).
-    if (next.phase === 'over' && prev.phase !== 'over' && this.mySeat >= 0)
+    if (next.phase === 'over' && prev.phase !== 'over' && this.mySeat >= 0) {
       void awardGame(`${this.code}:${next.v}`, teamOf(next.n, this.mySeat) === next.winner);
+      const mate = this.s.room?.seats[partner(next.n, this.mySeat)] ?? '';
+      void recordPlayerStats(`${this.code}:${next.v}`, {
+        won: teamOf(next.n, this.mySeat) === next.winner,
+        captures: next.stats.captures[this.mySeat] ?? 0, exits: next.stats.exits[this.mySeat] ?? 0,
+        cards: next.stats.cards[this.mySeat] ?? {}, partner: mate && mate !== BOT ? mate : '',
+      }).catch((e) => console.warn('fiche', e));
+    }
     // Partie d'un tournoi : la victoire de l'équipe s'ajoute au score du tournoi (une seule fois).
     const league = this.s.room?.meta.league;
     if (league && next.phase === 'over' && prev.phase !== 'over')

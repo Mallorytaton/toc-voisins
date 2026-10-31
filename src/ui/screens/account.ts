@@ -7,6 +7,7 @@ import { avatarRing, button } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { pushSetting } from '../push-offer';
 import { soundSettings } from '../sound';
+import { currentUid } from '../../net/social';
 
 /** Connexion Google puis suite logique : profil retrouvé → accueil, sinon → choix du perso. */
 export async function googleThenGo(): Promise<boolean> {
@@ -51,6 +52,7 @@ export function openAccountSheet() {
       googleBtn,
       pushSetting(),
       soundSettings(),
+      navigator.onLine && button('Ma fiche de joueur', 'white', () => { close(); go('/joueur/' + currentUid()); }, { size: 'md', block: true }),
       button('Changer de perso', 'white', () => { close(); go(ROUTES.pick); }, { size: 'md', block: true }),
       button('Fermer', 'text', close)));
   (document.getElementById('app') ?? document.body).append(wrap);

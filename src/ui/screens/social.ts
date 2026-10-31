@@ -40,10 +40,11 @@ function friendRow(f: Omit<FriendView, 'uid'> & { uid?: string }, invited: Set<s
     draw();
     action = b;
   }
+  const info = h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
+    h('span', { class: 'friend__name' }, f.name), h('span', { class: 'friend__status' }, f.status));
   return h('div', { class: 'friend ' + (off ? 'card--flat friend--off' : 'card card--row'), style: { borderRadius: 22 } },
-    pic,
-    h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
-      h('span', { class: 'friend__name' }, f.name), h('span', { class: 'friend__status' }, f.status)),
+    // Toucher l'ami ouvre sa fiche de joueur.
+    f.uid && !DEMO ? h('button', { class: 'friend__open', type: 'button', 'aria-label': `Fiche de ${f.name}`, onclick: () => go('/joueur/' + f.uid) }, pic, info) : [pic, info],
     action);
 }
 
@@ -260,14 +261,14 @@ export function rankingScreen(): View {
     body.replaceChildren(
       h('div', { class: 'podium' }, ...steps.filter(([i]) => rk[i]).map(([i, c, d, ht, nc, size]) => {
         const r = rk[i];
-        return h('div', null,
+        return h('div', { ...(r.uid ? { role: 'button', tabindex: 0, style: { cursor: 'pointer' }, onclick: () => go('/joueur/' + r.uid) } : {}) },
           avatarRing(r.char, r.color, size, c, 4, 3, '0 8px 14px rgba(70,40,20,.15)'),
           h('span', { class: 'podium__name' }, r.name),
           h('span', { class: 'podium__pts' }, `${fmt(r.pts)} pts`),
           h('div', { class: 'podium__step', style: { height: ht, background: c, color: nc, boxShadow: `0 7px 0 ${d},inset 0 3px 0 rgba(255,255,255,.45)` } }, i + 1));
       })),
       h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 } }, ...rk.slice(3).map((r, i) =>
-        h('div', { class: 'rank-row' },
+        h(r.uid ? 'button' : 'div', { class: 'rank-row', ...(r.uid ? { type: 'button', onclick: () => go('/joueur/' + r.uid) } : {}) },
           h('span', { class: 'rank-row__n' }, i + 4),
           avatar(r.char, r.color, 40),
           h('div', { class: 'rank-row__who' }, h('span', { class: 'rank-row__name' }, r.name), h('span', { class: 'rank-row__sub' }, r.region)),
@@ -287,7 +288,7 @@ export function rankingScreen(): View {
     if (!real) return render([], null);
     const uid = currentUid();
     const list = real.all.filter((e) => s === 'monde' || real!.friends.has(e.uid) || e.uid === uid);
-    const rows: RankRow[] = list.map((e) => ({ name: e.nick, region: e.city ?? '', pts: e.points, trend: '—', char: e.char, color: e.color }));
+    const rows: RankRow[] = list.map((e) => ({ uid: e.uid, name: e.nick, region: e.city ?? '', pts: e.points, trend: '—', char: e.char, color: e.color }));
     const i = list.findIndex((e) => e.uid === uid);
     const pts = draftProfile().points ?? 0;
     const mine: [string, number, string] = i < 0 ? ['—', pts, 'Gagne une partie en ligne pour entrer au classement']

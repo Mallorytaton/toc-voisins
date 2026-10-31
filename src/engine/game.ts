@@ -30,7 +30,7 @@ export function newGame(n: number, variants: Variants = DEFAULT_VARIANTS, dealer
     lastCard: '',
     lastCaptures: [],
     lastMove: '',
-    stats: { captures: Array(n).fill(0), exits: Array(n).fill(0) },
+    stats: { captures: Array(n).fill(0), exits: Array(n).fill(0), cards: Array.from({ length: n }, () => ({})) },
     startedAt: 0,
     v: 0,
   };
@@ -47,7 +47,7 @@ export function cloneState(st: GameState): GameState {
     passed: st.passed.slice(),
     log: st.log.slice(),
     lastCaptures: st.lastCaptures.slice(),
-    stats: { captures: st.stats.captures.slice(), exits: st.stats.exits.slice() },
+    stats: { captures: st.stats.captures.slice(), exits: st.stats.exits.slice(), cards: st.stats.cards.map((c) => ({ ...c })) },
   };
 }
 
@@ -196,6 +196,10 @@ export function applyMove(st0: GameState, move: Move): GameState {
   st.lastCaptures = caps;
   st.lastMove = { seat, move };
   if (move.kind === 'exit') st.stats.exits[seat]++;
+  if (move.kind !== 'discard') {
+    const rk = rankOf(move.card);
+    st.stats.cards[seat][rk] = (st.stats.cards[seat][rk] ?? 0) + 1;
+  }
   st.stats.captures[seat] += caps.filter((c) => teamOf(st.n, c.s) !== teamOf(st.n, seat)).length;
   st.log = pushLog(st.log, { seat, text, card: move.card });
 

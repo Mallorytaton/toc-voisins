@@ -494,6 +494,16 @@ describe('compteurs de partie (statistiques)', () => {
     expect(after.stats.captures[1]).toBe(0);
   });
 
+  it('compte les cartes jouées par chaque joueur', () => {
+    const st = mk(['AS0', '5S0']);
+    put(st, 0, 1, 5);
+    let after = applyMove(st, find(st, 'AS0', (m) => m.kind === 'exit'));
+    after.turn = 0;
+    after = applyMove(after, find(after, '5S0', (m) => m.kind === 'step'));
+    expect(after.stats.cards[0]).toEqual({ A: 1, '5': 1 });
+    expect(after.stats.cards[1]).toEqual({});
+  });
+
   it('ne compte pas un partenaire renvoyé dans sa réserve', () => {
     const st = mk(['3S0']);
     put(st, 0, 0, 5);

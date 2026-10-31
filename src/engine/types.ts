@@ -93,6 +93,8 @@ export interface GameStats {
   captures: number[];
   /** Billes sorties de la réserve */
   exits: number[];
+  /** Cartes jouées par place, par valeur (« 7 » : 3) — la carte fétiche des fiches de joueur */
+  cards: Record<string, number>[];
 }
 
 export interface GameState {

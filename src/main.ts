@@ -32,6 +32,7 @@ import { watchMyGames } from './net/slow';
 import { unlockAudio } from './ui/sound';
 import { DEFAULT_VARIANTS } from './engine';
 import { mascot } from './ui/mascot';
+import { playerScreen } from './ui/screens/player';
 
 registerSW({ immediate: true });
 document.addEventListener('pointerdown', unlockAudio, { passive: true });
@@ -150,6 +151,8 @@ function router() {
     return void openOnlineRoom(room[1], n, params.get('ligue'));
   }
   if (path === '/tournoi/nouveau') return setView(newLeagueScreen());
+  const pl = /^\/joueur\/([\w-]{6,128})$/.exec(path);
+  if (pl) return setView(playerScreen(pl[1]));
   // Partie d'initiation : à 4, contre des robots, sur l'appareil (aussi hors ligne).
   if (path === '/initiation') {
     const r = new LocalRoom(4);

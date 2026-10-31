@@ -39,6 +39,8 @@ export const PARTNER_REPLIES = ['Haha, on les a !', 'Ok, je te suis.', 'Vas-y, l
 export type RankScope = 'amis' | 'monde';
 
 export interface RankRow {
+  /** Joueur réel (toucher sa ligne ouvre sa fiche) ; absent en démo. */
+  uid?: string;
   name: string;
   region: string;
   pts: number;

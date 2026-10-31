@@ -248,6 +248,17 @@
 .recap__lines { display: flex; flex-direction: column; gap: 6px; }
 .recap__line { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; border-radius: 14px; background: rgba(255, 255, 255, .55); font: 700 13px var(--text); color: #5a4300; }
 .recap__line b { font: 800 15px/1.2 var(--display); color: var(--ink); text-align: right; padding-top: 1px; }
+/* Fiche de joueur */
+.player-head { display: flex; align-items: center; gap: 14px; padding: 16px; }
+.player-head__name { font: 800 26px/1.05 var(--display); padding-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.player-tile { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 22px; background: #fff; box-shadow: 0 5px 0 var(--clay-2); }
+.player-tile b { font: 800 30px/1 var(--display); padding-top: 3px; }
+.player-tile span { font: 700 13px/1.25 var(--text); color: var(--ink-2); }
+.player-lines { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.player-line { background: var(--app); color: var(--ink-2); }
+.friend__open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0; border: none; background: none; cursor: pointer; text-align: left; color: inherit; }
+button.rank-row { width: 100%; border: none; cursor: pointer; text-align: left; font: inherit; color: inherit; }
 .league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {
