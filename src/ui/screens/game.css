@@ -7,9 +7,9 @@
 .game__frame { position: absolute; inset: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; overflow: clip; }
 .game__stage { position: absolute; left: 0; top: 0; width: 393px; height: 750px; transform-origin: 0 0; }
 
-.g-top { position: absolute; left: 16px; right: 16px; top: 6px; height: 50px; display: flex; align-items: center; gap: 10px; }
+.g-top { position: absolute; left: 16px; right: 16px; top: 6px; height: 50px; display: flex; align-items: center; gap: 8px; }
 .g-top__mid { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
-.g-top__round { font: 800 11px var(--text); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-4); }
+.g-top__round { font: 800 11px var(--text); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .g-top__turn { font: 800 19px/1.15 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .g-score { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 20px; background: #fff; box-shadow: 0 4px 0 var(--clay-2); }
 .g-score > div { display: flex; align-items: center; gap: 4px; font: 800 16px/1 var(--display); }
