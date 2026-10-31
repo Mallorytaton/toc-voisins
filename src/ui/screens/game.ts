@@ -63,7 +63,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const turnEl = h('span', { class: 'g-top__turn' });
   const scoreEl = h('div', { class: 'g-score', 'aria-label': 'Billes rentrées par équipe' });
   const rulesBtn = h('button', { class: 'btn-round g-rules', type: 'button', 'aria-label': 'Règles', onclick: () => openRulesSheet(view.variants) }, '?');
-  stage.append(h('div', { class: 'g-top' }, pauseButton(() => openPause()), rulesBtn, h('div', { class: 'g-top__mid' }, roundEl, turnEl), scoreEl));
+  // Journal : les 4 derniers coups joués, pour savoir ce qui s'est passé (demandé par Mallory).
+  const journal = h('div', { class: 'g-journal-pop', role: 'dialog', 'aria-label': 'Les 4 derniers coups', hidden: true });
+  const journalBtn = h('button', { class: 'btn-round g-journal', type: 'button', 'aria-label': 'Derniers coups', 'aria-expanded': 'false', onclick: () => toggleJournal() });
+  journalBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><circle cx="4.5" cy="6" r="1.8" fill="currentColor"/><circle cx="4.5" cy="12" r="1.8" fill="currentColor"/><circle cx="4.5" cy="18" r="1.8" fill="currentColor"/></svg>';
+  stage.append(h('div', { class: 'g-top' }, pauseButton(() => openPause()), rulesBtn, journalBtn, h('div', { class: 'g-top__mid' }, roundEl, turnEl), scoreEl), journal);
 
   // ---------- Plateau ----------
   const board = h('div', { class: 'board' });
@@ -455,6 +459,39 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     render();
   };
 
+  // ---------- Journal des derniers coups ----------
+  /** Le texte du moteur (« @2 avance un pion de 5 et renvoie à la base @1 ») dit avec les mots de l'app. */
+  const logText = (text: string, seat: number) => text
+    .replace(new RegExp(`^@${seat} `), '')
+    // Les parenthèses du moteur : le partage du 7 (« 4 + 3 ») est gardé, le nom de la carte (déjà montrée) retiré.
+    .replace(/ \(([^)]*)\)/g, (_, inner: string) => (inner.includes('+') ? ` : ${inner}` : ''))
+    .replace(/ et renvoie à la base (.*)$/, ' : BOUM sur $1')
+    .replace(/un autre de ses pions/g, 'une autre de ses billes').replace(/un de ses pions/g, 'une de ses billes')
+    .replace(/un pion/g, 'une bille').replace(/ses pions/g, 'ses billes').replace(/pion/g, 'bille')
+    .replace(/@(\d+)/g, (_, k: string) => nameOf(Number(k)));
+  const renderJournal = () => {
+    if (journal.hidden) return;
+    const moves = view.log.filter((e) => e.card || /défausse/.test(e.text)).slice(-4).reverse();
+    journal.replaceChildren(h('span', { class: 't-label' }, 'Les 4 derniers coups'),
+      ...(moves.length ? moves.map((e) => {
+        const c = e.card ? cardLook(e.card, view.variants) : null;
+        return h('div', { class: 'g-journal-row' },
+          h('i', { style: { background: tint(e.seat).c } }),
+          h('span', { class: 'g-journal-text' }, h('b', null, nameOf(e.seat)), ' ' + logText(e.text, e.seat)),
+          c && h('span', { class: 'g-journal-card', style: { color: c.red ? '#e5482a' : '#2b2a3d' } }, c.r + c.s));
+      }) : [h('span', { class: 't-body' }, 'Aucun coup pour l’instant.')]));
+  };
+  const toggleJournal = (open = journal.hidden) => {
+    journal.hidden = !open;
+    journalBtn.setAttribute('aria-expanded', String(open));
+    renderJournal();
+  };
+  // Un toucher ailleurs referme le journal.
+  const closeJournalOutside = (e: Event) => {
+    if (!journal.hidden && !journal.contains(e.target as Node) && !journalBtn.contains(e.target as Node)) toggleJournal(false);
+  };
+  document.addEventListener('pointerdown', closeJournalOutside, true);
+
   // ---------- Initiation : une leçon au moment où elle sert ----------
   interface Lesson { id: string; mood: MascotMood; title: string; text: () => string; ranks: () => string[]; when: () => boolean }
   const reserve = () => view.pawns[me].some((pw) => pw.p < 0);
@@ -722,6 +759,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       void playBtn.offsetWidth;
       playBtn.style.animation = '';
     }
+    renderJournal();
     syncTimer();
   };
 
@@ -978,6 +1016,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     el: root,
     cleanup: () => {
       disposed = true;
+      document.removeEventListener('pointerdown', closeJournalOutside, true);
       unsub();
       unsubEmote?.();
       stopTimer();
