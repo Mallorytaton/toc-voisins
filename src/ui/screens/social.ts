@@ -72,7 +72,7 @@ function friendsPane(): View {
       ]
       : [tocSays('Pas encore d’amis. Partage ton code ami, ou ajoute celui d’un ami.', 'content')]));
   };
-  const field = h('input', { class: 'field', placeholder: 'Code ami (ex. MIMI#4821)', 'aria-label': 'Code ami à ajouter', autocapitalize: 'characters', style: { flex: 1 } });
+  const field = h('input', { class: 'field', placeholder: 'Ex. MIMI#4821', 'aria-label': 'Code ami à ajouter', autocapitalize: 'characters', style: { flex: 1 } });
   const add = async () => {
     try {
       const name = await addFriend(field.value);
