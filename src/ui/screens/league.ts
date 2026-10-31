@@ -13,6 +13,7 @@ import { savedMode } from './home';
 import { variantsCard } from './rules';
 import { DEFAULT_VARIANTS, type Variants } from '../../engine';
 import { tocSays } from '../mascot';
+import { confirmSheet } from '../confirm';
 
 type View = { el: HTMLElement; cleanup: () => void };
 
@@ -401,28 +402,6 @@ function openChatSheet(l: League, me: string, onClose: () => void) {
       scroller,
       h('div', { style: { display: 'flex', gap: 8 } }, input,
         h('button', { class: 'send', type: 'button', 'aria-label': 'Envoyer', onclick: () => send() }, h('i')))));
-  (document.getElementById('app') ?? document.body).append(wrap);
-}
-
-/** Demande confirmation avant une action définitive (quitter, supprimer). */
-function confirmSheet(title: string, text: string, label: string, action: () => Promise<void>) {
-  const close = () => wrap.remove();
-  const ok = button(label, 'danger', async () => {
-    ok.disabled = true;
-    try {
-      await action();
-      close();
-    } catch {
-      ok.disabled = false;
-      toast('Impossible pour l’instant. Réessaie.');
-    }
-  }, { size: 'md', block: true });
-  const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
-    h('div', { class: 'sheet', role: 'dialog', 'aria-label': title },
-      h('span', { class: 'sheet__title' }, title),
-      h('span', { class: 'sheet__text' }, text),
-      ok,
-      button('Annuler', 'text', close)));
   (document.getElementById('app') ?? document.body).append(wrap);
 }
 

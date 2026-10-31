@@ -19,6 +19,9 @@ export interface GameSource {
   readonly slow?: boolean;
   /** Partie d'initiation : première main préparée, robots plus gentils, leçons pendant la partie. */
   readonly initiation?: boolean;
+  /** En ligne, pour l'hôte : supprimer la partie pour tout le monde. */
+  readonly canDelete?: boolean;
+  deleteGame?(): Promise<void>;
   players: SeatPlayer[];
   state: GameState;
   /** cb(prev, reset) : reset = l'état a été remplacé (donne recommencée), sans animation. */

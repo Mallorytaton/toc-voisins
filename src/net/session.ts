@@ -162,6 +162,18 @@ async function purge(code: string) {
   });
 }
 
+/** L'hôte supprime une salle et sa partie (cartes, paquet, index) ; elle quitte aussi sa liste « À ton rythme ». */
+export async function deleteRoom(code: string) {
+  const uid = await ensureAuth();
+  await update(ref(database()), {
+    [`v2/rooms/${code}`]: null,
+    [`v2/hands/${code}`]: null,
+    [`v2/decks/${code}`]: null,
+    [`v2/index/${code}`]: null,
+    [`v2/myGames/${uid}/${code}`]: null,
+  });
+}
+
 /** Supprime quelques salles de plus de 7 jours (nettoyage au fil de l'eau). */
 async function purgeExpired() {
   const snap = await get(query(node('index'), orderByValue(), endAt(Date.now() - WEEK), limitToFirst(10)));
@@ -253,8 +265,15 @@ export class RoomSession implements Room {
       this.offs.push(onValue(node('rooms', this.code), (snap) => {
         const raw = snap.val();
         if (!raw?.meta) {
+          const had = !!this.room;
           this.room = null;
           this.error = 'Cette salle n’existe plus.';
+          // Supprimée pendant qu'on y était : l'app nous ramène à l'accueil (sans redessiner la salle vide).
+          if (had && this.onGone) {
+            this.onGone();
+            resolve();
+            return;
+          }
         } else {
           const n = raw.meta.n as 4 | 6;
           this.room = {
@@ -278,15 +297,34 @@ export class RoomSession implements Room {
     });
   }
 
-  /** Partie en cours où ce joueur est assis (pour « Reprendre » depuis l'accueil). */
-  static async resumable(code: string): Promise<boolean> {
+  /** Partie en cours où ce joueur est assis (pour « Reprendre » depuis l'accueil) ; null sinon. */
+  static async resumable(code: string): Promise<{ host: boolean } | null> {
     const uid = await ensureAuth();
     const meta = (await get(node('rooms', code, 'meta'))).val() as Meta | null;
     // Une partie à ton rythme a sa propre liste sur l'accueil.
-    if (!meta || meta.slow || meta.status !== 'playing' || expired(meta, await turnAtOf(code))) return false;
+    if (!meta || meta.slow || meta.status !== 'playing' || expired(meta, await turnAtOf(code))) return null;
     const seats = arr<string>((await get(node('rooms', code, 'seats'))).val(), meta.n, () => '');
     const st = (await get(node('rooms', code, 'state', 'phase'))).val();
-    return seats.includes(uid) && st !== 'over';
+    return seats.includes(uid) && st !== 'over' ? { host: meta.host === uid } : null;
+  }
+
+  /** Appelé quand la salle disparaît pendant qu'on y est (supprimée par l'hôte, ou par soi). */
+  onGone: (() => void) | null = null;
+  private deleting = false;
+  get deletedByMe() {
+    return this.deleting;
+  }
+
+  /** L'hôte supprime la salle (et la partie) pour tout le monde. */
+  async remove() {
+    if (!this.isHost) throw new Error('Seul l’hôte peut supprimer la partie.');
+    this.deleting = true;
+    try {
+      await deleteRoom(this.code);
+    } catch (e) {
+      this.deleting = false;
+      throw e;
+    }
   }
 
   /** Quitte la salle : libère la place si la partie n'a pas commencé. */
@@ -303,7 +341,10 @@ export class RoomSession implements Room {
     clearTimeout(this.driveTimer);
     // Une partie à ton rythme garde ta place : tu reviens quand tu veux.
     if (r && r.meta.status === 'waiting' && seat >= 0 && !r.meta.slow) set(node('rooms', this.code, 'seats', seat), null).catch(() => undefined);
-    set(node('rooms', this.code, 'presence', this.uid), false).catch(() => undefined);
+    // La présence « absent » posée d'avance pour une coupure est annulée : une salle supprimée ne doit pas renaître.
+    const pres = node('rooms', this.code, 'presence', this.uid);
+    onDisconnect(pres).cancel().catch(() => undefined);
+    if (r) set(pres, false).catch(() => undefined);
   }
 
   // ---------- Room (écran de la salle) ----------
@@ -623,6 +664,12 @@ export class OnlineGame implements GameSource {
   readonly local = false;
   get slow() {
     return !!this.s.room?.meta.slow;
+  }
+  get canDelete() {
+    return this.s.isHost;
+  }
+  deleteGame() {
+    return this.s.remove();
   }
   state: GameState;
   private subs = new Set<(prev: GameState, reset: boolean) => void>();

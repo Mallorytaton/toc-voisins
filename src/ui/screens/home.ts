@@ -1,8 +1,8 @@
 // 04 Accueil : profil, choix 4/6 joueurs, partie privée, code de salle ou de tournoi, tes tournois.
 import { XP_PER_LEVEL, draftProfile, levelOf } from '../../app/profile';
 import { type League, parseLeagueCode, refusedBy, watchMyLeagues } from '../../net/league';
-import { RoomSession } from '../../net/session';
-import { type SlowGame, watchMyGames } from '../../net/slow';
+import { RoomSession, deleteRoom } from '../../net/session';
+import { type SlowGame, forgetGame, watchMyGames } from '../../net/slow';
 import { currentUid, watchFriends } from '../../net/social';
 import { openAccountSheet } from './account';
 import { soireeLabel } from './league';
@@ -11,6 +11,7 @@ import { SEAT_COLORS, TEAM_NAMES } from '../kit/data';
 import { h, toast } from '../dom';
 import { avatar, avatarRing, bille, button, duo, segmented, tabbar } from '../kit/kit';
 import { ROUTES, go } from '../nav';
+import { confirmSheet } from '../confirm';
 
 const fmt = (n: number) => n.toLocaleString('fr-FR');
 const MODE_KEY = 'toc.mode';
@@ -126,16 +127,28 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   code.addEventListener('keydown', (e) => e.key === 'Enter' && join());
 
   // Partie en ligne interrompue (app fermée) : on propose de la reprendre.
+  // L'hôte peut aussi la supprimer pour tout le monde.
+  const delResume = h('button', {
+    class: 'link-btn resume-del', type: 'button', hidden: true,
+    onclick: () => confirmSheet('Supprimer la partie en cours ?', 'Elle s’arrête pour tout le monde. C’est définitif.', 'Supprimer la partie', async () => {
+      await deleteRoom(lastRoom);
+      resume.hidden = true;
+      try { localStorage.removeItem('toc.lastRoom'); } catch { /* sans stockage */ }
+      toast('Partie supprimée.');
+    }),
+  }, 'Supprimer');
   const resume = h('div', { class: 'friend-code', hidden: true },
     h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } },
       h('span', { class: 'friend-code__label' }, 'Partie en cours'),
       h('span', { class: 'friend-code__value', style: { fontSize: 18 } }, 'Ta partie t’attend')),
+    delResume,
     button('Reprendre', 'yellow', () => go('/salle/' + lastRoom), { size: 'xs' }));
   let lastRoom = '';
   try { lastRoom = localStorage.getItem('toc.lastRoom') ?? ''; } catch { /* sans stockage */ }
   if (lastRoom && !DEMO && navigator.onLine)
     RoomSession.resumable(lastRoom).then((ok) => {
       resume.hidden = !ok;
+      delResume.hidden = !ok?.host;
       if (!ok) try { localStorage.removeItem('toc.lastRoom'); } catch { /* sans stockage */ }
     }).catch(() => undefined);
 
@@ -149,13 +162,19 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
     h('span', { class: 't-label' }, 'À ton rythme'), slowList);
   const drawSlow = (list: SlowGame[]) => {
     slowCard.hidden = !list.length;
-    slowList.replaceChildren(...list.slice(0, 3).map((g) => h('button', {
-      class: 'slow-row' + (g.status === 'mine' ? ' slow-row--mine' : ''), type: 'button', onclick: () => go('/salle/' + g.code),
-    },
-      h('span', { class: 'slow-row__title' }, g.title),
-      h('span', { class: 'slow-row__status' },
-        g.status === 'mine' ? 'À toi de jouer' : g.status === 'waiting' ? 'En attente des joueurs'
-          : g.status === 'over' ? 'Terminée' : g.who ? `Tour de ${g.who} · ${ago(g.at)}` : `On attend les autres · ${ago(g.at)}`))),
+    slowList.replaceChildren(...list.slice(0, 3).map((g) => h('div', { class: 'slow-row' + (g.status === 'mine' ? ' slow-row--mine' : '') },
+      h('button', { class: 'slow-row__main', type: 'button', onclick: () => go('/salle/' + g.code) },
+        h('span', { class: 'slow-row__title' }, g.title),
+        h('span', { class: 'slow-row__status' },
+          g.status === 'mine' ? 'À toi de jouer' : g.status === 'waiting' ? 'En attente des joueurs'
+            : g.status === 'over' ? 'Terminée' : g.who ? `Tour de ${g.who} · ${ago(g.at)}` : `On attend les autres · ${ago(g.at)}`)),
+      // L'hôte supprime la partie pour tous ; une partie terminée se retire simplement de la liste.
+      (g.host || g.status === 'over') && h('button', {
+        class: 'slow-row__x', type: 'button', 'aria-label': g.host ? `Supprimer « ${g.title} »` : `Retirer « ${g.title} »`,
+        onclick: () => (g.host
+          ? confirmSheet(`Supprimer « ${g.title} » ?`, 'La partie s’arrête pour tout le monde et disparaît de vos listes. C’est définitif.', 'Supprimer la partie', () => deleteRoom(g.code).then(() => toast('Partie supprimée.')))
+          : forgetGame(g.code).then(() => toast('Partie retirée de ta liste.'))),
+      }, '×'))),
     ...(list.length > 3 ? [h('span', { class: 't-mini' }, `+ ${list.length - 3} autre${list.length > 4 ? 's' : ''}`)] : []));
   };
   const stopSlow = DEMO || !navigator.onLine ? () => {} : watchMyGames(drawSlow);

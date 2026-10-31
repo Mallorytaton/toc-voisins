@@ -5,6 +5,7 @@ import { COL, SEAT_COLORS, TEAM_NAMES } from '../kit/data';
 import { avatarRing, backButton, button, duo, segmented } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { variantsCard } from './rules';
+import { confirmSheet } from '../confirm';
 
 async function shareInvite(room: Room) {
   const url = room.link();
@@ -80,6 +81,10 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
   const status = h('span', { class: 'status-line' });
   const launch = button('', 'primary', () => room.launch(), { size: 'lg', block: true });
   const bots = button('Compléter avec des robots', 'text', () => room.fillBots?.());
+  const del = h('button', {
+    class: 'link-btn link-btn--danger', type: 'button', hidden: true,
+    onclick: () => confirmSheet('Supprimer la salle ?', 'Elle disparaît pour tous les joueurs déjà entrés.', 'Supprimer la salle', () => room.remove!()),
+  }, 'Supprimer la salle');
   const overlay = h('div', { class: 'count-overlay', hidden: true }, h('span', null, 'La partie commence'));
   let counting = false;
 
@@ -108,6 +113,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     launch.className = 'btn btn--lg btn--block ' + (full && host ? 'btn--primary' : 'btn--off');
     launch.disabled = !full || !host;
     bots.hidden = full || !host || !room.fillBots;
+    del.hidden = !host || !room.remove;
     launch.hidden = s.status === 'playing';
     rules.refresh();
     if (s.status === 'countdown' && !counting) countdown();
@@ -149,6 +155,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     status,
     bots,
     launch,
+    del,
     overlay);
   return { el, cleanup: () => { unsub(); room.leave(); } };
 }

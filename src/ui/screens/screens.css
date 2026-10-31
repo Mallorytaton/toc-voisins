@@ -199,7 +199,11 @@
 /* Salle : rythme de la partie ; accueil : parties à ton rythme */
 .pace { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .slow-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-.slow-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 10px 14px; border: none; border-radius: 16px; background: var(--app); cursor: pointer; text-align: left; }
+.slow-row { display: flex; align-items: center; gap: 6px; width: 100%; border-radius: 16px; background: var(--app); }
+.slow-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 0 10px 14px; border: none; background: none; cursor: pointer; text-align: left; }
+.slow-row__x { flex: none; width: 40px; height: 40px; margin-right: 4px; border: none; border-radius: 12px; background: none; cursor: pointer; font: 800 22px/1 var(--display); color: var(--ink-3); }
+.slow-row__x:hover, .slow-row__x:focus-visible { color: var(--coral-d); background: rgba(0, 0, 0, .04); }
+.resume-del { color: rgba(255, 255, 255, .75); }
 .slow-row--mine { background: #ffe3da; box-shadow: inset 0 0 0 2px var(--coral); }
 .slow-row__title { font: 800 16px/1.15 var(--display); color: var(--ink); padding-top: 2px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .slow-row__status { font: 800 12.5px var(--text); color: var(--ink-2); }
@@ -223,6 +227,18 @@
 .learn-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 /* Démarrage : Toc sous le logo */
 .splash__toc { margin-top: 6px; animation: tocBob 2.6s ease-in-out infinite; transform-origin: 50% 100%; }
+/* Amis : QR code et scanner */
+.qr { position: relative; flex: none; padding: 10px; border-radius: 22px; background: #fff; box-shadow: 0 5px 0 var(--clay-2); }
+.qr > svg { width: 100%; height: 100%; display: block; }
+.qr__toc { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; padding: 3px; border-radius: 50%; background: #fff; }
+.scan-btn { flex: none; width: 56px; height: 56px; color: var(--ink); }
+.cam-icon { display: grid; place-items: center; }
+.scan { position: fixed; inset: 0; z-index: 3000; background: #000; display: flex; flex-direction: column; justify-content: flex-end; }
+.scan__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.scan__frame { position: absolute; left: 50%; top: 42%; width: min(68vw, 300px); aspect-ratio: 1; transform: translate(-50%, -50%); border: 4px solid #fff; border-radius: 28px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .45); }
+.scan__bar { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 18px 20px calc(18px + env(safe-area-inset-bottom, 0px)); color: #fff; text-align: center; }
+.scan__title { font: 800 22px/1.1 var(--display); }
+.scan__hint { font: 700 14px/1.35 var(--text); opacity: .9; }
 .league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {

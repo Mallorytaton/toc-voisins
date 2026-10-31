@@ -10,6 +10,7 @@ import { avatar, avatarRing, button, segmented, tabbar, type Tab } from '../kit/
 import { ROUTES, go } from '../nav';
 import { savedMode } from './home';
 import { tocSays } from '../mascot';
+import { cameraIcon, friendCodeFrom, openScanner, qrCard } from '../qr';
 
 type View = { el: HTMLElement; cleanup: () => void };
 const fmt = (n: number) => n.toLocaleString('fr-FR');
@@ -82,6 +83,23 @@ function friendsPane(): View {
     }
   };
   field.addEventListener('keydown', (e) => e.key === 'Enter' && add());
+  const showMyQr = () => {
+    const close = () => wrap.remove();
+    const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+      h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Ton QR code ami', style: { alignItems: 'center', textAlign: 'center' } },
+        h('span', { class: 'sheet__title' }, 'Ton QR code ami'),
+        qrCard(friendLink(code)),
+        h('span', { class: 'friend-code__value', style: { color: 'var(--ink)' } }, code),
+        h('span', { class: 'sheet__text' }, 'Ton ami le scanne dans TOC (Amis, bouton appareil photo) ou avec l’appareil photo de son téléphone.'),
+        button('Fermer', 'text', close)));
+    (document.getElementById('app') ?? document.body).append(wrap);
+  };
+  const scan = () => openScanner('Ajouter un ami', 'Vise le QR code affiché sur le téléphone de ton ami.', 'Ce QR code n’est pas un code ami TOC. Vise celui de ton ami.', (text) => {
+    const c = friendCodeFrom(text);
+    if (!c) return false;
+    void offerFriend(c);
+    return true;
+  });
   let stop = () => {};
   if (DEMO) draw(DEMO_FRIENDS);
   else {
@@ -92,8 +110,12 @@ function friendsPane(): View {
     h('div', { class: 'friend-code' },
       h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } },
         h('span', { class: 'friend-code__label' }, 'Ton code ami'), h('span', { class: 'friend-code__value' }, code)),
+      // Ton QR code : un ami le scanne depuis TOC (bouton appareil photo) ou avec l'appareil photo du téléphone.
+      !DEMO && button('QR', 'white', showMyQr, { size: 'xs' }),
       button('Partager', 'yellow', share, { size: 'xs' })),
-    !DEMO && h('div', { style: { display: 'flex', gap: 8 } }, field, button('Ajouter', 'dark', add, { size: 'md' })),
+    !DEMO && h('div', { style: { display: 'flex', gap: 8 } }, field,
+      h('button', { class: 'btn-round scan-btn', type: 'button', 'aria-label': 'Scanner le QR code d’un ami', onclick: scan }, cameraIcon()),
+      button('Ajouter', 'dark', add, { size: 'md' })),
     list);
   return { el, cleanup: stop };
 }

@@ -43,6 +43,8 @@ export interface Room {
   setVariants?(v: Variants): void;
   /** L'hôte choisit le rythme (en ligne seulement) : en direct ou à ton rythme. */
   setSlow?(on: boolean): void;
+  /** L'hôte supprime la salle (en ligne seulement). */
+  remove?(): Promise<void>;
   leave(): void;
 }
 

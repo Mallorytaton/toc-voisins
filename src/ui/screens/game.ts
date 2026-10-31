@@ -938,6 +938,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     button('Reprendre', 'primary', closeSheet, { size: 'md', block: true }),
     src.local ? button('Recommencer la donne', 'white', () => { closeSheet(); src.restartDeal(); }, { size: 'md', block: true }) : h('span'),
     button(src.slow ? 'Revenir à l’accueil' : 'Quitter la partie', src.slow ? 'white' : 'danger', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
+    src.canDelete ? button('Supprimer la partie', 'text', () => openSheet(
+      h('span', { class: 'sheet__title' }, 'Supprimer la partie ?'),
+      h('span', { class: 'sheet__text' }, 'Elle s’arrête pour tout le monde et disparaît de vos listes. C’est définitif.'),
+      button('Supprimer la partie', 'danger', () => { closeSheet(); src.deleteGame?.().catch(() => toast('Suppression impossible pour l’instant.')); }, { size: 'md', block: true }),
+      button('Annuler', 'text', () => openPause()),
+    )) : h('span'),
   );
   const showEnd = (st: GameState) => {
     const won = teamOf(N, me) === st.winner;

@@ -11,6 +11,8 @@ export interface SlowGame {
   who: string;
   /** Dernier coup (ms) */
   at: number;
+  /** Tu es l'hôte : tu peux supprimer la partie */
+  host: boolean;
 }
 
 const BOT = 'bot';
@@ -18,7 +20,7 @@ const BOT = 'bot';
 const OVER_SHOWN_MS = 2 * 86_400_000;
 
 interface RawRoom {
-  meta?: { status?: string; title?: string; n?: number; slow?: boolean };
+  meta?: { status?: string; title?: string; n?: number; slow?: boolean; host?: string };
   players?: Record<string, { name?: string }>;
   seats?: unknown;
   state?: { phase?: string; turn?: number; exchange?: unknown; winner?: number };
@@ -33,16 +35,23 @@ function view(code: string, raw: RawRoom | null, me: string): SlowGame | null {
   const others = [...new Set(seats.filter((u) => u && u !== me && u !== BOT))].map(name);
   const title = raw.meta.title ?? (others.length ? 'Avec ' + others.join(', ').replace(/, ([^,]*)$/, ' et $1') : `Salle TOC-${code}`);
   const at = raw.turnAt ?? 0;
+  const host = raw.meta.host === me;
   const st = raw.state;
-  if (raw.meta.status !== 'playing' || !st) return { code, title, status: 'waiting', who: '', at };
-  if (st.phase === 'over') return { code, title, status: 'over', who: '', at };
+  if (raw.meta.status !== 'playing' || !st) return { code, title, status: 'waiting', who: '', at, host };
+  if (st.phase === 'over') return { code, title, status: 'over', who: '', at, host };
   const mySeat = seats.indexOf(me);
   if (st.phase === 'exchange') {
     const ex = arr<string>(st.exchange, n, () => '');
-    return { code, title, status: mySeat >= 0 && !ex[mySeat] ? 'mine' : 'theirs', who: '', at };
+    return { code, title, status: mySeat >= 0 && !ex[mySeat] ? 'mine' : 'theirs', who: '', at, host };
   }
   const turn = st.turn ?? 0;
-  return { code, title, status: seats[turn] === me ? 'mine' : 'theirs', who: name(seats[turn]), at };
+  return { code, title, status: seats[turn] === me ? 'mine' : 'theirs', who: name(seats[turn]), at, host };
+}
+
+/** Retire une partie (terminée) de ta liste, sans la supprimer pour les autres. */
+export async function forgetGame(code: string) {
+  const me = await ensureAuth();
+  await set(node('myGames', me, code), null);
 }
 
 export function watchMyGames(cb: (list: SlowGame[]) => void): () => void {

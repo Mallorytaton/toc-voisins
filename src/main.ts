@@ -11,7 +11,7 @@ import { RoomSession } from './net/session';
 import { getLeagueOnce, recordLeagueGame } from './net/league';
 import { inviteFriend, setInGame, startPresence, syncProfile, watchInvites } from './net/social';
 import { DEMO } from './ui/demo';
-import { h } from './ui/dom';
+import { h, toast } from './ui/dom';
 import { fitScreen } from './ui/fit';
 import { blockZoom, lockPortrait } from './ui/orientation';
 import { maybeOfferInstall, watchInstall } from './ui/install';
@@ -199,6 +199,19 @@ function message(title: string, text: string) {
     button('Retour à l’accueil', 'primary', () => go(ROUTES.home), { block: true })));
 }
 
+/** La salle disparaît pendant qu'on y est (supprimée par l'hôte, ou par soi) : retour à l'accueil. */
+function onRoomGone(s: RoomSession) {
+  s.onGone = () => {
+    if (currentSession !== s) return;
+    const mine = s.deletedByMe;
+    currentGame = null;
+    quitSession();
+    try { localStorage.removeItem('toc.lastRoom'); } catch { /* sans stockage */ }
+    go(ROUTES.home);
+    setTimeout(() => toast(mine ? 'Partie supprimée.' : 'La partie a été supprimée par l’hôte.', 2600), 400);
+  };
+}
+
 /** Salle en ligne : création (« nouvelle ») ou arrivée par code. */
 async function openOnlineRoom(code: string, n: 4 | 6, ligue: string | null = null) {
   const hash = location.hash;
@@ -220,6 +233,7 @@ async function openOnlineRoom(code: string, n: 4 | 6, ligue: string | null = nul
       console.error(e);
       return message('Salle introuvable', e instanceof Error ? e.message : 'Vérifie ta connexion puis réessaie.');
     }
+    onRoomGone(currentSession);
     if (location.hash !== hash) return;
     // L'adresse montre le vrai code : on peut la partager ou y revenir.
     if (code === 'nouvelle') {
