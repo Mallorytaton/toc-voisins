@@ -241,6 +241,13 @@
 .scan__bar { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 18px 20px calc(18px + env(safe-area-inset-bottom, 0px)); color: #fff; text-align: center; }
 .scan__title { font: 800 22px/1.1 var(--display); }
 .scan__hint { font: 700 14px/1.35 var(--text); opacity: .9; }
+/* Tournoi : récap de la soirée */
+.recap { display: flex; flex-direction: column; gap: 12px; }
+.recap__headline { font: 800 19px/1.15 var(--display); padding-top: 2px; }
+.recap__sub { font: 700 13px var(--text); color: #5a4300; }
+.recap__lines { display: flex; flex-direction: column; gap: 6px; }
+.recap__line { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; border-radius: 14px; background: rgba(255, 255, 255, .55); font: 700 13px var(--text); color: #5a4300; }
+.recap__line b { font: 800 15px/1.2 var(--display); color: var(--ink); text-align: right; padding-top: 1px; }
 .league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {

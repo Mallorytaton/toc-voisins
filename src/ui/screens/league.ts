@@ -14,6 +14,7 @@ import { variantsCard } from './rules';
 import { DEFAULT_VARIANTS, type Variants } from '../../engine';
 import { tocSays } from '../mascot';
 import { confirmSheet } from '../confirm';
+import { recapCard } from './recap';
 
 type View = { el: HTMLElement; cleanup: () => void };
 
@@ -486,6 +487,7 @@ export function leagueScreen(code: string): View {
   const codeVal = h('span', { style: { font: '800 26px/1.05 var(--display)', letterSpacing: '.06em' } }, 'T-' + code);
   const teams = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   const soiree = h('div');
+  const recap = h('div');
   const claims = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   // Discussion : écoutée dès l'ouverture de la page (lecture refusée si on n'est pas membre : carte cachée).
   const chat = h('div');
@@ -557,6 +559,8 @@ export function leagueScreen(code: string): View {
     }));
     hist.hidden = false;
     soiree.replaceChildren(soireeCard(l, me));
+    const rc = recapCard(l);
+    recap.replaceChildren(...(rc ? [rc] : []));
     stats.replaceChildren(statsCard(l));
     exit.replaceChildren(exitLinks(l, me));
     drawChat();
@@ -600,6 +604,7 @@ export function leagueScreen(code: string): View {
       h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px 14px 18px' } },
         h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('span', { class: 't-mini' }, 'Code du tournoi'), codeVal),
         invite),
+      recap,
       soiree,
       claims,
       chat,
