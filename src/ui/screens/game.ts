@@ -2,7 +2,7 @@
 import type { GameSource, TableMsg } from '../../app/game-source';
 import { draftProfile } from '../../app/profile';
 import {
-  type Card, type GameState, type Move, type PawnRef, type Rank, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, inHome, legalMovesFor, partner, rankOf, sameRef, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
+  type Card, type GameState, type Move, type PawnRef, type Rank, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, inHome, isLap, legalMovesFor, partner, rankOf, sameRef, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
 } from '../../engine';
 import { type Fx, playFx } from '../board/fx';
 import { armOf, geom, pawnXY, trackIndex } from '../board/geom';
@@ -342,16 +342,19 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     toastBox.replaceChildren(h('div', { class: 'g-toast', role: 'status' }, t));
     toastTimer = window.setTimeout(() => toastBox.replaceChildren(), ms);
   };
-  const bubble = (s: number, t: string, ms = 2200) => {
+  const bubble = (s: number, t: string, ms = 2200, long = false) => {
     if (s < 0) return;
     const [x, y] = g.avs[armOf(N, me, s)];
     const b = h('div', { class: 'emote-bubble', style: { left: r1(Math.min(290, Math.max(70, x))), top: r1(y < 60 ? y + Z.av / 2 + 18 : y - Z.av / 2 - 44) } }, t);
     bubbleLayer.querySelectorAll(`[data-seat="${s}"]`).forEach((n) => n.remove());
     b.dataset.seat = String(s);
     bubbleLayer.append(b);
-    // Une bulle longue (message du chat) reste entière : on la recale dans la largeur de l'écran.
+    if (long) b.classList.add('emote-bubble--chat');
+    // Une bulle longue (message du chat) reste entière : on la recale dans la largeur de l'écran,
+    // et au-dessus d'un perso elle grandit vers le haut.
     const half = b.offsetWidth / 2;
     if (half) b.style.left = `${r1(Math.min(393 - 8 - half, Math.max(8 + half, x)))}px`;
+    if (long && y >= 60) b.style.top = `${r1(y - Z.av / 2 - 10 - b.offsetHeight)}px`;
     setTimeout(() => b.remove(), ms);
   };
   const emoteBtn = h('button', { class: 'btn-round btn-round--lg emote-btn', type: 'button', 'aria-label': 'Émotes', 'aria-expanded': 'false' },
@@ -368,10 +371,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (!t || !src.chat) return;
     src.chat(t);
     chatInput.value = '';
-    bubble(me, t.length > 26 ? t.slice(0, 25) + '…' : t, 4000);
+    chatBubble(me, t);
   });
   // Fermer : la croix, le bouton bulle, ou un toucher ailleurs sur l'écran.
   const chatClose = h('button', { class: 'table-chat__close', type: 'button', 'aria-label': 'Fermer le chat' }, '×');
+  /** Message du chat en bulle sur le plateau : jusqu'à 90 caractères, sur plusieurs lignes, le temps de le lire. */
+  const chatBubble = (s: number, t: string) => bubble(s, t.length > 90 ? t.slice(0, 89) + '…' : t, Math.min(9000, 3000 + t.length * 70), true);
   const chatPop = h('div', { class: 'pop pop--chat', hidden: true, role: 'dialog', 'aria-label': 'Chat de la table' },
     h('div', { class: 'table-chat__head' }, h('span', { class: 'pop__title' }, 'Chat de la table'), chatClose), chatList, !watching && chatForm);
   const chatBadge = h('span', { class: 'emote-btn__badge', hidden: true });
@@ -444,7 +449,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let split = new Map<string, number>();
   /** Explication de l'astuce affichée tant que sa sélection est en place. */
   let tip: string | null = null;
-  const clearSel = () => { sel = null; jokerAs = null; pick = null; target = null; split = new Map(); tip = null; };
+  /** Bille devant sa maison : la rentrer, refaire un tour, ou défausser (si refaire un tour est le seul coup). */
+  type Way = 'home' | 'lap' | 'discard';
+  let way: Way | null = null;
+  const clearSel = () => { sel = null; jokerAs = null; pick = null; target = null; split = new Map(); tip = null; way = null; };
 
   const myHand = () => (watching ? [] : view.hands[me] ?? []);
   const myTurn = () => !watching && !busy && view.phase === 'play' && view.turn === me;
@@ -458,7 +466,16 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     targets: PawnRef[];
     jokerValues: Rank[];
     sevenPawns: PawnRef[];
+    /** Plusieurs façons de jouer la même bille (devant sa maison) : le joueur choisit */
+    ways?: Way[];
   }
+  const decide = (opts: Move[], ms: Move[]): { chosen: Move | null; ways: Way[] } => {
+    const by: Partial<Record<Way, Move>> = { home: opts.find((m) => !isLap(m)), lap: opts.find((m) => isLap(m)) };
+    if (by.lap) by.discard = ms.find((m) => m.kind === 'discard');
+    const ways = (['home', 'lap', 'discard'] as const).filter((w) => by[w]);
+    if (ways.length <= 1) return { chosen: ways.length ? by[ways[0]]! : null, ways: [] };
+    return { chosen: way && by[way] ? by[way]! : null, ways };
+  };
   const empty: Plan = { moves: [], chosen: null, cands: [], targets: [], jokerValues: [], sevenPawns: [] };
 
   const plan = (): Plan => {
@@ -487,8 +504,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         split.set(key(pick), solo ? 7 : best);
       }
       const want = [...split].filter(([, n]) => n > 0).sort().join(',');
-      const chosen = play.find((m) => m.kind === 'seven' && m.parts.map((p) => [key(p.pawn), p.steps] as const).sort().map(([k, n]) => `${k},${n}`).join(',') === want) ?? null;
-      return { moves: ms, chosen, cands, targets: [], jokerValues, sevenPawns: play.some((m) => m.kind === 'seven' && m.parts.length > 1) ? cands : [] };
+      const same = play.filter((m) => m.kind === 'seven' && m.parts.map((p) => [key(p.pawn), p.steps] as const).sort().map(([k, n]) => `${k},${n}`).join(',') === want);
+      const { chosen, ways } = decide(same, ms);
+      return { moves: ms, chosen, cands, targets: [], jokerValues, ways, sevenPawns: play.some((m) => m.kind === 'seven' && m.parts.length > 1) ? cands : [] };
     }
     if (!pick) return { moves: ms, chosen: null, cands, targets: [], jokerValues, sevenPawns: [] };
     const mine = play.filter((m): m is Exclude<typeof m, { kind: 'seven' }> => m.kind !== 'seven' && sameRef(m.pawn, pick!));
@@ -498,7 +516,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const chosen = target ? mine.find((m) => m.kind === 'swap' && sameRef(m.target, target!)) ?? null : null;
       return { moves: ms, chosen, cands, targets, jokerValues, sevenPawns: [] };
     }
-    return { moves: ms, chosen: mine[0] ?? null, cands, targets: [], jokerValues, sevenPawns: [] };
+    const { chosen, ways } = decide(mine, ms);
+    return { moves: ms, chosen, cands, targets: [], jokerValues, ways, sevenPawns: [] };
   };
 
   const onPawn = (r: PawnRef) => {
@@ -511,6 +530,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         pick = r;
         target = null;
         split = new Map();
+        way = null;
       }
     } else return;
     render();
@@ -565,9 +585,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
 
   /** Progressions successives d'un pion qui fait `steps` pas (négatif = recule). */
-  const walk = (p: number, steps: number) => {
+  const walk = (p: number, steps: number, lap = false) => {
     const out: number[] = [];
-    for (let k = 0; k < Math.abs(steps); k++) out.push((p = steps > 0 ? stepForward(N, p) : (p - 1 + L) % L));
+    for (let k = 0; k < Math.abs(steps); k++) out.push((p = steps > 0 ? (lap && p === homeEntry(N) ? 0 : stepForward(N, p)) : (p - 1 + L) % L));
     return out;
   };
 
@@ -597,7 +617,19 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const m = watching ? aimedMove() : pl.chosen;
     const sevenSplit = watching ? aimedSplit() : [...split].filter(([, n]) => n > 0);
     if (sevenSplit.length && (!m || m.kind === 'seven')) return previewSeven(sevenSplit, m);
-    if (!m || m.kind === 'discard' || m.kind === 'swap') return false;
+    if (m?.kind === 'swap') {
+      // Valet : une ligne animée relie les deux billes qui vont s'échanger, avant de confirmer.
+      const [x1, y1] = xy(m.pawn.s, m.pawn.i, view.pawns[m.pawn.s][m.pawn.i].p);
+      const [x2, y2] = xy(m.target.s, m.target.i, view.pawns[m.target.s][m.target.i].p);
+      const len = Math.hypot(x2 - x1, y2 - y1), ang = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
+      pathLayer.append(
+        h('div', { class: 'swap-line', style: { left: r1(x1), top: r1(y1), width: r1(len), transform: `rotate(${r1(ang)}deg)` } }),
+        h('div', { class: 'swap-mid', style: { left: r1((x1 + x2) / 2), top: r1((y1 + y2) / 2) } }, '⇄'));
+      const z = Z.ps + 10;
+      for (const [x, y] of [[x1, y1], [x2, y2]]) ghostLayer.append(h('div', { class: 'ghost ghost--swap', style: { left: r1(x - z / 2), top: r1(y - z / 2), width: z, height: z } }));
+      return false;
+    }
+    if (!m || m.kind === 'discard') return false;
     const cap = captures(m);
     const ghost = (s: number, i: number, p: number) => {
       const [x, y] = xy(s, i, p), z = Z.ps + 8;
@@ -610,14 +642,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     });
     if (m.kind === 'exit') ghost(m.pawn.s, m.pawn.i, 0);
     else if (m.kind === 'step') {
-      const ps = walk(view.pawns[m.pawn.s][m.pawn.i].p, m.steps);
+      const ps = walk(view.pawns[m.pawn.s][m.pawn.i].p, m.steps, m.lap);
       dots(m.pawn.s, ps);
       ghost(m.pawn.s, m.pawn.i, ps[ps.length - 1]);
     } else {
       const cur = new Map<string, number>();
       for (const part of m.parts) {
         const k = key(part.pawn);
-        const ps = walk(cur.get(k) ?? view.pawns[part.pawn.s][part.pawn.i].p, part.steps);
+        const ps = walk(cur.get(k) ?? view.pawns[part.pawn.s][part.pawn.i].p, part.steps, part.lap);
         cur.set(k, ps[ps.length - 1]);
         dots(part.pawn.s, ps);
       }
@@ -636,7 +668,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     for (const [k, n] of parts) {
       const [s, i] = k.split('.').map(Number);
       const p0 = view.pawns[s][i].p;
-      const ps = walk(p0, n);
+      const ps = walk(p0, n, m?.kind === 'seven' && m.parts.some((p) => key(p.pawn) === k && p.lap));
       const [x0, y0] = xy(s, i, p0), [x1, y1] = xy(s, i, ps[ps.length - 1]), z = Z.ps + 8;
       ps.slice(0, -1).forEach((p, j) => {
         if (inHome(N, p)) return;
@@ -951,7 +983,16 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }));
   };
 
+  const WAY_LABEL: Record<Way, string> = { home: 'Rentrer à la maison', lap: 'Refaire un tour', discard: 'Défausser' };
   const renderChoice = (pl: Plan) => {
+    if ((pl.ways?.length ?? 0) > 1) {
+      choicePop.hidden = false;
+      choicePop.replaceChildren(h('span', { class: 'pop__title' }, 'Ta bille est devant sa maison'),
+        h('div', { class: 'chips' }, ...pl.ways!.map((w) =>
+          h('button', { type: 'button', 'aria-pressed': String(way === w), onclick: () => { way = w; render(); } },
+            w === 'discard' && !view.variants.discardOne ? 'Défausser ma main' : WAY_LABEL[w]))));
+      return;
+    }
     if (pl.jokerValues.length > 1) {
       choicePop.hidden = false;
       choicePop.replaceChildren(h('span', { class: 'pop__title' }, 'Joue ton Joker comme'),
@@ -1099,6 +1140,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         t = 'Aucun coup possible';
         sub = pl.chosen.card ? 'Défausse cette carte.' : 'Tu passes la donne.';
         label = 'Défausser';
+      } else if (!pl.chosen && (pl.ways?.length ?? 0) > 1) {
+        t = 'Devant ta maison';
+        sub = pl.ways!.includes('home') ? 'Rentre ta bille ou refais un tour : choisis à droite.' : 'Elle ne peut pas rentrer : refais un tour, ou défausse.';
       } else if (split.size && [...split.values()].some((n) => n > 0) && (pl.sevenPawns.length || pl.chosen?.kind === 'seven')) {
         const parts = [...split.values()].filter((n) => n > 0);
         t = `Le 7 · ${parts.map((n) => '+' + n).join(' et ')}`;
@@ -1158,9 +1202,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     unlift(s, i);
     await sleep(340);
   };
-  const hop = async (s: number, i: number, from: number, steps: number, sp: number) => {
+  const hop = async (s: number, i: number, from: number, steps: number, sp: number, lap = false) => {
     let p = from;
-    for (const next of walk(from, steps)) {
+    for (const next of walk(from, steps, lap)) {
       const [x, y] = center2(s, i, p);
       fx('board', { kind: 'puff', x, y, c: tint(s).c, s: 12, ms: 380 });
       p = next;
@@ -1219,7 +1263,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       sfx('sortie');
       land(move.pawn.s, move.pawn.i, 0, 'SORTI !', 0);
     } else if (move.kind === 'step') {
-      const p = await hop(move.pawn.s, move.pawn.i, prev.pawns[move.pawn.s][move.pawn.i].p, move.steps, sp);
+      const p = await hop(move.pawn.s, move.pawn.i, prev.pawns[move.pawn.s][move.pawn.i].p, move.steps, sp, move.lap);
       land(move.pawn.s, move.pawn.i, p, move.steps > 0 ? '+' + move.steps : String(move.steps), move.steps);
     } else if (move.kind === 'swap') {
       const a = move.pawn, b = move.target;
@@ -1238,7 +1282,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       for (const part of move.parts) {
         const k = key(part.pawn);
         const from = cur.get(k) ?? prev.pawns[part.pawn.s][part.pawn.i].p;
-        const p = await hop(part.pawn.s, part.pawn.i, from, part.steps, sp);
+        const p = await hop(part.pawn.s, part.pawn.i, from, part.steps, sp, part.lap);
         cur.set(k, p);
         land(part.pawn.s, part.pawn.i, p, '+' + part.steps, part.steps);
         await sleep(180);
@@ -1350,7 +1394,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const unsubChat = src.onChat?.((lines, fresh) => {
     renderChat(lines);
     for (const m of fresh) {
-      bubble(m.seat, m.t.length > 26 ? m.t.slice(0, 25) + '…' : m.t, 4000);
+      chatBubble(m.seat, m.t);
       if (chatPop.hidden) { unread++; chatBadge.textContent = String(unread); chatBadge.hidden = false; }
     }
   });
