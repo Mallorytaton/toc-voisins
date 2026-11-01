@@ -79,7 +79,7 @@ interface RoomNode {
 }
 
 /** Visée d'un joueur : carte choisie, billes possibles (« s.i,s.i »), bille choisie, coup prêt (JSON, pour l'aperçu). */
-export interface Aim { at?: number; card?: string; n?: string; pick?: string; m?: string }
+export interface Aim { at?: number; card?: string; n?: string; pick?: string; m?: string; sp?: string }
 
 const BOT = 'bot';
 const COUNTDOWN_MS = 3400;

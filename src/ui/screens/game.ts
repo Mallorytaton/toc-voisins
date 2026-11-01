@@ -530,6 +530,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (!raw) return null;
     try { return JSON.parse(raw) as Move; } catch { return null; }
   };
+  /** Écran de table : le partage du 7 en cours sur le téléphone du joueur, même incomplet (« s.i:n,… »). */
+  const aimedSplit = (): [string, number][] => {
+    const raw = view.phase === 'play' ? src.aims?.[view.turn]?.sp : '';
+    return (raw ? raw.split(',') : []).map((x) => x.split(':')).filter((x) => x.length === 2 && Number(x[1]) > 0)
+      .map(([k, n]) => [k, Number(n)] as [string, number]);
+  };
   /** Le coup prend-il une bille ? Sur la tablette, la main du joueur n'est pas connue : on y met la carte jouée. */
   const captures = (m: Move) => {
     try {
@@ -542,7 +548,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     pathLayer.replaceChildren();
     ghostLayer.replaceChildren();
     const m = watching ? aimedMove() : pl.chosen;
-    const sevenSplit = watching ? [] : [...split].filter(([, n]) => n > 0);
+    const sevenSplit = watching ? aimedSplit() : [...split].filter(([, n]) => n > 0);
     if (sevenSplit.length && (!m || m.kind === 'seven')) return previewSeven(sevenSplit, m);
     if (!m || m.kind === 'discard' || m.kind === 'swap') return false;
     const cap = captures(m);
@@ -894,7 +900,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     // Le téléphone dit à la tablette ce qu'il prépare (même s'il montre le plateau).
     if (src.setAim && src.tableOn && !watching) {
       const ready = pl.chosen && pl.chosen.kind !== 'discard' ? JSON.stringify(pl.chosen) : '';
-      const a = myTurn() && sel !== null ? { card: rankOf(myHand()[sel]), n: padList(pl).map(key).join(','), pick: pick ? key(pick) : '', m: ready } : null;
+      const sp = [...split].filter(([, n]) => n > 0).map(([k, n]) => `${k}:${n}`).join(',');
+      const a = myTurn() && sel !== null ? { card: rankOf(myHand()[sel]), n: padList(pl).map(key).join(','), pick: pick ? key(pick) : '', m: ready, sp } : null;
       const sig = JSON.stringify(a);
       if (sig !== lastAim) {
         lastAim = sig;
