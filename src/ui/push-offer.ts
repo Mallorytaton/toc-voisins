@@ -40,6 +40,32 @@ export function maybeOfferPush() {
   (document.getElementById('app') ?? document.body).append(wrap);
 }
 
+/**
+ * Après « Je viens » (ou « Peut-être ») à une soirée : dit quand arrivera le rappel.
+ * Sans notifications, pas de rappel : on le dit, et on propose de les activer.
+ */
+export function soireeReminderHint(today: boolean) {
+  const when = today ? '1 h avant' : 'le jour même et 1 h avant';
+  const st = pushState();
+  if (st === 'on') return toast(`C’est noté ! On te le rappellera ${when}.`, 2600);
+  if (st === 'install-first') return toast('C’est noté ! Pour recevoir le rappel, installe l’app sur ton écran d’accueil.', 3200);
+  if (st === 'denied') return toast('C’est noté ! Les notifications de TOC sont bloquées dans les réglages du téléphone : pas de rappel.', 3200);
+  if (st === 'unsupported') return toast('C’est noté ! Ce téléphone ne reçoit pas les notifications : pense à noter la date.', 3200);
+  const close = () => wrap.remove();
+  const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Recevoir le rappel' },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
+        h('span', { class: 'notif-bell', 'aria-hidden': 'true' }),
+        h('span', { class: 'sheet__title' }, 'Recevoir le rappel ?')),
+      h('span', { class: 'sheet__text' }, `C’est noté ! Active les notifications pour qu’on te rappelle la soirée ${when}.`),
+      button('Activer les notifications', 'primary', async () => {
+        close();
+        if (await turnPushOn()) toast(`C’est fait ! Rappel ${when}.`, 2600);
+      }, { size: 'md', block: true }),
+      button('Plus tard', 'text', close)));
+  (document.getElementById('app') ?? document.body).append(wrap);
+}
+
 /** Ligne « Notifications » de la fenêtre « Ton compte ». null si le téléphone ne peut pas en recevoir. */
 export function pushSetting(): HTMLElement | null {
   const st = pushState();

@@ -10,6 +10,7 @@ import { COL, SEAT_COLORS, TEAM_NAMES } from '../kit/data';
 import { avatarRing, backButton, button, duo, segmented } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { savedMode } from './home';
+import { soireeReminderHint } from '../push-offer';
 import { variantsCard } from './rules';
 import { DEFAULT_VARIANTS, type Variants } from '../../engine';
 import { tocSays } from '../mascot';
@@ -103,7 +104,10 @@ function soireeCard(l: League, me: string): HTMLElement {
     member && h('div', { class: 'rsvp', role: 'group', 'aria-label': 'Ta réponse' }, ...ANSWERS.map(([v, label]) =>
       h('button', {
         type: 'button', 'aria-pressed': String(mine === v),
-        onclick: () => answerSoiree(l.code, s.id, v).catch(() => toast('Réponse non enregistrée. Réessaie.')),
+        onclick: () => answerSoiree(l.code, s.id, v)
+          // Nouvelle réponse « Je viens » ou « Peut-être » : on dit quand arrivera le rappel.
+          .then(() => { if (v !== 'non' && mine !== v) soireeReminderHint(new Date(s.at).toDateString() === new Date().toDateString()); })
+          .catch(() => toast('Réponse non enregistrée. Réessaie.')),
       }, label))),
     member && h('div', { style: { display: 'flex', justifyContent: 'center', gap: 6 } },
       h('button', { class: 'soiree__link', type: 'button', onclick: () => openSoireeSheet(l.code) }, 'Changer la date'),

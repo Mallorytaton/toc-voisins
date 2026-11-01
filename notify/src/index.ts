@@ -2,7 +2,8 @@
 //   POST /subscribe    { sub }             garde l'abonnement Web Push de ce téléphone (KV « s:<uid> »)
 //   POST /unsubscribe  { endpoint }        l'oublie
 //   POST /notify       { to, kind, code?, text? }  prévient des joueurs
-//   toutes les 15 min  rappels de soirée : 1 h avant (ceux qui viennent), la veille (ceux qui n'ont pas répondu)
+//   toutes les 15 min  rappels de soirée : le jour même vers 10 h et 1 h avant (ceux qui viennent),
+//                      la veille (ceux qui n'ont pas répondu)
 // Chaque appel porte le jeton Firebase du joueur : le Worker lit la base avec ses droits à lui, et
 // n'envoie qu'entre amis ou membres d'une même salle ou d'un même tournoi, à quelqu'un qui n'a pas
 // l'app sous les yeux. Les textes sont écrits ici (seul le chat transmet le message tapé).
@@ -297,6 +298,14 @@ function clock(t: number) {
   return m === '00' ? `${Number(h)} h` : `${Number(h)} h ${m}`;
 }
 const names = (list: string[]) => list.join(', ').replace(/, ([^,]*)$/, ' et $1');
+/** Heure (0-23) à Paris */
+const parisHour = (t: number) => Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Europe/Paris' }).format(new Date(t)));
+/**
+ * Rappel du jour même : le jour de la soirée, à partir de 10 h (heure de Paris), s'il reste au moins 3 h
+ * (sinon le rappel 1 h avant suffit) et si la soirée n'a pas été proposée dans les 3 dernières heures.
+ */
+export const dayOfDue = (at: number, now: number, proposedAt: number) =>
+  parisDay(at) === parisDay(now) && parisHour(now) >= 10 && at - now >= 3 * HOUR && proposedAt < now - 3 * HOUR;
 
 interface LeagueForReminder {
   name?: string;
@@ -307,7 +316,7 @@ interface LeagueForReminder {
 }
 
 /**
- * Toutes les 15 min : 1 h avant une soirée, un rappel à ceux qui viennent (ou peut-être) ;
+ * Toutes les 15 min : le jour même vers 10 h, puis 1 h avant une soirée, un rappel à ceux qui viennent (ou peut-être) ;
  * la veille, un « Tu viens ? » à ceux qui n'ont pas répondu (si la soirée a été proposée il y a plus de 6 h).
  * Chaque rappel ne part qu'une fois (marque dans KV).
  */
@@ -328,20 +337,32 @@ async function remindSoirees(env: Env, db: Db) {
     const league = (l.name ?? 'votre tournoi').slice(0, 30);
     const where = s.place ? `, ${s.place.slice(0, 40)}` : '';
     const url = `${env.APP_URL}?t=${code}`;
+    const coming = seats.filter((u) => rsvp[u] === 'oui' || rsvp[u] === 'peut');
+    const others = (u: string) => coming.filter((x) => x !== u && rsvp[x] === 'oui').map(name);
+    const also = (list: string[]) => (list.length ? ` ${names(list)} ${list.length > 1 ? 'viennent' : 'vient'} aussi.` : '');
+    const proposedAt = parseInt(s.id.slice(1), 36) || 0;
+    // Le jour même : « C'est ce soir ! » à ceux qui ont répondu présent (ou peut-être).
+    if (dayOfDue(at, now, proposedAt) && !(await env.SUBS.get(`rj:${s.id}`))) {
+      await env.SUBS.put(`rj:${s.id}`, '1', { expirationTtl: 3 * 86_400 });
+      for (const u of coming) {
+        await pushTo(env, u, {
+          title: parisHour(at) >= 17 ? 'C’est ce soir !' : 'C’est aujourd’hui !',
+          body: `Soirée TOC · ${league} à ${clock(at)}${where}.${also(others(u))}`,
+          url, tag: `rappel-${code}`, renotify: true, ttl: 6 * 3600, urgency: 'normal',
+        }, 'rappel jour J');
+      }
+    }
     if (left <= 75 * 60_000 && !(await env.SUBS.get(`r1:${s.id}`))) {
       await env.SUBS.put(`r1:${s.id}`, '1', { expirationTtl: 3 * 86_400 });
-      const coming = seats.filter((u) => rsvp[u] === 'oui' || rsvp[u] === 'peut');
       for (const u of coming) {
-        const others = coming.filter((x) => x !== u && rsvp[x] === 'oui').map(name);
         const mins = Math.round(left / 60_000);
         await pushTo(env, u, {
           title: mins >= 50 ? 'Soirée TOC dans 1 h' : `Soirée TOC dans ${mins} min`,
-          body: `${league} · ${clock(at)}${where}.${others.length ? ` ${names(others)} ${others.length > 1 ? 'viennent' : 'vient'} aussi.` : ''}`,
+          body: `${league} · ${clock(at)}${where}.${also(others(u))}`,
           url, tag: `rappel-${code}`, renotify: true, ttl: 2 * 3600, urgency: 'high',
         }, 'rappel 1 h');
       }
     }
-    const proposedAt = parseInt(s.id.slice(1), 36) || 0;
     if (left <= 24 * HOUR && left > 90 * 60_000 && proposedAt < now - 6 * HOUR && !(await env.SUBS.get(`r24:${s.id}`))) {
       await env.SUBS.put(`r24:${s.id}`, '1', { expirationTtl: 3 * 86_400 });
       const day = parisDay(at) === parisDay(now) ? 'ce soir' : 'demain';
