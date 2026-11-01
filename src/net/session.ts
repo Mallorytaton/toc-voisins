@@ -56,6 +56,8 @@ interface PlayerInfo {
   char: CharId;
   color: ColorName;
   joinedAt: number;
+  /** Ce que le joueur prépare (carte, billes possibles, bille choisie), lu par l'écran de table */
+  aim?: Aim;
 }
 
 interface HandNode {
@@ -74,8 +76,6 @@ interface RoomNode {
   state: PublicState | null;
   turnAt: number;
   emotes: Record<string, { t: string; at: number }>;
-  /** Ce que chaque joueur prépare, pour l'écran de table (par place) */
-  aim: Record<string, Aim>;
 }
 
 /** Visée d'un joueur : carte choisie, billes possibles (« s.i,s.i »), bille choisie. */
@@ -315,7 +315,6 @@ export class RoomSession implements Room {
             state: raw.state ? normalizePublic(raw.state) : null,
             turnAt: raw.turnAt ?? 0,
             emotes: raw.emotes ?? {},
-            aim: raw.aim ?? {},
           };
         }
         this.watchHand();
@@ -820,11 +819,14 @@ export class OnlineGame implements GameSource {
   }
   /** Ce que chaque place prépare, affiché par l'écran de table. */
   get aims(): Record<string, Aim> {
-    return this.s.room?.aim ?? {};
+    const r = this.s.room, out: Record<string, Aim> = {};
+    r?.seats.forEach((u, k) => { const a = r.players[u]?.aim; if (a) out[k] = a; });
+    return out;
   }
   setAim(a: Aim | null) {
     if (this.s.mySeat < 0) return;
-    set(node('rooms', this.code, 'aim', this.s.mySeat), a ? { ...a, at: serverTimestamp() } : null).catch(() => undefined);
+    // Rangée dans sa fiche de joueur de la salle (que chacun peut déjà écrire) : pas de règle de base en plus.
+    set(node('rooms', this.code, 'players', this.s.uid, 'aim'), a ? { ...a, at: serverTimestamp() } : null).catch(() => undefined);
   }
   onRoom(cb: () => void) {
     return this.s.subscribe(cb);
