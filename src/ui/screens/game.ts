@@ -897,9 +897,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     padChip.hidden = !(src.tableOn && !watching && showBoard);
     if (!on) return;
     const list = padList(pl);
+    // Sans les numéros sur la tablette, le bouton dit où est la bille (et à qui elle est, si ce n'est pas la sienne).
     const where = (r: PawnRef) => {
-      const p = view.pawns[r.s][r.i].p;
-      return p < 0 ? 'Réserve' : inHome(N, p) ? 'Maison' : 'Sur le plateau';
+      const p = view.pawns[r.s][r.i].p, left = L - 1 - p;
+      const spot = p < 0 ? 'Réserve' : inHome(N, p) ? 'Maison' : left <= 0 ? 'devant la maison' : `à ${left} case${left > 1 ? 's' : ''} de la maison`;
+      return (r.s === me ? '' : `${nameOf(r.s)} · `) + spot;
     };
     padPanel.replaceChildren(
       h('div', { class: 'pad-panel__head' },

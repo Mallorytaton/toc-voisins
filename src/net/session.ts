@@ -74,8 +74,6 @@ interface RoomNode {
   state: PublicState | null;
   turnAt: number;
   emotes: Record<string, { t: string; at: number }>;
-  /** Écrans de table (tablettes) ouverts sur la salle */
-  screens: Record<string, boolean>;
   /** Ce que chaque joueur prépare, pour l'écran de table (par place) */
   aim: Record<string, Aim>;
 }
@@ -273,13 +271,13 @@ export class RoomSession implements Room {
   }
 
   private async start() {
-    // L'écran de table ne compte pas comme un joueur : pas de présence, mais il s'annonce (les téléphones passent en manette).
+    // L'écran de table se signale par sa seule présence (sans place ni fiche de joueur) : les téléphones passent en manette.
     if (this.watcher) {
-      const scr = node('rooms', this.code, 'screens', this.uid);
+      const pres = node('rooms', this.code, 'presence', this.uid);
       this.offs.push(onValue(ref(database(), '.info/connected'), (s) => {
         if (s.val() === true) {
-          onDisconnect(scr).remove();
-          set(scr, true).catch(() => undefined);
+          onDisconnect(pres).remove();
+          set(pres, true).catch(() => undefined);
         }
       }));
     } else {
@@ -317,7 +315,6 @@ export class RoomSession implements Room {
             state: raw.state ? normalizePublic(raw.state) : null,
             turnAt: raw.turnAt ?? 0,
             emotes: raw.emotes ?? {},
-            screens: raw.screens ?? {},
             aim: raw.aim ?? {},
           };
         }
@@ -377,9 +374,9 @@ export class RoomSession implements Room {
     // Une partie à ton rythme garde ta place : tu reviens quand tu veux.
     if (r && r.meta.status === 'waiting' && seat >= 0 && !r.meta.slow) set(node('rooms', this.code, 'seats', seat), null).catch(() => undefined);
     if (this.watcher) {
-      const scr = node('rooms', this.code, 'screens', this.uid);
-      onDisconnect(scr).cancel().catch(() => undefined);
-      if (r) set(scr, null).catch(() => undefined);
+      const pres = node('rooms', this.code, 'presence', this.uid);
+      onDisconnect(pres).cancel().catch(() => undefined);
+      if (r) set(pres, null).catch(() => undefined);
       return;
     }
     // La présence « absent » posée d'avance pour une coupure est annulée : une salle supprimée ne doit pas renaître.
@@ -817,7 +814,9 @@ export class OnlineGame implements GameSource {
   }
   /** Une tablette sert de plateau dans cette salle (écran de table) : le téléphone peut passer en manette. */
   get tableOn() {
-    return Object.keys(this.s.room?.screens ?? {}).length > 0;
+    const r = this.s.room;
+    // Un appareil présent dans la salle sans place ni fiche de joueur : c'est un écran de table.
+    return !!r && Object.entries(r.presence).some(([u, on]) => on === true && !r.seats.includes(u) && !r.players[u]);
   }
   /** Ce que chaque place prépare, affiché par l'écran de table. */
   get aims(): Record<string, Aim> {
