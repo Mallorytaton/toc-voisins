@@ -435,7 +435,20 @@ describe('défausse', () => {
     after = applyMove(after, { kind: 'discard', card: '' });
     expect(after.phase).toBe('deal');
     expect(after.dealNo).toBe(1);
+    // Même donneur pendant toute la manche (5, 4, 4 cartes) : son voisin recommence.
+    expect(after.dealer).toBe(0);
+    expect(after.turn).toBe(1);
+  });
+
+  it('le donneur change au nouveau paquet (après la donne de 5, 4 et 4 cartes)', () => {
+    const st = mk(['QS0']);
+    st.hands = [['QS0'], [], [], []];
+    st.dealNo = 2;
+    const after = applyMove(st, { kind: 'discard', card: '' });
+    expect(after.phase).toBe('deal');
+    expect(after.dealNo).toBe(3);
     expect(after.dealer).toBe(1);
+    expect(after.turn).toBe(2);
   });
 });
 

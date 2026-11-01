@@ -226,9 +226,10 @@ function advanceTurn(st: GameState) {
       return;
     }
   }
-  // Plus personne n'a de cartes : donne suivante.
+  // Plus personne n'a de cartes : donne suivante. Le même joueur distribue toute la manche (5, 4 puis 4 cartes),
+  // donc son voisin commence à chaque donne ; au nouveau paquet, c'est le joueur suivant qui distribue.
   st.dealNo++;
-  st.dealer = (st.dealer + 1) % st.n;
+  if (st.dealNo % DEAL_CYCLE.length === 0) st.dealer = (st.dealer + 1) % st.n;
   st.phase = 'deal';
   st.turn = (st.dealer + 1) % st.n;
 }
