@@ -1,5 +1,5 @@
 // 06 Plateau de jeu : rendu de la maquette, sélection des coups, animations.
-import type { GameSource } from '../../app/game-source';
+import type { GameSource, TableMsg } from '../../app/game-source';
 import { draftProfile } from '../../app/profile';
 import {
   type Card, type GameState, type Move, type PawnRef, type Rank, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, inHome, legalMovesFor, partner, rankOf, sameRef, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
@@ -334,21 +334,50 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     toastBox.replaceChildren(h('div', { class: 'g-toast', role: 'status' }, t));
     toastTimer = window.setTimeout(() => toastBox.replaceChildren(), ms);
   };
-  const bubble = (s: number, t: string) => {
+  const bubble = (s: number, t: string, ms = 2200) => {
+    if (s < 0) return;
     const [x, y] = g.avs[armOf(N, me, s)];
     const b = h('div', { class: 'emote-bubble', style: { left: r1(Math.min(290, Math.max(70, x))), top: r1(y < 60 ? y + Z.av / 2 + 18 : y - Z.av / 2 - 44) } }, t);
     bubbleLayer.querySelectorAll(`[data-seat="${s}"]`).forEach((n) => n.remove());
     b.dataset.seat = String(s);
     bubbleLayer.append(b);
-    setTimeout(() => b.remove(), 2200);
+    // Une bulle longue (message du chat) reste entière : on la recale dans la largeur de l'écran.
+    const half = b.offsetWidth / 2;
+    if (half) b.style.left = `${r1(Math.min(393 - 8 - half, Math.max(8 + half, x)))}px`;
+    setTimeout(() => b.remove(), ms);
   };
   const emoteBtn = h('button', { class: 'btn-round btn-round--lg emote-btn', type: 'button', 'aria-label': 'Émotes', 'aria-expanded': 'false' },
     h('i', null, h('span'), h('span'), h('span')));
   const emotePop = h('div', { class: 'pop pop--emotes', hidden: true },
     ...EMOTES.map((t) => h('button', { type: 'button', onclick: () => sendEmote(t) }, t)));
+  // Chat de table (en ligne) : toute la table voit la conversation ; les messages des autres passent aussi en bulle.
+  const chatList = h('div', { class: 'table-chat__list', 'aria-live': 'polite' });
+  const chatInput = h('input', { class: 'table-chat__input', type: 'text', maxlength: 140, placeholder: 'Écrire à la table…', 'aria-label': 'Message à la table', enterkeyhint: 'send', autocomplete: 'off' }) as HTMLInputElement;
+  const chatForm = h('form', { class: 'table-chat__form' }, chatInput, h('button', { type: 'submit', class: 'table-chat__send' }, 'Envoyer'));
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const t = chatInput.value.trim();
+    if (!t || !src.chat) return;
+    src.chat(t);
+    chatInput.value = '';
+    bubble(me, t.length > 26 ? t.slice(0, 25) + '…' : t, 4000);
+  });
+  const chatPop = h('div', { class: 'pop pop--chat', hidden: true, role: 'dialog', 'aria-label': 'Chat de la table' },
+    h('span', { class: 'pop__title' }, 'Chat de la table'), chatList, !watching && chatForm);
+  const chatBadge = h('span', { class: 'emote-btn__badge', hidden: true });
+  if (src.chat) { emoteBtn.append(chatBadge); emoteBtn.setAttribute('aria-label', 'Émotes et chat de la table'); }
+  let unread = 0;
+  const renderChat = (lines: TableMsg[]) => {
+    chatList.replaceChildren(...(lines.length ? lines.slice(-40).map((m) => h('div', { class: 'table-chat__line' + (m.mine ? ' table-chat__line--me' : '') },
+      h('b', { style: { color: m.seat >= 0 ? COL[SEAT_COLORS[N][m.seat]].c : 'var(--ink-2)' } }, m.mine ? 'Toi' : m.name), h('span', null, m.t)))
+      : [h('span', { class: 'table-chat__empty' }, 'Personne n’a encore écrit. Lance la discussion !')]));
+    chatList.scrollTop = chatList.scrollHeight;
+  };
   const setEmotes = (open: boolean) => {
     emotePop.hidden = !open;
     emoteBtn.setAttribute('aria-expanded', String(open));
+    chatPop.hidden = !open || !src.chat;
+    if (open) { unread = 0; chatBadge.hidden = true; chatList.scrollTop = chatList.scrollHeight; }
   };
   emoteBtn.addEventListener('click', () => setEmotes(!!emotePop.hidden));
   const sendEmote = (t: string) => {
@@ -361,7 +390,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
   };
   const choicePop = h('div', { class: 'pop pop--choice', hidden: true });
-  stage.append(toastBox, emotePop, choicePop);
+  stage.append(toastBox, chatPop, emotePop, choicePop);
 
   // ---------- Barre d'action, minuteur, main ----------
   const hintT = h('b');
@@ -1270,6 +1299,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     void pump();
   });
   const unsubEmote = src.onEmote?.((seat, t) => bubble(seat, t));
+  const unsubChat = src.onChat?.((lines, fresh) => {
+    renderChat(lines);
+    for (const m of fresh) {
+      bubble(m.seat, m.t.length > 26 ? m.t.slice(0, 25) + '…' : m.t, 4000);
+      if (chatPop.hidden) { unread++; chatBadge.textContent = String(unread); chatBadge.hidden = false; }
+    }
+  });
 
   // ---------- Pause et fin ----------
   let sheet: HTMLElement | null = null;
@@ -1373,6 +1409,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       document.removeEventListener('pointerdown', closeJournalOutside, true);
       unsub();
       unsubEmote?.();
+      unsubChat?.();
       stopTimer();
       clearTimeout(toastTimer);
       window.removeEventListener('resize', fit);

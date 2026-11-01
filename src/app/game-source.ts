@@ -44,6 +44,20 @@ export interface GameSource {
   /** En ligne : envoie une émote à la table, et reçoit celles des autres. */
   emote?(t: string): void;
   onEmote?(cb: (seat: number, t: string) => void): () => void;
+  /** En ligne : chat de table, vu par tous les joueurs. cb(tous les messages, nouveaux messages des autres). */
+  chat?(t: string): void;
+  onChat?(cb: (lines: TableMsg[], fresh: TableMsg[]) => void): () => void;
+}
+
+/** Un message du chat de table. */
+export interface TableMsg {
+  id: string;
+  /** Place de l'auteur (-1 s'il n'est plus assis) */
+  seat: number;
+  name: string;
+  t: string;
+  at: number;
+  mine: boolean;
 }
 
 const BOT_THINK_MS = 850;

@@ -175,6 +175,18 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
   font: 800 15px/1 var(--display); padding-top: 2px; cursor: pointer;
 }
 .pop--emotes > button:active { transform: scale(.95); background: var(--coral-l); }
+/* Chat de table : au-dessus des émotes, dans la moitié haute (le clavier ne le cache pas). */
+.pop--chat { top: 66px; width: 361px; display: flex; flex-direction: column; gap: 8px; }
+.table-chat__list { height: 168px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 2px 4px; overscroll-behavior: contain; }
+.table-chat__line { align-self: flex-start; max-width: 88%; padding: 7px 11px 6px; border-radius: 14px 14px 14px 4px; background: var(--muted-bg); font: 600 14px/1.3 var(--text); color: var(--ink); overflow-wrap: anywhere; }
+.table-chat__line > b { display: block; font: 800 11px/1.2 var(--text); letter-spacing: .02em; margin-bottom: 1px; }
+.table-chat__line--me { align-self: flex-end; border-radius: 14px 14px 4px 14px; background: var(--coral-l); }
+.table-chat__empty { margin: auto; font: 600 13px var(--text); color: var(--ink-2); text-align: center; }
+.table-chat__form { display: flex; gap: 8px; }
+.table-chat__input { flex: 1; min-width: 0; height: 42px; border: 2px solid var(--clay); border-radius: 14px; padding: 0 12px; font: 600 16px var(--text); color: var(--ink); background: #fff; }
+.table-chat__input:focus { outline: none; border-color: var(--coral); }
+.table-chat__send { height: 42px; border: none; border-radius: 14px; padding: 2px 14px 0; background: var(--ink); color: #fff; font: 800 14px/1 var(--display); cursor: pointer; }
+.emote-btn__badge { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--coral); color: #fff; font: 800 12px/20px var(--text); text-align: center; box-shadow: 0 0 0 2px #fff; }
 .pop--choice { right: 16px; bottom: calc(750px - 462px); display: flex; flex-direction: column; gap: 10px; }
 .pop__title { font: 800 13px var(--text); color: var(--ink-2); letter-spacing: .08em; text-transform: uppercase; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }

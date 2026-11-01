@@ -10,10 +10,10 @@
 // refusent toute écriture d'état dont la version n'est pas « version + 1 ».
 // Un « meneur » (l'hôte, ou le premier joueur connecté) distribue et joue pour les robots et les absents.
 import {
-  endAt, get, limitToFirst, onDisconnect, onValue, orderByValue, query, runTransaction, serverTimestamp, set, update,
+  endAt, get, limitToFirst, onDisconnect, onValue, orderByValue, push, query, runTransaction, serverTimestamp, set, update,
   ref,
 } from 'firebase/database';
-import type { GameSource, SeatPlayer } from '../app/game-source';
+import type { GameSource, SeatPlayer, TableMsg } from '../app/game-source';
 import { draftProfile, saveProfile } from '../app/profile';
 import { type Room, type RoomPlayer, type RoomSnapshot, inviteLink } from '../app/room';
 import {
@@ -58,6 +58,8 @@ interface PlayerInfo {
   joinedAt: number;
   /** Ce que le joueur prépare (carte, billes possibles, bille choisie), lu par l'écran de table */
   aim?: Aim;
+  /** Ses messages du chat de table (rangés dans sa fiche : c'est là que chacun peut écrire) */
+  msgs?: Record<string, { t: string; at: number }>;
 }
 
 interface HandNode {
@@ -253,7 +255,8 @@ export class RoomSession implements Room {
     const uid = await ensureAuth();
     const meta = (await get(node('rooms', code, 'meta'))).val() as Meta | null;
     if (!meta || expired(meta, await turnAtOf(code))) throw new Error(`Aucune salle TOC-${code}. Vérifie le code.`);
-    await set(node('rooms', code, 'players', uid), me());
+    // Mise à jour (pas remplacement) : revenir dans la salle garde ses messages du chat de table.
+    await update(node('rooms', code, 'players', uid), me());
     const seats = arr<string>((await get(node('rooms', code, 'seats'))).val(), meta.n, () => '');
     if (!seats.includes(uid) && meta.status === 'waiting') {
       // Tournoi : chacun retrouve sa place (donc son duo) ; sinon, l'ordre d'arrivée habituel.
@@ -469,7 +472,7 @@ export class RoomSession implements Room {
     if (!old || old === BOT || this.isOnline(old)) return;
     await set(node('rooms', this.code, 'seats', seat), this.uid);
     const info = r.players[old];
-    if (info) await set(node('rooms', this.code, 'players', this.uid), { ...me(), name: info.name, char: info.char, color: info.color });
+    if (info) await update(node('rooms', this.code, 'players', this.uid), { ...me(), name: info.name, char: info.char, color: info.color });
   }
 
   /** L'écran de la salle se ferme : la session continue (elle sert la partie). */
@@ -629,6 +632,11 @@ export class RoomSession implements Room {
     await this.write(next);
   }
 
+  /** Chat de table : le message est rangé dans sa fiche de joueur de la salle. */
+  async say(t: string) {
+    await push(node('rooms', this.code, 'players', this.uid, 'msgs'), { t: t.slice(0, 140), at: serverTimestamp() });
+  }
+
   async emote(t: string) {
     if (this.mySeat < 0) return;
     await set(node('rooms', this.code, 'emotes', this.mySeat), { t, at: serverTimestamp() });
@@ -720,6 +728,9 @@ export class OnlineGame implements GameSource {
   private subs = new Set<(prev: GameState, reset: boolean) => void>();
   private emoteSubs = new Set<(seat: number, t: string) => void>();
   private seenEmote: Record<string, number> = {};
+  private chatSubs = new Set<(lines: TableMsg[], fresh: TableMsg[]) => void>();
+  private seenChat = 0;
+  private chatKey = '';
   /** L'écran a fini d'animer le dernier état reçu. */
   private idle = false;
   get isIdle() {
@@ -729,6 +740,22 @@ export class OnlineGame implements GameSource {
   constructor(private s: RoomSession) {
     this.state = this.view();
     for (const [k, e] of Object.entries(s.room?.emotes ?? {})) this.seenEmote[k] = e.at;
+    const lines = this.chatLines;
+    this.chatKey = lines.map((m) => m.id).join();
+    this.seenChat = Math.max(0, ...lines.map((m) => m.at));
+  }
+
+  /** Tous les messages du chat de table, du plus ancien au plus récent. */
+  get chatLines(): TableMsg[] {
+    const r = this.s.room;
+    if (!r) return [];
+    const out: TableMsg[] = [];
+    for (const [uid, p] of Object.entries(r.players)) {
+      for (const [id, m] of Object.entries(p?.msgs ?? {})) {
+        if (typeof m?.t === 'string') out.push({ id, seat: r.seats.indexOf(uid), name: p.name, t: m.t, at: Number(m.at) || 0, mine: uid === this.s.uid });
+      }
+    }
+    return out.sort((a, b) => a.at - b.at);
   }
 
   get code() {
@@ -757,6 +784,13 @@ export class OnlineGame implements GameSource {
         this.seenEmote[k] = e.at;
         if (Number(k) !== this.s.mySeat) this.emoteSubs.forEach((cb) => cb(Number(k), e.t));
       }
+    }
+    const lines = this.chatLines, key = lines.map((m) => m.id).join();
+    if (key !== this.chatKey) {
+      this.chatKey = key;
+      const fresh = lines.filter((m) => !m.mine && m.at > this.seenChat);
+      this.seenChat = Math.max(this.seenChat, ...lines.map((m) => m.at));
+      this.chatSubs.forEach((cb) => cb(lines, fresh));
     }
     if (!r?.state || !this.s.handReady()) return;
     const next = this.view();
@@ -796,6 +830,11 @@ export class OnlineGame implements GameSource {
     this.emoteSubs.add(cb);
     return () => this.emoteSubs.delete(cb);
   }
+  onChat(cb: (lines: TableMsg[], fresh: TableMsg[]) => void) {
+    this.chatSubs.add(cb);
+    cb(this.chatLines, []);
+    return () => this.chatSubs.delete(cb);
+  }
 
   play(m: Move) {
     this.s.play(m).catch(() => toast('Le coup n’a pas passé (quelqu’un a joué en même temps ?). Réessaie.', 2600));
@@ -814,6 +853,9 @@ export class OnlineGame implements GameSource {
   }
   emote(t: string) {
     this.s.emote(t).catch(() => undefined);
+  }
+  chat(t: string) {
+    this.s.say(t).catch(() => toast('Message non envoyé. Réessaie.', 2400));
   }
   settled() {
     this.idle = true;
