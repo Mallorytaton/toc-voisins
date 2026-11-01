@@ -8,10 +8,8 @@ import { avatarRing, button } from '../kit/kit';
 import { mascot } from '../mascot';
 import { ROUTES, go } from '../nav';
 import { unlockAudio } from '../sound';
+import { keepScreenOn } from '../keep-awake';
 import { gameScreen } from './game';
-
-type WakeLock = { release: () => Promise<void> };
-type WakeNavigator = Navigator & { wakeLock?: { request: (type: 'screen') => Promise<WakeLock> } };
 
 export function tableScreen(code: string): { el: HTMLElement; cleanup: () => void } {
   const el = h('div', { class: 'table-screen' });
@@ -19,28 +17,16 @@ export function tableScreen(code: string): { el: HTMLElement; cleanup: () => voi
   let game: { el: HTMLElement; cleanup: () => void } | null = null;
   let alive = true;
 
-  // La tablette ne se met pas en veille tant que l'écran de table est ouvert. Certains navigateurs (iPad) n'acceptent
-  // la demande qu'après un toucher : on la refait au premier toucher, au bouton et à chaque retour sur l'app.
-  let wake: WakeLock | null = null;
-  const canWake = !!(navigator as WakeNavigator).wakeLock;
-  const keepAwake = () => {
-    if (wake || document.visibilityState !== 'visible') return;
-    (navigator as WakeNavigator).wakeLock?.request('screen').then((w) => {
-      wake = w;
-      // La veille revient si l'app passe en arrière-plan : on redemandera au retour.
-      (w as WakeLock & EventTarget).addEventListener?.('release', () => { wake = null; });
-    }).catch(() => undefined);
-  };
-  document.addEventListener('visibilitychange', keepAwake);
-  document.addEventListener('pointerdown', keepAwake, true);
-  keepAwake();
-
+  // La tablette ne se met jamais en veille tant que l'écran de table est ouvert (dès l'ouverture, sans toucher).
+  const screenOn = keepScreenOn();
   // Les sons (BOUM, victoire…) ne partent qu'après un premier toucher sur la tablette.
-  const sound = button(canWake ? 'Activer le son et garder l’écran allumé' : 'Activer le son', 'white', () => { unlockAudio(); keepAwake(); sound.remove(); }, { size: 'md' });
+  const sound = button('Activer le son', 'white', () => { unlockAudio(); sound.remove(); }, { size: 'md' });
+  // Conseil de réglage, seulement si aucun des deux moyens n'a marché.
   const ios = /iPad|iPhone|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
-  const noWake = canWake ? null : h('span', { class: 'table-wait__tip' }, ios
-    ? 'Cette tablette ne laisse pas l’app rester allumée : le temps de la partie, mets Réglages › Luminosité et affichage › Verrouillage automatique sur « Jamais ».'
-    : 'Cette tablette ne laisse pas l’app rester allumée : le temps de la partie, allonge la mise en veille de l’écran dans les paramètres d’affichage.');
+  const sleepTip = h('span', { class: 'table-wait__tip', hidden: true }, ios
+    ? 'Si la tablette se met en veille, règle Réglages › Luminosité et affichage › Verrouillage automatique sur « Jamais » le temps de la partie.'
+    : 'Si la tablette se met en veille, allonge la mise en veille de l’écran dans ses paramètres d’affichage le temps de la partie.');
+  const tipTimer = window.setTimeout(() => { sleepTip.hidden = screenOn.awake(); }, 2500);
   const waiting = (title: string, text: string, seats: HTMLElement[] = [], withSound = true) => el.replaceChildren(
     h('div', { class: 'table-wait' },
       mascot('content', 150),
@@ -49,7 +35,7 @@ export function tableScreen(code: string): { el: HTMLElement; cleanup: () => voi
       h('span', { class: 'table-wait__text' }, text),
       seats.length ? h('div', { class: 'table-wait__seats' }, ...seats) : null,
       withSound ? sound : null,
-      withSound ? noWake : null));
+      withSound ? sleepTip : null));
 
   const draw = () => {
     if (!alive || !session) return;
@@ -88,9 +74,8 @@ export function tableScreen(code: string): { el: HTMLElement; cleanup: () => voi
       alive = false;
       game?.cleanup();
       session?.quit();
-      document.removeEventListener('visibilitychange', keepAwake);
-      document.removeEventListener('pointerdown', keepAwake, true);
-      wake?.release().catch(() => undefined);
+      screenOn.stop();
+      clearTimeout(tipTimer);
     },
   };
 }
