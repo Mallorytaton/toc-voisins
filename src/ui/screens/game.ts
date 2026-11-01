@@ -13,6 +13,7 @@ import { avatar, bille, button, cardBack, pauseButton, playingCard } from '../ki
 import { openRulesSheet } from './rules';
 import { buzz, sfx, soundSettings } from '../sound';
 import { type MascotMood, mascot } from '../mascot';
+import { openTableSheet } from '../table-invite';
 
 const REPLIES = ['Aïe !', 'Tu vas voir…', 'Hahaha', 'Pas mal du tout', 'Sérieux ?'];
 const TURN_MS = 30_000;
@@ -26,7 +27,9 @@ const RANK_SHORT: Partial<Record<Rank, string>> = { K: 'R', Q: 'D', J: 'V' };
 
 export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HTMLElement; cleanup: () => void } {
   const N = src.state.n as 4 | 6;
-  const me = src.mySeat;
+  // Écran de table (tablette, sans place) : le plateau seul, vu depuis la place 0, sans main ni « à toi ».
+  const watching = src.mySeat < 0;
+  const me = watching ? 0 : src.mySeat;
   const g = geom(N);
   const L = trackLen(N);
   const Z = N === 4
@@ -34,7 +37,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     : { hs: 10.5, ss: 13, rs: 10.5, ps: 13.5, av: 34, lift: 8 };
   const tint = (s: number) => COL[SEAT_COLORS[N][s]];
   const nick = draftProfile().nick || 'Toi';
-  const nameOf = (s: number) => (s === me ? nick : src.players[s].name);
+  const nameOf = (s: number) => (s === me && !watching ? nick : src.players[s].name);
 
   let view: GameState = src.state;
   let shown: Card = view.lastCard;
@@ -56,6 +59,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // Le bas est la même scène décalée : les coordonnées ne changent pas, rien n'est reconstruit.
   const SPLIT_Y = 456;
   const LOW_H = 760 - SPLIT_Y;
+  /** Écran de table : la barre, le plateau et les noms sous les avatars du bas (la main y est cachée). */
+  const TABLE_H = 488;
   const stage2 = h('div', { class: 'game__stage' });
   const frame2 = h('div', { class: 'game__frame', hidden: true }, stage2);
   root.append(frame2);
@@ -76,11 +81,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     probe(`left:env(viewport-segment-left ${i} ${j});top:env(viewport-segment-top ${i} ${j});width:env(viewport-segment-width ${i} ${j});height:env(viewport-segment-height ${i} ${j})`);
   const mqFlex = matchMedia('(vertical-viewport-segments: 2)');
   const mqBook = matchMedia('(horizontal-viewport-segments: 2)');
-  const panes = (): { kind: string; a: Box; b: Box } | null => {
-    if (document.documentElement.dataset.rot) return null;
+  const panes = (): { kind: string; a: Box; b?: Box } | null => {
     const W = root.clientWidth, H = root.clientHeight;
     const { t, b } = probe('padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)');
     const clip = (x: Box): Box => { const y = Math.max(x.y, t), y2 = Math.min(x.y + x.h, H - b); return { x: x.x, y, w: x.w, h: y2 - y }; };
+    // Écran de table : seulement la barre et le plateau, aussi grands que possible.
+    if (watching) return { kind: 'table', a: clip({ x: 0, y: 0, w: W, h: H }) };
+    if (document.documentElement.dataset.rot) return null;
     if (mqFlex.matches) return { kind: 'flex', a: clip(segment(0, 0)), b: clip(segment(0, 1)) };
     if (mqBook.matches) return { kind: 'book', a: clip(segment(0, 0)), b: clip(segment(1, 0)) };
     // Pliant ouvert à plat, tenu plus large que haut (écran presque carré) : deux moitiés.
@@ -102,8 +109,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const kind = P?.kind ?? 'phone';
     if (kind !== layout) {
       // Plier, déplier : les éléments du bas changent de volet, la partie continue (carte choisie comprise).
-      (P ? stage2 : stage).append(...lowEls);
-      frame2.hidden = !P;
+      (P?.b ? stage2 : stage).append(...lowEls);
+      frame2.hidden = !P?.b;
       root.dataset.layout = kind;
       if (layout) {
         root.classList.remove('game--relayout');
@@ -114,9 +121,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
     if (P) {
       putFrame(frame, P.a);
-      putFrame(frame2, P.b);
-      showRegion(stage, frame, 0, SPLIT_Y);
-      showRegion(stage2, frame2, SPLIT_Y, LOW_H);
+      showRegion(stage, frame, 0, P.kind === 'table' ? TABLE_H : SPLIT_Y);
+      if (P.b) {
+        putFrame(frame2, P.b);
+        showRegion(stage2, frame2, SPLIT_Y, LOW_H);
+      }
     } else {
       frame.style.cssText = '';
       const w = frame.clientWidth, ht = frame.clientHeight;
@@ -255,7 +264,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const avEls: { root: HTMLElement; pulse: HTMLElement; spin: HTMLElement; cards: HTMLElement }[] = [];
   for (let s = 0; s < N; s++) {
     const [x, y] = g.avs[armOf(N, me, s)];
-    const size = Z.av, ring = tint(s).c, isMe = s === me;
+    const size = Z.av, ring = tint(s).c, isMe = s === me && !watching;
     const pl = isMe ? { ...src.players[s], ...draftProfile() } : src.players[s];
     const pulse = h('div', { class: 'seat-av__pulse', style: { background: ring } });
     const spin = h('div', { class: 'seat-av__spin', style: { borderColor: ring } });
@@ -349,10 +358,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let tip: string | null = null;
   const clearSel = () => { sel = null; jokerAs = null; pick = null; target = null; split = new Map(); tip = null; };
 
-  const myHand = () => view.hands[me] ?? [];
-  const myTurn = () => !busy && view.phase === 'play' && view.turn === me;
+  const myHand = () => (watching ? [] : view.hands[me] ?? []);
+  const myTurn = () => !watching && !busy && view.phase === 'play' && view.turn === me;
   // L'échange se choisit même pendant l'animation de distribution.
-  const giving = () => view.phase === 'exchange' && !view.exchange[me];
+  const giving = () => !watching && view.phase === 'exchange' && !view.exchange[me];
 
   interface Plan {
     moves: Move[];
@@ -723,8 +732,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     roundEl.textContent = `Manche ${Math.floor(view.dealNo / 3) + 1} · Donne ${(view.dealNo % 3) + 1}`;
     turnEl.textContent = view.phase === 'over' ? 'Partie terminée'
       : view.phase === 'deal' ? 'On distribue…'
-        : view.phase === 'exchange' ? (view.exchange[me] ? 'On attend les autres…' : `Une carte pour ${nameOf(partner(N, me))}`)
-          : view.turn === me ? `À toi de jouer, ${nick}` : `Tour de ${nameOf(view.turn)}`;
+        : view.phase === 'exchange' ? (watching ? 'Échange des cartes…' : view.exchange[me] ? 'On attend les autres…' : `Une carte pour ${nameOf(partner(N, me))}`)
+          : view.turn === me && !watching ? `À toi de jouer, ${nick}` : `Tour de ${nameOf(view.turn)}`;
     const myTeam = teamOf(N, me);
     const teams = [myTeam, ...Array.from({ length: N / 2 }, (_, t) => t).filter((t) => t !== myTeam)];
     scoreEl.replaceChildren(...teams.map((t) => {
@@ -747,7 +756,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       e.root.classList.toggle('seat-av--turn', active);
       e.root.classList.toggle('seat-av--wait', view.phase === 'play' && !active);
       e.cards.textContent = String(view.hands[s]?.length ?? 0);
-      e.root.classList.toggle('seat-av--off', !src.players[s].online && !src.players[s].bot && s !== me);
+      e.root.classList.toggle('seat-av--off', !src.players[s].online && !src.players[s].bot && (watching || s !== me));
       rpads[s].classList.toggle('pad--glow', active);
     }
   };
@@ -940,7 +949,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const flyCard = (seat: number, card: Card, prev: GameState) => {
     const c = cardLook(card), ds = N === 4 ? 1 : 0.72;
     let x0: number, y0: number, r0: number, s0: number;
-    if (seat === me) {
+    if (seat === me && !watching) {
       const hd = prev.hands[me], idx = Math.max(0, hd.indexOf(card)), m = idx - (hd.length - 1) / 2;
       [x0, y0, r0, s0] = [STAGE_W / 2 + m * 60, 616, 0, 1];
     } else {
@@ -956,7 +965,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const animateMove = async (prev: GameState, next: GameState) => {
     if (!next.lastMove) return;
     const { seat, move } = next.lastMove;
-    const mine = seat === me;
+    const mine = seat === me && !watching;
     const sp = mine ? 150 : 110;
     // La main et les compteurs passent tout de suite à l'état suivant ; les billes partent de l'état précédent.
     view = { ...prev, hands: next.hands, turn: next.turn, phase: prev.phase };
@@ -1023,7 +1032,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       board.classList.add('board--shake');
       sfx('boum');
       // Une de tes billes renvoyée dans ta réserve : le téléphone vibre.
-      if (next.lastCaptures.some((v) => v.s === me)) buzz(220);
+      if (!watching && next.lastCaptures.some((v) => v.s === me)) buzz(220);
       await sleep(200);
       const names = [...new Set(next.lastCaptures.map((v) => nameOf(v.s)))];
       setTimeout(() => toast(`Retour à la réserve, ${names.join(' et ')} !`, 1900), 100);
@@ -1046,7 +1055,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
     const moved = !!next.lastMove && JSON.stringify(next.lastMove) !== JSON.stringify(prev.lastMove);
     if (moved) await animateMove(prev, next);
-    const wasMyTurn = prev.phase === 'play' && prev.turn === me;
+    const wasMyTurn = !watching && prev.phase === 'play' && prev.turn === me;
     // Le coup d'un autre (ex. un robot qui échange sa carte) ne doit pas effacer la sélection en cours.
     const sameHand = JSON.stringify(prev.hands[me]) === JSON.stringify(next.hands[me]);
     if (moved || prev.phase !== next.phase || !sameHand) clearSel();
@@ -1068,7 +1077,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       toast(`${nameOf(partner(N, me))} t’a passé une carte`);
       await sleep(600);
     }
-    if (next.phase === 'play' && next.turn === me && (!wasMyTurn || moved)) {
+    if (!watching && next.phase === 'play' && next.turn === me && (!wasMyTurn || moved)) {
       fx('screen', { kind: 'banner', y: 262, t: 'À TOI DE JOUER !', ms: 1500 });
       sfx('tour');
       buzz([60, 40, 60]);
@@ -1114,11 +1123,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const openPause = () => openSheet(
     h('span', { class: 'sheet__title' }, 'Pause'),
-    h('span', { class: 'sheet__text' }, src.slow ? 'Partie à ton rythme : elle t’attend sur l’accueil, reviens quand tu veux.' : 'Les autres t’attendent, fais vite !'),
+    h('span', { class: 'sheet__text' }, watching ? 'Écran de table : la partie continue sur les téléphones des joueurs.'
+      : src.slow ? 'Partie à ton rythme : elle t’attend sur l’accueil, reviens quand tu veux.' : 'Les autres t’attendent, fais vite !'),
     soundSettings(),
     button('Reprendre', 'primary', closeSheet, { size: 'md', block: true }),
     src.local ? button('Recommencer la donne', 'white', () => { closeSheet(); src.restartDeal(); }, { size: 'md', block: true }) : h('span'),
-    button(src.slow ? 'Revenir à l’accueil' : 'Quitter la partie', src.slow ? 'white' : 'danger', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
+    !src.local && !watching ? button('Afficher le plateau sur une tablette', 'white', () => { closeSheet(); openTableSheet(src.code); }, { size: 'md', block: true }) : h('span'),
+    button(watching ? 'Fermer l’écran de table' : src.slow ? 'Revenir à l’accueil' : 'Quitter la partie', src.slow || watching ? 'white' : 'danger', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
     src.canDelete ? button('Supprimer la partie', 'text', () => openSheet(
       h('span', { class: 'sheet__title' }, 'Supprimer la partie ?'),
       h('span', { class: 'sheet__text' }, 'Elle s’arrête pour tout le monde et disparaît de vos listes. C’est définitif.'),
@@ -1131,7 +1142,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const t = st.winner, c = tint(t);
     const plOf = (k: number) => (k === me ? { ...src.players[k], ...draftProfile() } : src.players[k]);
     // Gains : seulement pour les parties en ligne (comme awardGame).
-    const reward = src.local ? '' : won ? '+150 XP · +100 pièces' : '+60 XP · +20 pièces';
+    const reward = src.local || watching ? '' : won ? '+150 XP · +100 pièces' : '+60 XP · +20 pièces';
+    // Chiffres : les siens, ou ceux de l'équipe gagnante sur l'écran de table.
+    const who = watching ? [t, t + N / 2] : [me];
+    const total = (a: number[]) => who.reduce((x, k) => x + (a[k] ?? 0), 0);
+    const boums = total(st.stats.captures), outs = total(st.stats.exits);
     const confetti = Array.from({ length: 18 }, (_, i) => h('i', { style: {
       left: `${(i * 37) % 100}%`, background: ['#ffc93c', '#fff', '#2ec4a0', '#4a7dff', '#ff6fae'][i % 5],
       animationDelay: `-${((i * 0.37) % 2.6).toFixed(2)}s`, animationDuration: `${(2.2 + (i % 4) * 0.3).toFixed(1)}s`,
@@ -1147,12 +1162,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       h('div', { class: 'victory__card' },
         reward ? h('div', { class: 'victory__reward' }, h('span', null, won ? 'Bravo l’équipe !' : 'Revanche ?'), h('b', null, reward)) : null,
         h('div', { class: 'victory__chips' },
-          h('span', null, `${st.stats.captures[me] ?? 0} BOUM`),
-          h('span', null, `${st.stats.exits[me] ?? 0} bille${(st.stats.exits[me] ?? 0) > 1 ? 's' : ''} sortie${(st.stats.exits[me] ?? 0) > 1 ? 's' : ''}`),
+          h('span', null, `${boums} BOUM`),
+          h('span', null, `${outs} bille${outs > 1 ? 's' : ''} sortie${outs > 1 ? 's' : ''}`),
           h('span', null, `${Math.floor(st.dealNo / 3) + 1} manche${st.dealNo >= 3 ? 's' : ''}`))),
       h('div', { style: { flex: 1 } }),
-      button('Revanche', 'white', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
-      button('Retour à l’accueil', 'text', () => { closeVictory(); o.onQuit(); }));
+      watching ? button('Fermer', 'white', closeVictory, { size: 'md', block: true })
+        : button('Revanche', 'white', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
+      watching ? null : button('Retour à l’accueil', 'text', () => { closeVictory(); o.onQuit(); }));
     victoryEl = h('div', { class: 'victory' + (won ? '' : ' victory--lost'), role: 'dialog', 'aria-label': won ? 'Victoire' : 'Partie perdue', style: { '--vc': c.c, '--vd': c.d } },
       won && h('span', { class: 'victory__rays' }),
       won && h('span', { class: 'victory__confetti' }, ...confetti),
@@ -1162,10 +1178,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     setTheme(won ? c.c : '#4a4862');
   };
   const showEnd = (st: GameState) => {
-    const won = teamOf(N, me) === st.winner;
+    const won = watching || teamOf(N, me) === st.winner;
     if (src.initiation) setCoach(won ? 'vainqueur' : 'surpris');
     sfx(won ? 'victoire' : 'defaite');
-    if (won) buzz([80, 60, 80, 60, 200]);
+    if (won && !watching) buzz([80, 60, 80, 60, 200]);
     for (let k = 0; k < 3; k++) setTimeout(() => fx('board', { kind: 'confetti', x: 120 + k * 60, y: 160 + (k % 2) * 40, ms: 1200 }), k * 250);
     setTimeout(() => showVictory(st, won), 900);
   };

@@ -52,6 +52,11 @@ export function inviteLink(code: string) {
   return `${location.origin}${location.pathname}?g=${code}`;
 }
 
+/** Lien de l'écran de table : la tablette posée au milieu de la table affiche le plateau de la salle. */
+export function tableLink(code: string) {
+  return `${location.origin}${location.pathname}?table=${code}`;
+}
+
 /** Salle sur l'appareil : l'hôte seul, rejoint par des joueurs fictifs en démo. */
 export class LocalRoom implements Room {
   private s: RoomSnapshot;

@@ -6,6 +6,8 @@ import { avatarRing, backButton, button, duo, segmented } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { variantsCard } from './rules';
 import { confirmSheet } from '../confirm';
+import { openTableSheet } from '../table-invite';
+import { DEMO } from '../demo';
 
 async function shareInvite(room: Room) {
   const url = room.link();
@@ -86,6 +88,9 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
   const status = h('span', { class: 'status-line' });
   const launch = button('', 'primary', () => room.launch(), { size: 'lg', block: true });
   const bots = button('Compléter avec des robots', 'text', () => room.fillBots?.());
+  // Écran de table : une tablette au milieu de la table montre le plateau (salles en ligne seulement).
+  const tableBtn = h('button', { class: 'link-btn', type: 'button', hidden: DEMO || !navigator.onLine, onclick: () => openTableSheet(s0.code) },
+    'Afficher le plateau sur une tablette');
   const del = h('button', {
     class: 'link-btn link-btn--danger', type: 'button', hidden: true,
     onclick: () => confirmSheet('Supprimer la salle ?', 'Elle disparaît pour tous les joueurs déjà entrés.', 'Supprimer la salle', () => room.remove!()),
@@ -164,6 +169,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     status,
     bots,
     launch,
+    tableBtn,
     del,
     overlay);
   return { el, cleanup: () => { unsub(); room.leave(); } };

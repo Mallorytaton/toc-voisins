@@ -104,6 +104,20 @@
 .seat__invite { border: none; background: none; padding: 0; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 1px; }
 .seat__invite > span:first-child { font: 700 13px var(--text); color: var(--ink-4); }
 .seat__invite > span:last-child { font: 800 12px var(--text); color: var(--primary-bottom); }
+/* Écran de table (tablette au milieu de la table) */
+.table-screen { position: fixed; inset: 0; background: var(--app); overflow: hidden; }
+.table-wait {
+  min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center;
+  padding-block: calc(env(safe-area-inset-top) + 24px) calc(env(safe-area-inset-bottom) + 24px);
+  padding-left: max(24px, env(safe-area-inset-left)); padding-right: max(24px, env(safe-area-inset-right));
+}
+.table-wait__title { font: 800 34px/1.1 var(--display); padding-top: 3px; }
+.table-wait__text { font: 700 16px/1.45 var(--text); color: var(--ink-2); max-width: 46ch; }
+.table-wait__seats { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px; margin: 10px 0; }
+.table-wait__seat { display: flex; flex-direction: column; align-items: center; gap: 6px; font: 800 15px/1.1 var(--display); }
+.table-wait__seat--empty > span:last-child { color: var(--ink-3); }
+.table-qr { align-self: center; }
+
 /* Salle autour de la table (vue de dessus) */
 .rt { position: relative; width: 100%; max-width: 360px; aspect-ratio: 1; align-self: center; flex: none; margin: 6px 0 2px; }
 .rt__top {

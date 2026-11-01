@@ -10,6 +10,8 @@
 .game[data-layout='flex'] .game__frame + .game__frame, .game[data-layout='book'] .game__frame + .game__frame,
 .game[data-layout='open'] .game__frame + .game__frame { background: var(--app); border-radius: 18px; }
 .game--relayout .game__frame { animation: tocFade .4s ease-out; }
+/* Écran de table : pas de main ni de bouton Jouer. */
+.game[data-layout='table'] .g-actions, .game[data-layout='table'] .g-timer, .game[data-layout='table'] .hand { display: none; }
 
 .g-top { position: absolute; left: 16px; right: 16px; top: 6px; height: 50px; display: flex; align-items: center; gap: 8px; }
 .g-top__mid { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }

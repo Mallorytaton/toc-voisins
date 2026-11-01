@@ -202,6 +202,19 @@ export class RoomSession implements Room {
   private dealtV = -1;
 
   private constructor(readonly code: string, readonly uid: string) {}
+  /** Écran de table : suit la salle sans place, sans présence, sans rien écrire. */
+  private watcher = false;
+
+  /** Écran de table (tablette au milieu de la table) : suit la salle sans y prendre de place ni apparaître comme joueur. */
+  static async watch(code: string): Promise<RoomSession> {
+    const uid = await ensureAuth();
+    const meta = (await get(node('rooms', code, 'meta'))).val() as Meta | null;
+    if (!meta || expired(meta, await turnAtOf(code))) throw new Error(`Aucune salle TOC-${code}. Vérifie le code.`);
+    const s = new RoomSession(code, uid);
+    s.watcher = true;
+    await s.start();
+    return s;
+  }
 
   /** Crée une salle (l'appelant devient l'hôte, assis à la place 0). */
   static async create(n: 4 | 6, variants: Variants = DEFAULT_VARIANTS, opts?: RoomOptions): Promise<RoomSession> {
@@ -253,16 +266,19 @@ export class RoomSession implements Room {
   }
 
   private async start() {
-    const presRef = node('rooms', this.code, 'presence', this.uid);
-    this.offs.push(onValue(ref(database(), '.info/connected'), (s) => {
-      if (s.val() === true) {
-        onDisconnect(presRef).set(false);
-        set(presRef, true);
-      }
-    }));
-    const onVis = () => { if (document.visibilityState === 'visible') set(presRef, true).catch(() => undefined); };
-    document.addEventListener('visibilitychange', onVis);
-    this.offs.push(() => document.removeEventListener('visibilitychange', onVis));
+    // L'écran de table ne compte pas comme un joueur : pas de présence.
+    if (!this.watcher) {
+      const presRef = node('rooms', this.code, 'presence', this.uid);
+      this.offs.push(onValue(ref(database(), '.info/connected'), (s) => {
+        if (s.val() === true) {
+          onDisconnect(presRef).set(false);
+          set(presRef, true);
+        }
+      }));
+      const onVis = () => { if (document.visibilityState === 'visible') set(presRef, true).catch(() => undefined); };
+      document.addEventListener('visibilitychange', onVis);
+      this.offs.push(() => document.removeEventListener('visibilitychange', onVis));
+    }
     await new Promise<void>((resolve) => {
       this.offs.push(onValue(node('rooms', this.code), (snap) => {
         const raw = snap.val();
@@ -343,6 +359,7 @@ export class RoomSession implements Room {
     clearTimeout(this.driveTimer);
     // Une partie à ton rythme garde ta place : tu reviens quand tu veux.
     if (r && r.meta.status === 'waiting' && seat >= 0 && !r.meta.slow) set(node('rooms', this.code, 'seats', seat), null).catch(() => undefined);
+    if (this.watcher) return;
     // La présence « absent » posée d'avance pour une coupure est annulée : une salle supprimée ne doit pas renaître.
     const pres = node('rooms', this.code, 'presence', this.uid);
     onDisconnect(pres).cancel().catch(() => undefined);

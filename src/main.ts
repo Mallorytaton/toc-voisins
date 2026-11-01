@@ -33,6 +33,7 @@ import { unlockAudio } from './ui/sound';
 import { DEFAULT_VARIANTS } from './engine';
 import { mascot } from './ui/mascot';
 import { playerScreen } from './ui/screens/player';
+import { tableScreen } from './ui/screens/table';
 
 registerSW({ immediate: true });
 document.addEventListener('pointerdown', unlockAudio, { passive: true });
@@ -107,6 +108,7 @@ const SHARED_LINKS: [string, RegExp, (v: string) => string][] = [
   ['g', /^\d{4}$/, (v) => '/salle/' + v],
   ['t', /^\d{4}$/, (v) => '/tournoi/' + v],
   ['ami', /^[A-Za-z]+[#-]\d{4}$/, (v) => '/amis?ajout=' + encodeURIComponent(v)],
+  ['table', /^\d{4}$/, (v) => '/table/' + v],
 ];
 
 function router() {
@@ -133,6 +135,9 @@ function router() {
   if (path === '/vitrine') return setView(vitrineScreen());
   if (path === '/splash') return setView(splashScreen());
   if (path === ROUTES.onboard) return setView(onboardScreen());
+  // Écran de table (tablette au milieu de la table) : pas besoin de perso.
+  const tb = /^\/table\/(\d{4})$/.exec(path);
+  if (tb) return setView(tableScreen(tb[1]));
   if (path === ROUTES.pick) return setView(pickScreen());
   // Sans perso, on commence par l'accueil du jeu ; la salle, le tournoi ou l'ami du lien attendent la fin de l'inscription.
   if (!hasProfile) {
