@@ -6,6 +6,10 @@
 /* overflow: clip empêche le navigateur de faire défiler la scène vers une carte touchée. */
 .game__frame { position: absolute; inset: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; overflow: clip; }
 .game__stage { position: absolute; left: 0; top: 0; width: 393px; height: 750px; transform-origin: 0 0; }
+/* Pliants : les deux volets, et un fondu quand on plie ou déplie. */
+.game[data-layout='flex'] .game__frame + .game__frame, .game[data-layout='book'] .game__frame + .game__frame,
+.game[data-layout='open'] .game__frame + .game__frame { background: var(--app); border-radius: 18px; }
+.game--relayout .game__frame { animation: tocFade .4s ease-out; }
 
 .g-top { position: absolute; left: 16px; right: 16px; top: 6px; height: 50px; display: flex; align-items: center; gap: 8px; }
 .g-top__mid { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }

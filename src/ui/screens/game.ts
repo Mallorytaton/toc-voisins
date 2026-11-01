@@ -46,14 +46,94 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const stage = h('div', { class: 'game__stage' });
   const frame = h('div', { class: 'game__frame' }, stage);
   const root = h('div', { class: 'game' }, frame);
-  /** Contenu de l'écran de fin : à la même échelle que la scène (son fond, lui, couvre tout l'écran). */
+  /** Contenu de l'écran de fin : mis à l'échelle de tout l'écran (son fond, lui, couvre tout l'écran). */
   let victoryInner: HTMLElement | null = null;
-  const fit = () => {
-    const w = frame.clientWidth, ht = frame.clientHeight;
-    const s = Math.min(w / STAGE_W, ht / STAGE_H);
-    stage.style.transform = `translate(${(w - STAGE_W * s) / 2}px,${Math.max(0, (ht - STAGE_H * s) / 2)}px) scale(${s})`;
-    if (victoryInner) victoryInner.style.transform = stage.style.transform;
+
+  // ---------- Pliants : deux volets ----------
+  // La scène se coupe en deux régions : le haut (barre, plateau) et le bas (indice, minuteur, main).
+  // Pliant à moitié plié : plateau en haut, main en bas, de part et d'autre de la pliure ;
+  // pliant en livre, ou ouvert et plus large que haut : côte à côte.
+  // Le bas est la même scène décalée : les coordonnées ne changent pas, rien n'est reconstruit.
+  const SPLIT_Y = 456;
+  const LOW_H = 760 - SPLIT_Y;
+  const stage2 = h('div', { class: 'game__stage' });
+  const frame2 = h('div', { class: 'game__frame', hidden: true }, stage2);
+  root.append(frame2);
+  /** Éléments du bas (indice, minuteur, main), rangés dans le second volet quand il y en a deux. */
+  const lowEls: HTMLElement[] = [];
+  let layout = '';
+  type Box = { x: number; y: number; w: number; h: number };
+  const probe = (css: string) => {
+    const p = h('div');
+    p.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;${css}`;
+    document.body.append(p);
+    const r = p.getBoundingClientRect(), cs = getComputedStyle(p);
+    const out = { x: r.left, y: r.top, w: r.width, h: r.height, t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 };
+    p.remove();
+    return out;
   };
+  const segment = (i: number, j: number): Box =>
+    probe(`left:env(viewport-segment-left ${i} ${j});top:env(viewport-segment-top ${i} ${j});width:env(viewport-segment-width ${i} ${j});height:env(viewport-segment-height ${i} ${j})`);
+  const mqFlex = matchMedia('(vertical-viewport-segments: 2)');
+  const mqBook = matchMedia('(horizontal-viewport-segments: 2)');
+  const panes = (): { kind: string; a: Box; b: Box } | null => {
+    if (document.documentElement.dataset.rot) return null;
+    const W = root.clientWidth, H = root.clientHeight;
+    const { t, b } = probe('padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)');
+    const clip = (x: Box): Box => { const y = Math.max(x.y, t), y2 = Math.min(x.y + x.h, H - b); return { x: x.x, y, w: x.w, h: y2 - y }; };
+    if (mqFlex.matches) return { kind: 'flex', a: clip(segment(0, 0)), b: clip(segment(0, 1)) };
+    if (mqBook.matches) return { kind: 'book', a: clip(segment(0, 0)), b: clip(segment(1, 0)) };
+    // Pliant ouvert à plat, tenu plus large que haut (écran presque carré) : deux moitiés.
+    if (matchMedia('(pointer: coarse)').matches && Math.min(W, H) >= 560 && W / H >= 1 && W / H <= 1.4)
+      return { kind: 'open', a: clip({ x: 0, y: 0, w: W / 2 - 4, h: H }), b: clip({ x: W / 2 + 4, y: 0, w: W / 2 - 4, h: H }) };
+    return null;
+  };
+  /** Montre la région [y0, y0 + hReg] de la scène `st`, centrée et à la plus grande échelle possible dans `fr`. */
+  const showRegion = (st: HTMLElement, fr: HTMLElement, y0: number, hReg: number) => {
+    const w = fr.clientWidth, ht = fr.clientHeight;
+    const s = Math.min(w / STAGE_W, ht / hReg);
+    st.style.transform = `translate(${(w - STAGE_W * s) / 2}px,${(ht - hReg * s) / 2 - y0 * s}px) scale(${s})`;
+  };
+  const putFrame = (fr: HTMLElement, x: Box) => {
+    fr.style.cssText = `inset:auto;left:${x.x}px;top:${x.y}px;width:${x.w}px;height:${x.h}px`;
+  };
+  const fit = () => {
+    const P = panes();
+    const kind = P?.kind ?? 'phone';
+    if (kind !== layout) {
+      // Plier, déplier : les éléments du bas changent de volet, la partie continue (carte choisie comprise).
+      (P ? stage2 : stage).append(...lowEls);
+      frame2.hidden = !P;
+      root.dataset.layout = kind;
+      if (layout) {
+        root.classList.remove('game--relayout');
+        void root.offsetWidth;
+        root.classList.add('game--relayout');
+      }
+      layout = kind;
+    }
+    if (P) {
+      putFrame(frame, P.a);
+      putFrame(frame2, P.b);
+      showRegion(stage, frame, 0, SPLIT_Y);
+      showRegion(stage2, frame2, SPLIT_Y, LOW_H);
+    } else {
+      frame.style.cssText = '';
+      const w = frame.clientWidth, ht = frame.clientHeight;
+      const s = Math.min(w / STAGE_W, ht / STAGE_H);
+      stage.style.transform = `translate(${(w - STAGE_W * s) / 2}px,${Math.max(0, (ht - STAGE_H * s) / 2)}px) scale(${s})`;
+    }
+    if (victoryInner) {
+      const fr = victoryInner.parentElement!, w = fr.clientWidth, ht = fr.clientHeight;
+      const s = Math.min(w / STAGE_W, ht / STAGE_H);
+      victoryInner.style.transform = `translate(${(w - STAGE_W * s) / 2}px,${Math.max(0, (ht - STAGE_H * s) / 2)}px) scale(${s})`;
+    }
+  };
+  mqFlex.addEventListener('change', fit);
+  mqBook.addEventListener('change', fit);
+  type Posture = EventTarget & { type: string };
+  const posture = (navigator as Navigator & { devicePosture?: Posture }).devicePosture;
+  posture?.addEventListener('change', fit);
   window.addEventListener('resize', fit);
 
   stage.append(
@@ -257,6 +337,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const timerEl = h('div', { class: 'g-timer', 'aria-hidden': 'true' }, timerBar);
   const hand = h('div', { class: 'hand' });
   stage.append(actions, timerEl, hand);
+  lowEls.push(actions, timerEl, hand);
 
   // ---------- Sélection ----------
   let sel: number | null = null;
@@ -1057,7 +1138,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     } }));
     // Le fond (couleur, rayons, confettis) couvre tout l'écran, encoche et bas compris ;
     // le contenu suit l'échelle de la scène, comme le plateau.
-    victoryInner = h('div', { class: 'victory__inner', style: { transform: stage.style.transform } },
+    victoryInner = h('div', { class: 'victory__inner' },
       h('span', { class: 'victory__kicker' }, won ? `Équipe ${TEAM_NAMES[t]}` : `L’équipe ${TEAM_NAMES[t]} gagne`),
       h('span', { class: 'victory__title' }, won ? 'Victoire !' : 'Partie perdue'),
       h('div', { class: 'victory__toc' }, mascot(won ? 'vainqueur' : 'surpris', 150)),
@@ -1077,6 +1158,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       won && h('span', { class: 'victory__confetti' }, ...confetti),
       h('div', { class: 'victory__frame' }, victoryInner));
     root.append(victoryEl);
+    fit();
     setTheme(won ? c.c : '#4a4862');
   };
   const showEnd = (st: GameState) => {
@@ -1113,6 +1195,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       stopTimer();
       clearTimeout(toastTimer);
       window.removeEventListener('resize', fit);
+      mqFlex.removeEventListener('change', fit);
+      mqBook.removeEventListener('change', fit);
+      posture?.removeEventListener('change', fit);
       src.leave();
     },
   };
