@@ -15,14 +15,39 @@ export const buzzOn = () => pref(BUZZ_KEY);
 export const canBuzz = () => typeof navigator.vibrate === 'function';
 
 let ctx: AudioContext | null = null;
+/** Le moteur n'a pas voulu repartir après un toucher : on en crée un neuf au toucher suivant. */
+let stuck = false;
+let check = 0;
 
-/** Au toucher : crée (ou réveille, après un passage en arrière-plan) le moteur de son. */
+/**
+ * Au toucher : crée (ou réveille) le moteur de son. Après un passage en arrière-plan, l'iPhone le laisse
+ * « interrompu » (et pas seulement « en pause ») : on le relance quel que soit son état, avec un son muet
+ * joué pendant le toucher, et s'il reste bloqué on le remplace par un neuf.
+ */
 export function unlockAudio() {
   try {
+    if (ctx && (stuck || ctx.state === 'closed')) {
+      ctx.close().catch(() => undefined);
+      ctx = null;
+      stuck = false;
+    }
     ctx ??= new AudioContext();
-    if (ctx.state === 'suspended') void ctx.resume();
+    if (ctx.state === 'running') return;
+    const c = ctx;
+    c.resume().catch(() => undefined);
+    const src = c.createBufferSource();
+    src.buffer = c.createBuffer(1, 1, 22050);
+    src.connect(c.destination);
+    src.start(0);
+    clearTimeout(check);
+    check = window.setTimeout(() => { if (ctx === c && c.state !== 'running') stuck = true; }, 800);
   } catch { /* pas de son sur ce navigateur */ }
 }
+
+// Retour dans l'app : on tente de relancer le son tout de suite (sinon le prochain toucher s'en charge).
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') ctx.resume().catch(() => undefined);
+});
 
 /** Une note : fréquence de départ (et d'arrivée), forme d'onde, volume, durée (s), départ (s après maintenant). */
 function tone(f0: number, f1: number, type: OscillatorType, vol: number, dur: number, at = 0) {

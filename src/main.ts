@@ -36,7 +36,8 @@ import { playerScreen } from './ui/screens/player';
 import { tableScreen } from './ui/screens/table';
 
 registerSW({ immediate: true });
-document.addEventListener('pointerdown', unlockAudio, { passive: true });
+// Son : l'iPhone ne le (re)lance que pendant un vrai toucher (fin du toucher, clic), d'où plusieurs écoutes.
+for (const ev of ['pointerdown', 'touchend', 'click']) document.addEventListener(ev, unlockAudio, { passive: true, capture: true });
 lockPortrait();
 blockZoom();
 watchInstall();
