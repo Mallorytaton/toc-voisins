@@ -316,18 +316,20 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     // Nom centré sous (ou sur) l'avatar ; aux coins, aligné sur le bord pour rester entier (avec « Commence », « Ensuite »).
     const across = x < 120 ? { left: '-4px' } : x > 273 ? { right: '-4px' } : { left: '50%', transform: 'translateX(-50%)' };
     const tag = vert && y < 180 ? { left: size + 8 + 'px', top: size / 2 - 9 + 'px' }
-      : y < 180 ? { ...across, top: '-20px' }
+      : y < 180 ? { ...across, bottom: size + 2 + 'px' }
         : { ...across, top: size + 5 + 'px' };
+    // À 6, les persos des côtés sont près des billes : l'étiquette passe sous le nom (moins large).
+    const nameCls = 'seat-av__name' + (N === 6 && !vert ? ` seat-av__name--stack${x > 200 ? ' seat-av__name--end' : ''}` : '');
     // Qui commence la donne (pendant la donne et l'échange), puis qui joue après le joueur actif.
     const chip = h('i', { class: 'seat-av__chip', hidden: true });
-    const meTag = isMe ? h('span', { class: 'seat-av__name', style: tag, hidden: true }, 'Toi', chip) : null;
+    const meTag = isMe ? h('span', { class: nameCls, style: tag, hidden: true }, 'Toi', chip) : null;
     const rootAv = h('div', { class: 'seat-av', style: { left: r1(x - size / 2), top: r1(y - size / 2), width: size, height: size } },
       pulse,
       spin,
       h('div', { class: 'seat-av__disc', style: { boxShadow: `0 0 0 3px ${ring},0 6px 12px rgba(70,40,20,.25)` } }),
       h('div', { style: { position: 'absolute', inset: 0 } }, avatar(pl.char, pl.color, size)),
       cards,
-      isMe ? meTag : h('span', { class: 'seat-av__name', style: tag }, pl.name, chip));
+      isMe ? meTag : h('span', { class: nameCls, style: tag }, pl.name, chip));
     avEls[s] = { root: rootAv, pulse, spin, cards, chip, meTag };
     avLayer.append(rootAv);
   }

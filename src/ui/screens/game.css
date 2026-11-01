@@ -115,6 +115,9 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .seat-av__chip { font-style: normal; display: inline-block; margin-left: 5px; padding: 2px 5px 1px; border-radius: 6px; background: var(--ink); color: #fff; font: 900 8px/1.2 var(--text); letter-spacing: .06em; text-transform: uppercase; vertical-align: 1px; }
 .seat-av__chip[hidden] { display: none; }
 .seat-av__chip--first { background: var(--coral); font-size: 9px; }
+.seat-av__name--stack:has(> .seat-av__chip:not([hidden])) { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; border-radius: 12px; }
+.seat-av__name--stack.seat-av__name--end { align-items: flex-end; }
+.seat-av__name--stack > .seat-av__chip { margin-left: 0; }
 .seat-av--off { filter: grayscale(.8); opacity: .7; }
 /* À qui le tour : anneau en pointillés qui tourne, et « … » après le nom */
 .seat-av__spin { position: absolute; inset: -8px; border-radius: 50%; border: 3px dashed; animation: tocSpin 3s linear infinite; }
