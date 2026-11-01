@@ -877,6 +877,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const label = starting && s === view.turn ? 'Commence' : s === upNext ? 'Ensuite' : '';
       e.chip.textContent = label;
       e.chip.hidden = !label;
+      e.chip.classList.toggle('seat-av__chip--first', label === 'Commence');
       if (e.meTag) e.meTag.hidden = !label;
       e.root.classList.toggle('seat-av--next', !!label);
       e.root.style.transform = `scale(${active ? 1.14 : 1})`;
@@ -1061,7 +1062,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         sub = src.slow ? 'On attend les autres : ils donneront leur carte en revenant.'
           : `On attend les autres. Ensuite, ${view.turn === me ? 'c’est toi qui commences' : nameOf(view.turn) + ' commence'}.`;
       }
-      else if (sel === null) { t = 'Échange'; sub = `Choisis une carte à passer à ${nameOf(partner(N, me))}.`; }
+      // Pendant le choix de la carte, on sait déjà qui ouvrira la donne.
+      else if (sel === null) { t = 'Échange'; sub = `Choisis une carte pour ${nameOf(partner(N, me))}. Ensuite, ${view.turn === me ? 'c’est toi qui commences' : nameOf(view.turn) + ' commence'}.`; }
       else { t = cardLook(myHand()[sel]).t; sub = `Elle part chez ${nameOf(partner(N, me))}, face cachée.`; label = 'Donner'; }
     } else if (!myTurn()) {
       const p = src.players[view.turn];
