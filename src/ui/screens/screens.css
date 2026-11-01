@@ -388,7 +388,7 @@ button.rank-row { width: 100%; border: none; cursor: pointer; text-align: left; 
 .rank-row__pts > span { font: 800 11px var(--text); }
 .rank-me {
   position: fixed; left: 50%; transform: translateX(-50%); width: calc(min(100vw, 430px) - 32px);
-  bottom: calc(var(--safe-bottom) + 76px); z-index: 19; border-radius: 22px;
+  bottom: calc(var(--safe-bottom) + 70px); z-index: 19; border-radius: 22px;
   box-shadow: 0 0 0 3px var(--coral), 0 12px 24px rgba(242, 90, 56, .25);
 }
 .rank-me .rank-row__n { width: 34px; color: var(--coral-d); }

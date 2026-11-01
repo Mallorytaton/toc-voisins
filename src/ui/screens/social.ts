@@ -233,7 +233,7 @@ export function friendsScreen(addCode: string | null = null): View {
     }
   };
   show('amis');
-  const el = h('div', { class: 'screen screen--tabs', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 12px)' } },
+  const el = h('div', { class: 'screen screen--tabs', 'data-fit': 'tabs', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)' } },
     h('span', { class: 't-screen' }, 'Tes amis'),
     segmented([{ value: 'amis' as const, label: 'Amis' }, { value: 'chat' as const, label: 'Chat d’équipe' }], 'amis', show),
     content,
@@ -302,7 +302,7 @@ export function rankingScreen(): View {
       .then(([all, f]) => { real = { all, friends: new Set(f) }; show(scope); })
       .catch(() => { real = { all: [], friends: new Set() }; show(scope); });
 
-  const el = h('div', { class: 'screen screen--tabs', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 12px)', paddingBottom: 'calc(var(--safe-bottom) + 190px)' } },
+  const el = h('div', { class: 'screen screen--tabs', 'data-fit': 'tabs', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)', paddingBottom: 'calc(var(--safe-bottom) + 162px)' } },
     h('div', { style: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 } },
       h('span', { class: 't-screen' }, 'Classement'),
       h('span', { class: 'pill' }, DEMO ? 'Saison 4 · finit dans 12 j' : 'Saison 1')),

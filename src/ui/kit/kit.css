@@ -210,7 +210,7 @@
 /* ---- Barre d'onglets flottante ---- */
 .tabbar {
   position: fixed; left: 50%; transform: translateX(-50%);
-  width: calc(min(100vw, 430px) - 32px); bottom: max(10px, calc(var(--safe-bottom) - 8px)); height: 72px; z-index: 20;
+  width: calc(min(100vw, 430px) - 32px); bottom: max(8px, calc(var(--safe-bottom) - 14px)); height: 72px; z-index: 20;
   border-radius: 30px; background: #fff; display: flex; padding: 8px; gap: 6px;
   box-shadow: 0 8px 0 var(--clay), 0 18px 34px rgba(110, 80, 50, .16);
 }
@@ -238,8 +238,8 @@
   padding: calc(var(--safe-top) + 6px) 20px calc(var(--safe-bottom) + 28px);
   display: flex; flex-direction: column; gap: 16px;
 }
-/* La barre d'onglets descend juste au-dessus du trait de l'iPhone (ou à 10 px du bord sans trait). */
-.screen--tabs { padding-bottom: calc(var(--safe-bottom) + 82px); }
+/* La barre d'onglets descend juste au-dessus du trait de l'iPhone (ou à 8 px du bord sans trait). */
+.screen--tabs { padding-bottom: calc(var(--safe-bottom) + 70px); }
 
 /* ---- Pliant ouvert : la liste à gauche, le détail à droite (main.ts, setSplit) ---- */
 .split { position: fixed; inset: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: var(--seg); }

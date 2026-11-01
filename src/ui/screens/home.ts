@@ -211,9 +211,9 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   const fresh = !p.xp;
 
   // Le milieu défile si besoin (parties à ton rythme, tournois) ; l'en-tête et les onglets restent en place.
-  const el = h('div', { class: 'screen screen--tabs home', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 10px)' } },
+  const el = h('div', { class: 'screen screen--tabs home', 'data-fit': 'tabs', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 6px)' } },
     head,
-    h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14, margin: '0 -20px', padding: '2px 20px 10px' } },
+    h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 10, margin: '0 -20px', padding: '2px 20px 10px' } },
       resume,
       slowCard,
       fresh && learn,
