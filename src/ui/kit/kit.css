@@ -240,6 +240,16 @@
 }
 .screen--tabs { padding-bottom: calc(var(--safe-bottom) + 104px); }
 
+/* ---- Pliant ouvert : la liste à gauche, le détail à droite (main.ts, setSplit) ---- */
+.split { position: fixed; inset: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: var(--seg); }
+@media (horizontal-viewport-segments: 2) {
+  .split { grid-template-columns: env(viewport-segment-width 0 0) env(viewport-segment-width 1 0); gap: calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0)); }
+}
+.split__pane { position: relative; overflow: hidden; background: var(--app); }
+.split__pane > .fit { position: absolute; }
+.split__empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; }
+.split__empty .t-body { max-width: 30ch; color: var(--ink-2); }
+
 /* ---- Mise à l'échelle (src/ui/fit.ts) ----
    La scène va jusqu'aux bords ; les marges d'encoche et de barre du bas (--safe-top, --safe-bottom)
    sont recalculées à l'échelle de la scène. */
