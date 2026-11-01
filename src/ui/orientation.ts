@@ -10,13 +10,26 @@ function angle(): number {
   return ((a % 360) + 360) % 360;
 }
 
+/** Mode manette (une tablette sert de plateau) : le téléphone passe en paysage. */
+let wantLandscape = false;
+
 function apply() {
   const phone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
   const landscape = window.innerWidth > window.innerHeight;
   const a = angle();
-  const rot = phone && landscape ? (a === 270 ? '-90' : '90') : '';
+  // Portrait d'habitude ; en manette, paysage : tenu droit, l'app s'affiche couchée (on tourne le téléphone vers la gauche pour lire).
+  const rot = !phone ? '' : wantLandscape ? (landscape ? '' : '-90') : landscape ? (a === 270 ? '-90' : '90') : '';
   if (rot) document.documentElement.dataset.rot = rot;
   else delete document.documentElement.dataset.rot;
+}
+
+/** Mode manette : paysage (Android l'impose ; iPhone et navigateurs : l'app s'affiche couchée). */
+export function setLandscape(on: boolean) {
+  if (on === wantLandscape) return;
+  wantLandscape = on;
+  const o = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+  o?.lock?.(on ? 'landscape' : 'portrait').catch(() => undefined);
+  apply();
 }
 
 export function lockPortrait() {

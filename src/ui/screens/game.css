@@ -24,6 +24,12 @@
 .pad-chip { position: absolute; right: 24px; top: 90px; z-index: 30; border: none; border-radius: 999px; padding: 7px 12px 6px; background: var(--ink); color: #fff; font: 800 12px var(--text); cursor: pointer; box-shadow: 0 3px 0 var(--dark-edge); }
 /* Écran de table : numéros des billes possibles du joueur dont c'est le tour, bille choisie qui brille. */
 .pawn[data-num]:not([data-num=''])::after { content: attr(data-num); position: absolute; top: -15px; right: -13px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--ink); color: #fff; font: 900 12px/18px var(--text); text-align: center; box-shadow: 0 0 0 2px #fff; z-index: 2; }
+/* Écran de table : le journal de la partie, toujours visible */
+.table-journal { position: absolute; z-index: 5; display: flex; flex-direction: column; gap: 12px; padding: 20px 20px; border-radius: 28px; background: #fff; box-shadow: 0 8px 0 var(--clay), 0 20px 30px rgba(70, 40, 20, .1); overflow: hidden; }
+.table-journal__turn { font: 800 26px/1.15 var(--display); padding-top: 3px; }
+.table-journal .g-journal-row { font-size: 17px; gap: 10px; }
+.table-journal .g-journal-row > i { width: 14px; height: 14px; }
+.table-journal .g-journal-card { font-size: 18px; }
 .pawn--aim > .bille { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--coral), 0 0 18px rgba(255, 107, 74, .8); animation: tocBob .8s ease-in-out infinite; }
 /* Écran de table : pas de main ni de bouton Jouer. */
 .game[data-layout='table'] .g-actions, .game[data-layout='table'] .g-timer, .game[data-layout='table'] .hand { display: none; }

@@ -8,6 +8,7 @@ import { CHARS, COL, COLOR_NAMES, type CharId, type ColorName } from '../kit/dat
 import { avatar, backButton, bille, button } from '../kit/kit';
 import { ROUTES, go, takeLink } from '../nav';
 import { mascot } from '../mascot';
+import { openBoardJoin } from '../table-invite';
 
 const blob = (style: Record<string, string | number>) => h('div', { class: 'blob', style });
 
@@ -47,7 +48,9 @@ export function splashScreen(): HTMLElement {
       // Compte Google : on retrouve son perso et sa progression ; sinon on le crée.
       button('J’ai déjà un compte', 'text', async () => {
         if (await googleThenGo()) go(getProfile() ? ROUTES.home : ROUTES.pick);
-      })),
+      }),
+      // Une tablette posée au milieu de la table : elle devient le plateau d'une salle, sans compte.
+      button('Utiliser comme plateau de jeu', 'text', openBoardJoin)),
   );
 }
 

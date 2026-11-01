@@ -14,6 +14,7 @@ import { openRulesSheet } from './rules';
 import { buzz, sfx, soundSettings } from '../sound';
 import { type MascotMood, mascot } from '../mascot';
 import { openTableSheet } from '../table-invite';
+import { setLandscape } from '../orientation';
 
 const REPLIES = ['Aïe !', 'Tu vas voir…', 'Hahaha', 'Pas mal du tout', 'Sérieux ?'];
 const TURN_MS = 30_000;
@@ -58,6 +59,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // pliant en livre, ou ouvert et plus large que haut : côte à côte.
   // Le bas est la même scène décalée : les coordonnées ne changent pas, rien n'est reconstruit.
   const SPLIT_Y = 456;
+  /** Journal de la partie, affiché en permanence sur l'écran de table. */
+  const tableJournal = h('div', { class: 'table-journal', hidden: true });
+  root.append(tableJournal);
   const LOW_H = 760 - SPLIT_Y;
   /** Écran de table : la barre, le plateau et les noms sous les avatars du bas (la main y est cachée). */
   const TABLE_H = 488;
@@ -73,7 +77,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     p.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;${css}`;
     document.body.append(p);
     const r = p.getBoundingClientRect(), cs = getComputedStyle(p);
-    const out = { x: r.left, y: r.top, w: r.width, h: r.height, t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 };
+    const out = { x: r.left, y: r.top, w: r.width, h: r.height, t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0, r: parseFloat(cs.paddingRight) || 0 };
     p.remove();
     return out;
   };
@@ -81,12 +85,29 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     probe(`left:env(viewport-segment-left ${i} ${j});top:env(viewport-segment-top ${i} ${j});width:env(viewport-segment-width ${i} ${j});height:env(viewport-segment-height ${i} ${j})`);
   const mqFlex = matchMedia('(vertical-viewport-segments: 2)');
   const mqBook = matchMedia('(horizontal-viewport-segments: 2)');
-  const panes = (): { kind: string; a: Box; b?: Box } | null => {
+  const panes = (): { kind: string; a: Box; b?: Box; j?: Box } | null => {
     const W = root.clientWidth, H = root.clientHeight;
-    const { t, b } = probe('padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)');
+    const sa = probe('padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)');
+    const { t, b } = sa;
     const clip = (x: Box): Box => { const y = Math.max(x.y, t), y2 = Math.min(x.y + x.h, H - b); return { x: x.x, y, w: x.w, h: y2 - y }; };
-    // Écran de table : seulement la barre et le plateau, aussi grands que possible.
-    if (watching) return { kind: 'table', a: clip({ x: 0, y: 0, w: W, h: H }) };
+    // Écran de table : le plateau et le journal de la partie (à côté en largeur, dessous en hauteur).
+    if (watching) {
+      const full = clip({ x: 0, y: 0, w: W, h: H });
+      if (W >= H) {
+        const J = Math.min(400, Math.round(W * 0.32));
+        return { kind: 'table', a: { ...full, w: full.w - J - 8 }, j: { x: full.x + full.w - J, y: full.y + 16, w: J - 16, h: full.h - 32 } };
+      }
+      const JH = Math.round(full.h * 0.3);
+      return { kind: 'table', a: { ...full, h: full.h - JH }, j: { x: 16, y: full.y + full.h - JH + 4, w: W - 32, h: JH - 20 } };
+    }
+    // Manette en paysage : la barre et les billes à gauche, les cartes en grand à droite.
+    if (manette() && W > H) {
+      const rot = document.documentElement.dataset.rot;
+      // Marges sûres vues dans l'app couchée (encoche et barre du bas passent sur les côtés).
+      const [L, R, T, B] = rot === '-90' ? [sa.t, sa.b, sa.r, sa.l] : rot === '90' ? [sa.b, sa.t, sa.l, sa.r] : [sa.l, sa.r, sa.t, sa.b];
+      const w = W - L - R, hh = H - T - B, wa = Math.round(w * 0.44);
+      return { kind: 'manette', a: { x: L, y: T, w: wa - 4, h: hh }, b: { x: L + wa + 4, y: T, w: w - wa - 4, h: hh } };
+    }
     if (document.documentElement.dataset.rot) return null;
     if (mqFlex.matches) return { kind: 'flex', a: clip(segment(0, 0)), b: clip(segment(0, 1)) };
     if (mqBook.matches) return { kind: 'book', a: clip(segment(0, 0)), b: clip(segment(1, 0)) };
@@ -119,6 +140,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       }
       layout = kind;
     }
+    tableJournal.hidden = !P?.j;
+    if (P?.j) tableJournal.style.cssText = `left:${P.j.x}px;top:${P.j.y}px;width:${P.j.w}px;height:${P.j.h}px`;
     if (P) {
       putFrame(frame, P.a);
       showRegion(stage, frame, 0, P.kind === 'table' ? TABLE_H : SPLIT_Y);
@@ -611,17 +634,19 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     .replace(/un autre de ses pions/g, 'une autre de ses billes').replace(/un de ses pions/g, 'une de ses billes')
     .replace(/un pion/g, 'une bille').replace(/ses pions/g, 'ses billes').replace(/pion/g, 'bille')
     .replace(/@(\d+)/g, (_, k: string) => nameOf(Number(k)));
-  const renderJournal = () => {
-    if (journal.hidden) return;
-    const moves = view.log.filter((e) => e.card || /défausse/.test(e.text)).slice(-4).reverse();
-    journal.replaceChildren(h('span', { class: 't-label' }, 'Les 4 derniers coups'),
-      ...(moves.length ? moves.map((e) => {
+  const journalRows = (count: number) => {
+    const moves = view.log.filter((e) => e.card || /défausse/.test(e.text)).slice(-count).reverse();
+    return moves.length ? moves.map((e) => {
         const c = e.card ? cardLook(e.card, view.variants) : null;
         return h('div', { class: 'g-journal-row' },
           h('i', { style: { background: tint(e.seat).c } }),
           h('span', { class: 'g-journal-text' }, h('b', null, nameOf(e.seat)), ' ' + logText(e.text, e.seat)),
           c && h('span', { class: 'g-journal-card', style: { color: c.red ? '#e5482a' : '#2b2a3d' } }, c.r + c.s));
-      }) : [h('span', { class: 't-body' }, 'Aucun coup pour l’instant.')]));
+      }) : [h('span', { class: 't-body' }, 'Aucun coup pour l’instant.')];
+  };
+  const renderJournal = () => {
+    if (journal.hidden) return;
+    journal.replaceChildren(h('span', { class: 't-label' }, 'Les 4 derniers coups'), ...journalRows(4));
   };
   const toggleJournal = (open = journal.hidden) => {
     journal.hidden = !open;
@@ -836,6 +861,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         : !myTurn() ? `Tour de ${nameOf(view.turn)}…`
           : sel === null ? 'À toi de jouer : choisis une carte en bas.' : 'Pas de bille à choisir avec cette carte : touche le bouton en bas.';
   let lastAim = 'null';
+  let landscapeOn = false;
   const renderPad = (pl: Plan) => {
     // Le téléphone dit à la tablette ce qu'il prépare (même s'il montre le plateau).
     if (src.setAim && src.tableOn && !watching) {
@@ -856,8 +882,16 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         outer.classList.toggle('pawn--aim', !!aim?.pick && aim.pick === k);
       });
       if (aim?.card) turnEl.textContent = `Tour de ${nameOf(view.turn)} · ${rankName(aim.card)}`;
+      tableJournal.replaceChildren(
+        h('span', { class: 'table-journal__turn' }, view.phase === 'over' ? 'Partie terminée' : turnEl.textContent ?? ''),
+        h('span', { class: 't-label' }, 'Journal de la partie'), ...journalRows(8));
     }
     const on = manette();
+    if (on !== landscapeOn) {
+      landscapeOn = on;
+      setLandscape(on);
+      requestAnimationFrame(fit);
+    }
     root.classList.toggle('game--manette', on);
     padPanel.hidden = !on;
     padChip.hidden = !(src.tableOn && !watching && showBoard);
@@ -1272,6 +1306,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       disposed = true;
       closeVictory();
       offRoom?.();
+      if (landscapeOn) setLandscape(false);
       if (lastAim !== 'null') src.setAim?.(null);
       document.removeEventListener('pointerdown', closeJournalOutside, true);
       unsub();
