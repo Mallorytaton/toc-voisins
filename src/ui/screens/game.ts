@@ -2,8 +2,7 @@
 import type { GameSource } from '../../app/game-source';
 import { draftProfile } from '../../app/profile';
 import {
-  type Card, type GameState, type Move, type PawnRef, type Rank, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, inHome,
-  legalMovesFor, partner, rankOf, sameRef, stepForward, teamOf, trackLen,
+  type Card, type GameState, type Move, type PawnRef, type Rank, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, inHome, legalMovesFor, partner, rankOf, sameRef, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
 } from '../../engine';
 import { type Fx, playFx } from '../board/fx';
 import { armOf, geom, pawnXY, trackIndex } from '../board/geom';
@@ -208,6 +207,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const bubbleLayer = h('div');
   const fxBoard = h('div', { class: 'fx-layer', style: { zIndex: 1100 } });
   const discard = h('div', { class: 'discard' });
+  /** Nombre de cartes restant dans la pioche, sur le paquet du centre */
+  const deckCount = h('span', { class: 'pile__count', 'aria-label': 'Cartes dans la pioche' });
   const center = N === 4 ? { x: 95, s: 170 } : { x: 122, s: 116 };
   board.append(
     h('div', { class: 'board__wood' }),
@@ -238,7 +239,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     g.res[arm].forEach(([x, y]) => board.append(hole(x, y, Z.rs, 'var(--res-bg)', 'var(--res-sh)')));
   });
   board.append(pathLayer,
-    h('div', { class: 'pile', style: { transform: `scale(${N === 4 ? 1 : 0.72})` } }, cardBack(), discard),
+    h('div', { class: 'pile', style: { transform: `scale(${N === 4 ? 1 : 0.72})` } }, cardBack(), deckCount, discard),
     ghostLayer, pawnLayer, avLayer, bubbleLayer, fxBoard);
   stage.append(board);
   // Mode manette : une tablette sert de plateau ; à sa place, le téléphone montre les billes jouables, numérotées.
@@ -657,6 +658,21 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     render();
   };
 
+  // ---------- Pioche : un vrai paquet, mélangé à chaque manche, donnes de 5, 4 puis 4 cartes ----------
+  /** Cartes restant dans la pioche (comme sur la table) et taille de la prochaine donne (null : nouvelle manche, paquet remélangé). */
+  const deckLeft = () => {
+    const k = view.dealNo % DEAL_CYCLE.length;
+    const total = (52 + view.variants.jokers) * decksFor(N);
+    // Avant la distribution (« On distribue… »), la donne en cours n'est pas encore sortie du paquet.
+    const dealt = DEAL_CYCLE.slice(0, view.phase === 'deal' ? k : k + 1).reduce((a, b) => a + b, 0) * N;
+    const nextK = (k + 1) % DEAL_CYCLE.length;
+    return { left: Math.max(0, total - dealt), next: view.phase === 'deal' ? DEAL_CYCLE[k] : nextK === 0 ? null : DEAL_CYCLE[nextK] };
+  };
+  const deckText = () => {
+    const { left, next } = deckLeft();
+    return `Pioche : ${left} carte${left > 1 ? 's' : ''} · ${next === null ? 'ensuite : nouveau paquet mélangé' : `${view.phase === 'deal' ? 'donne de' : 'prochaine donne :'} ${next} cartes`}`;
+  };
+
   // ---------- Journal des derniers coups ----------
   /** Le texte du moteur (« @2 avance un pion de 5 et renvoie à la base @1 ») dit avec les mots de l'app. */
   const logText = (text: string, seat: number) => text
@@ -679,7 +695,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const renderJournal = () => {
     if (journal.hidden) return;
-    journal.replaceChildren(h('span', { class: 't-label' }, 'Les 4 derniers coups'), ...journalRows(4));
+    journal.replaceChildren(h('span', { class: 't-label' }, 'Les 4 derniers coups'), h('span', { class: 'g-deck-line' }, deckText()), ...journalRows(4));
   };
   const toggleJournal = (open = journal.hidden) => {
     journal.hidden = !open;
@@ -793,6 +809,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // ---------- Rendu ----------
   const renderTop = () => {
     roundEl.textContent = `Manche ${Math.floor(view.dealNo / 3) + 1} · Donne ${(view.dealNo % 3) + 1}`;
+    deckCount.textContent = String(deckLeft().left);
     turnEl.textContent = view.phase === 'over' ? 'Partie terminée'
       : view.phase === 'deal' ? 'On distribue…'
         : view.phase === 'exchange' ? (watching ? 'Échange des cartes…' : view.exchange[me] ? 'On attend les autres…' : `Une carte pour ${nameOf(partner(N, me))}`)
@@ -921,6 +938,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       // La barre du haut est cachée sur la tablette : la manche et le score passent en tête du journal.
       tableJournal.replaceChildren(
         h('div', { class: 'table-journal__top' }, h('span', { class: 't-label' }, roundEl.textContent ?? ''), scoreEl.cloneNode(true) as HTMLElement),
+        h('span', { class: 'g-deck-line' }, deckText()),
         h('span', { class: 'table-journal__turn' }, view.phase === 'over' ? 'Partie terminée' : turnEl.textContent ?? ''),
         h('span', { class: 't-label' }, 'Journal de la partie'), ...journalRows(8));
     }
