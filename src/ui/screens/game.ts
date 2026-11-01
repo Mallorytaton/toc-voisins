@@ -883,7 +883,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     for (let s = 0; s < N; s++) {
       const active = view.phase === 'play' && view.turn === s;
       const e = avEls[s];
-      const label = starting && s === view.turn ? 'Commence' : s === upNext ? 'Ensuite' : '';
+      const label = starting && s === view.turn ? 'Commence' : starting && s === view.dealer ? 'Distribue' : s === upNext ? 'Ensuite' : '';
       e.chip.textContent = label;
       e.chip.hidden = !label;
       e.chip.classList.toggle('seat-av__chip--first', label === 'Commence');
@@ -1294,7 +1294,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const size = next.hands[me].length;
       sfx('donne');
       if (next.dealNo === 0) fx('screen', { kind: 'banner', y: 262, t: 'C’EST PARTI !', ms: 1500 });
-      else toast(`Nouvelle donne : ${size} cartes !`);
+      else toast(!watching && next.dealer === me ? `Tu distribues ${size} cartes` : `${nameOf(next.dealer)} distribue ${size} cartes`);
       await sleep(1300);
     } else if (prev.phase === 'exchange' && next.phase === 'play') {
       render();
