@@ -367,8 +367,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     chatInput.value = '';
     bubble(me, t.length > 26 ? t.slice(0, 25) + '…' : t, 4000);
   });
+  // Fermer : la croix, le bouton bulle, ou un toucher ailleurs sur l'écran.
+  const chatClose = h('button', { class: 'table-chat__close', type: 'button', 'aria-label': 'Fermer le chat' }, '×');
   const chatPop = h('div', { class: 'pop pop--chat', hidden: true, role: 'dialog', 'aria-label': 'Chat de la table' },
-    h('span', { class: 'pop__title' }, 'Chat de la table'), chatList, !watching && chatForm);
+    h('div', { class: 'table-chat__head' }, h('span', { class: 'pop__title' }, 'Chat de la table'), chatClose), chatList, !watching && chatForm);
   const chatBadge = h('span', { class: 'emote-btn__badge', hidden: true });
   if (src.chat) { emoteBtn.append(chatBadge); emoteBtn.setAttribute('aria-label', 'Émotes et chat de la table'); }
   let unread = 0;
@@ -385,6 +387,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (open) { unread = 0; chatBadge.hidden = true; chatList.scrollTop = chatList.scrollHeight; }
   };
   emoteBtn.addEventListener('click', () => setEmotes(!!emotePop.hidden));
+  chatClose.addEventListener('click', () => setEmotes(false));
+  const closeOutside = (e: Event) => {
+    if (emotePop.hidden) return;
+    const t = e.target as Node;
+    if (!chatPop.contains(t) && !emotePop.contains(t) && !emoteBtn.contains(t)) setEmotes(false);
+  };
+  document.addEventListener('pointerdown', closeOutside, true);
   const sendEmote = (t: string) => {
     setEmotes(false);
     bubble(me, t);
@@ -1446,6 +1455,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       unsub();
       unsubEmote?.();
       unsubChat?.();
+      document.removeEventListener('pointerdown', closeOutside, true);
       stopTimer();
       clearTimeout(toastTimer);
       window.removeEventListener('resize', fit);
