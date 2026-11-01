@@ -203,6 +203,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     h('div', { class: 'pile', style: { transform: `scale(${N === 4 ? 1 : 0.72})` } }, cardBack(), discard),
     ghostLayer, pawnLayer, avLayer, bubbleLayer, fxBoard);
   stage.append(board);
+  // Mode manette : une tablette sert de plateau ; à sa place, le téléphone montre les billes jouables, numérotées.
+  const padPanel = h('div', { class: 'pad-panel', hidden: true });
+  let showBoard = false;
+  const padChip = h('button', { class: 'pad-chip', type: 'button', hidden: true, onclick: () => { showBoard = false; render(); } }, 'Mode manette');
+  stage.append(padPanel, padChip);
   const fxScreen = h('div', { class: 'fx-layer', style: { zIndex: 38 } });
   stage.append(fxScreen);
   // BOUM : Toc surgit au bas du plateau, l'air ébahi.
@@ -820,6 +825,66 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     choicePop.hidden = true;
   };
 
+  // ---------- Mode manette et écran de table ----------
+  const manette = () => !watching && !!src.tableOn && !showBoard;
+  const rankName = (r: string) => (r === 'X' ? 'Joker' : RANK_SHORT[r as Rank] ?? r);
+  /** Billes à choisir : les cibles du Valet une fois sa bille choisie, sinon les billes jouables. */
+  const padList = (pl: Plan) => (pick && pl.targets.length ? pl.targets : pl.cands);
+  const padHint = () => giving() ? `Choisis en bas la carte à passer à ${nameOf(partner(N, me))}.`
+    : view.phase === 'exchange' ? 'On attend les autres…'
+      : view.phase !== 'play' ? 'Distribution des cartes…'
+        : !myTurn() ? `Tour de ${nameOf(view.turn)}…`
+          : sel === null ? 'À toi de jouer : choisis une carte en bas.' : 'Pas de bille à choisir avec cette carte : touche le bouton en bas.';
+  let lastAim = 'null';
+  const renderPad = (pl: Plan) => {
+    // Le téléphone dit à la tablette ce qu'il prépare (même s'il montre le plateau).
+    if (src.setAim && src.tableOn && !watching) {
+      const a = myTurn() && sel !== null ? { card: rankOf(myHand()[sel]), n: padList(pl).map(key).join(','), pick: pick ? key(pick) : '' } : null;
+      const sig = JSON.stringify(a);
+      if (sig !== lastAim) {
+        lastAim = sig;
+        src.setAim(a);
+      }
+    }
+    // Écran de table : les billes possibles du joueur dont c'est le tour portent un numéro, la bille choisie brille.
+    if (watching) {
+      const aim = view.phase === 'play' ? src.aims?.[view.turn] : undefined;
+      const nums = aim?.n ? aim.n.split(',') : [];
+      pawnEls.forEach(({ outer }, k) => {
+        const i = nums.indexOf(k);
+        outer.dataset.num = i >= 0 ? String(i + 1) : '';
+        outer.classList.toggle('pawn--aim', !!aim?.pick && aim.pick === k);
+      });
+      if (aim?.card) turnEl.textContent = `Tour de ${nameOf(view.turn)} · ${rankName(aim.card)}`;
+    }
+    const on = manette();
+    root.classList.toggle('game--manette', on);
+    padPanel.hidden = !on;
+    padChip.hidden = !(src.tableOn && !watching && showBoard);
+    if (!on) return;
+    const list = padList(pl);
+    const where = (r: PawnRef) => {
+      const p = view.pawns[r.s][r.i].p;
+      return p < 0 ? 'Réserve' : inHome(N, p) ? 'Maison' : 'Sur le plateau';
+    };
+    padPanel.replaceChildren(
+      h('div', { class: 'pad-panel__head' },
+        h('span', { class: 'pad-panel__title' }, 'Le plateau est sur la tablette'),
+        h('button', { class: 'pad-panel__link', type: 'button', onclick: () => { showBoard = true; render(); } }, 'Voir le plateau')),
+      h('span', { class: 'pad-panel__hint' }, list.length
+        ? (pick && pl.targets.length ? 'Touche la bille à échanger : même numéro sur la tablette.' : 'Touche la bille à jouer : même numéro sur la tablette.')
+        : padHint()),
+      h('div', { class: 'pad-pawns' }, ...list.map((r, k) => {
+        const steps = split.get(key(r)) ?? 0;
+        const chosen = (!!pick && sameRef(pick, r)) || steps > 0 || (!!target && sameRef(target, r));
+        return h('button', { class: 'pad-pawn' + (chosen ? ' pad-pawn--on' : ''), type: 'button', onclick: () => onPawn(r) },
+          h('b', null, String(k + 1)), bille(SEAT_COLORS[N][r.s], { size: 30 }),
+          h('span', null, where(r) + (steps ? ` · +${steps}` : '')));
+      })));
+  };
+  // Changement dans la salle (tablette qui arrive ou part, visée d'un joueur) : on redessine.
+  const offRoom = src.onRoom?.(() => { if (!disposed) render(); });
+
   const render = () => {
     renderTop();
     renderAvatars();
@@ -839,6 +904,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     });
     const cap = preview(pl);
     renderChoice(pl);
+    renderPad(pl);
     // Carte d'indice et bouton
     let t: string, sub: string, label = '';
     if (view.phase === 'over') { t = 'Partie terminée'; sub = 'Bien joué, tout le monde !'; }
@@ -1205,6 +1271,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     cleanup: () => {
       disposed = true;
       closeVictory();
+      offRoom?.();
+      if (lastAim !== 'null') src.setAim?.(null);
       document.removeEventListener('pointerdown', closeJournalOutside, true);
       unsub();
       unsubEmote?.();

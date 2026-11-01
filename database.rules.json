@@ -101,6 +101,18 @@
             ".write": "auth != null && root.child('v2/rooms/' + $code + '/players/' + auth.uid).exists()",
             ".validate": "newData.isNumber() && newData.val() <= now"
           },
+          "screens": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && (!newData.exists() || root.child('v2/rooms/' + $code + '/meta').exists())",
+              ".validate": "newData.isBoolean()"
+            }
+          },
+          "aim": {
+            "$seat": {
+              ".write": "auth != null && root.child('v2/rooms/' + $code + '/seats/' + $seat).val() === auth.uid",
+              ".validate": "newData.hasChildren(['at']) && newData.child('at').val() <= now && (!newData.child('card').exists() || (newData.child('card').isString() && newData.child('card').val().length <= 3)) && (!newData.child('n').exists() || (newData.child('n').isString() && newData.child('n').val().length <= 120)) && (!newData.child('pick').exists() || (newData.child('pick').isString() && newData.child('pick').val().length <= 8))"
+            }
+          },
           "emotes": {
             "$seat": {
               ".write": "auth != null && root.child('v2/rooms/' + $code + '/seats/' + $seat).val() === auth.uid",

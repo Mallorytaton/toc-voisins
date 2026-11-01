@@ -74,7 +74,14 @@ interface RoomNode {
   state: PublicState | null;
   turnAt: number;
   emotes: Record<string, { t: string; at: number }>;
+  /** Écrans de table (tablettes) ouverts sur la salle */
+  screens: Record<string, boolean>;
+  /** Ce que chaque joueur prépare, pour l'écran de table (par place) */
+  aim: Record<string, Aim>;
 }
+
+/** Visée d'un joueur : carte choisie, billes possibles (« s.i,s.i »), bille choisie. */
+export interface Aim { at?: number; card?: string; n?: string; pick?: string }
 
 const BOT = 'bot';
 const COUNTDOWN_MS = 3400;
@@ -266,8 +273,16 @@ export class RoomSession implements Room {
   }
 
   private async start() {
-    // L'écran de table ne compte pas comme un joueur : pas de présence.
-    if (!this.watcher) {
+    // L'écran de table ne compte pas comme un joueur : pas de présence, mais il s'annonce (les téléphones passent en manette).
+    if (this.watcher) {
+      const scr = node('rooms', this.code, 'screens', this.uid);
+      this.offs.push(onValue(ref(database(), '.info/connected'), (s) => {
+        if (s.val() === true) {
+          onDisconnect(scr).remove();
+          set(scr, true).catch(() => undefined);
+        }
+      }));
+    } else {
       const presRef = node('rooms', this.code, 'presence', this.uid);
       this.offs.push(onValue(ref(database(), '.info/connected'), (s) => {
         if (s.val() === true) {
@@ -302,6 +317,8 @@ export class RoomSession implements Room {
             state: raw.state ? normalizePublic(raw.state) : null,
             turnAt: raw.turnAt ?? 0,
             emotes: raw.emotes ?? {},
+            screens: raw.screens ?? {},
+            aim: raw.aim ?? {},
           };
         }
         this.watchHand();
@@ -359,7 +376,12 @@ export class RoomSession implements Room {
     clearTimeout(this.driveTimer);
     // Une partie à ton rythme garde ta place : tu reviens quand tu veux.
     if (r && r.meta.status === 'waiting' && seat >= 0 && !r.meta.slow) set(node('rooms', this.code, 'seats', seat), null).catch(() => undefined);
-    if (this.watcher) return;
+    if (this.watcher) {
+      const scr = node('rooms', this.code, 'screens', this.uid);
+      onDisconnect(scr).cancel().catch(() => undefined);
+      if (r) set(scr, null).catch(() => undefined);
+      return;
+    }
     // La présence « absent » posée d'avance pour une coupure est annulée : une salle supprimée ne doit pas renaître.
     const pres = node('rooms', this.code, 'presence', this.uid);
     onDisconnect(pres).cancel().catch(() => undefined);
@@ -792,6 +814,21 @@ export class OnlineGame implements GameSource {
   settled() {
     this.idle = true;
     this.s.drive();
+  }
+  /** Une tablette sert de plateau dans cette salle (écran de table) : le téléphone peut passer en manette. */
+  get tableOn() {
+    return Object.keys(this.s.room?.screens ?? {}).length > 0;
+  }
+  /** Ce que chaque place prépare, affiché par l'écran de table. */
+  get aims(): Record<string, Aim> {
+    return this.s.room?.aim ?? {};
+  }
+  setAim(a: Aim | null) {
+    if (this.s.mySeat < 0) return;
+    set(node('rooms', this.code, 'aim', this.s.mySeat), a ? { ...a, at: serverTimestamp() } : null).catch(() => undefined);
+  }
+  onRoom(cb: () => void) {
+    return this.s.subscribe(cb);
   }
   restartDeal() {}
   rematch() {
