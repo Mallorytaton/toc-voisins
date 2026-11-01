@@ -11,9 +11,9 @@ const BASE_W = 393;
 const MAX_W = 480;
 const MAX_SCALE = 1.25;
 /** Hauteur de référence des onglets : celle de l'accueil, le plus haut des trois (marges sûres minimales). */
-const TABS_H = 860;
-/** Marges sûres minimales comptées dans TABS_H (14 en haut, 12 en bas). */
-const MIN_SAFE = 26;
+const TABS_H = 832;
+/** Marges sûres minimales comptées dans TABS_H (8 en haut, 12 en bas). */
+const MIN_SAFE = 20;
 
 /** Encoche et barre du bas du téléphone, en pixels réels. */
 function insets(): { t: number; b: number } {
@@ -35,7 +35,7 @@ function safeVars(stage: HTMLElement, s: number) {
   // L'app redressée en paysage : l'encoche est sur le côté gauche (90) ou droit (-90) de l'écran.
   const top = rot === '90' ? 'env(safe-area-inset-left)' : rot === '-90' ? 'env(safe-area-inset-right)' : 'env(safe-area-inset-top)';
   const bottom = rot ? '0px' : 'env(safe-area-inset-bottom)';
-  stage.style.setProperty('--safe-top', `max(14px, calc(${top} / ${s}))`);
+  stage.style.setProperty('--safe-top', `max(8px, calc(${top} / ${s}))`);
   stage.style.setProperty('--safe-bottom', `max(12px, calc(${bottom} / ${s}))`);
 }
 
@@ -61,7 +61,7 @@ export function fitScreen(screen: HTMLElement, mode: FitMode): { el: HTMLElement
     if (mode === 'tabs') {
       // Même échelle pour les trois onglets : l'accueil (le plus haut) tient pile, encoche comprise.
       const { t, b } = insets();
-      s = Math.min(W / BASE_W, (H - Math.max(t, 14) - Math.max(b, 12)) / (TABS_H - MIN_SAFE), MAX_SCALE);
+      s = Math.min(W / BASE_W, (H - Math.max(t, 8) - Math.max(b, 12)) / (TABS_H - MIN_SAFE), MAX_SCALE);
       w = widthFor(W, s);
       // Sécurité (écrans sans liste qui défile) : s'il est plus haut que prévu, on réduit juste ce qu'il faut.
       if (!screen.querySelector('.scroll-y')) {

@@ -50,7 +50,7 @@
   --text: 'Nunito Variable', Nunito, system-ui, sans-serif;
 
   /* Zones sûres : la maquette réserve 54 pt en haut et 34 pt en bas */
-  --safe-top: max(env(safe-area-inset-top), 14px);
+  --safe-top: max(env(safe-area-inset-top), 8px);
   --safe-bottom: max(env(safe-area-inset-bottom), 12px);
 
   color-scheme: light;
