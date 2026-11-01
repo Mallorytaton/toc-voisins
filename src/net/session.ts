@@ -78,8 +78,8 @@ interface RoomNode {
   emotes: Record<string, { t: string; at: number }>;
 }
 
-/** Visée d'un joueur : carte choisie, billes possibles (« s.i,s.i »), bille choisie. */
-export interface Aim { at?: number; card?: string; n?: string; pick?: string }
+/** Visée d'un joueur : carte choisie, billes possibles (« s.i,s.i »), bille choisie, coup prêt (JSON, pour l'aperçu). */
+export interface Aim { at?: number; card?: string; n?: string; pick?: string; m?: string }
 
 const BOT = 'bot';
 const COUNTDOWN_MS = 3400;

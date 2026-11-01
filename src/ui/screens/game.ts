@@ -2,7 +2,7 @@
 import type { GameSource } from '../../app/game-source';
 import { draftProfile } from '../../app/profile';
 import {
-  type Card, type GameState, type Move, type PawnRef, type Rank, applyMove, botGift, botMove, cryptoRng, inHome,
+  type Card, type GameState, type Move, type PawnRef, type Rank, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, inHome,
   legalMovesFor, partner, rankOf, sameRef, stepForward, teamOf, trackLen,
 } from '../../engine';
 import { type Fx, playFx } from '../board/fx';
@@ -524,14 +524,28 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     return out;
   };
 
+  /** Écran de table : le coup que prépare le joueur dont c'est le tour (envoyé par son téléphone). */
+  const aimedMove = (): Move | null => {
+    const raw = view.phase === 'play' ? src.aims?.[view.turn]?.m : '';
+    if (!raw) return null;
+    try { return JSON.parse(raw) as Move; } catch { return null; }
+  };
+  /** Le coup prend-il une bille ? Sur la tablette, la main du joueur n'est pas connue : on y met la carte jouée. */
+  const captures = (m: Move) => {
+    try {
+      const st = watching ? { ...view, hands: view.hands.map((hd, k) => (k === view.turn ? [m.card] : hd ?? [])) } : view;
+      return applyMove(st, m).lastCaptures.length > 0;
+    } catch { return false; }
+  };
+
   const preview = (pl: Plan) => {
     pathLayer.replaceChildren();
     ghostLayer.replaceChildren();
-    const m = pl.chosen;
-    const sevenSplit = [...split].filter(([, n]) => n > 0);
+    const m = watching ? aimedMove() : pl.chosen;
+    const sevenSplit = watching ? [] : [...split].filter(([, n]) => n > 0);
     if (sevenSplit.length && (!m || m.kind === 'seven')) return previewSeven(sevenSplit, m);
     if (!m || m.kind === 'discard' || m.kind === 'swap') return false;
-    const cap = applyMove(view, m).lastCaptures.length > 0;
+    const cap = captures(m);
     const ghost = (s: number, i: number, p: number) => {
       const [x, y] = xy(s, i, p), z = Z.ps + 8;
       ghostLayer.append(h('div', { class: 'ghost', style: { left: r1(x - z / 2), top: r1(y - z / 2), width: z, height: z, borderColor: cap ? 'var(--ink)' : 'var(--coral)' } }));
@@ -562,7 +576,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   /** Aperçu du 7 : sur chaque bille et sur sa case d'arrivée, une étiquette « +n ». Gris si le partage ne joue pas. */
   const previewSeven = (parts: [string, number][], m: Move | null) => {
     const ok = !!m;
-    const cap = ok && applyMove(view, m!).lastCaptures.length > 0;
+    const cap = ok && captures(m!);
     const edge = !ok ? 'var(--ink-3)' : cap ? 'var(--ink)' : 'var(--coral)';
     const tag = (x: number, y: number, text: string, color: string, arrival: boolean) =>
       ghostLayer.append(h('div', { class: 'seven-tag' + (arrival ? ' seven-tag--arrival' : ''), style: { left: r1(x), top: r1(y), borderColor: color } }, text));
@@ -879,7 +893,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const renderPad = (pl: Plan) => {
     // Le téléphone dit à la tablette ce qu'il prépare (même s'il montre le plateau).
     if (src.setAim && src.tableOn && !watching) {
-      const a = myTurn() && sel !== null ? { card: rankOf(myHand()[sel]), n: padList(pl).map(key).join(','), pick: pick ? key(pick) : '' } : null;
+      const ready = pl.chosen && pl.chosen.kind !== 'discard' ? JSON.stringify(pl.chosen) : '';
+      const a = myTurn() && sel !== null ? { card: rankOf(myHand()[sel]), n: padList(pl).map(key).join(','), pick: pick ? key(pick) : '', m: ready } : null;
       const sig = JSON.stringify(a);
       if (sig !== lastAim) {
         lastAim = sig;
@@ -909,8 +924,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const list = padList(pl);
     // Sans les numéros sur la tablette, le bouton dit où est la bille (et à qui elle est, si ce n'est pas la sienne).
     const where = (r: PawnRef) => {
-      const p = view.pawns[r.s][r.i].p, left = L - 1 - p;
-      const spot = p < 0 ? 'Réserve' : inHome(N, p) ? 'Maison' : left <= 0 ? 'devant la maison' : `à ${left} case${left > 1 ? 's' : ''} de la maison`;
+      const p = view.pawns[r.s][r.i].p;
+      // Distance jusqu'à la meilleure place de sa maison : le trou libre le plus au fond qu'elle peut atteindre
+      // (on n'y saute pas de bille). Les trous de maison sont L + 1 à L + 4.
+      const home = view.pawns[r.s].map((pw) => pw.p).filter((q) => inHome(N, q) && q > p);
+      const best = (home.length ? Math.min(...home) : L + HOME_SIZE + 1) - 1;
+      const d = inHome(N, p) ? best - p : best - L + (L - 1 - p);
+      const spot = p < 0 ? 'Réserve' : inHome(N, p) ? (d > 0 ? `Maison · encore ${d} case${d > 1 ? 's' : ''}` : 'Maison')
+        : best <= L ? 'entrée de la maison bloquée' : `à ${d} case${d > 1 ? 's' : ''} du fond de la maison`;
       return (r.s === me ? '' : `${nameOf(r.s)} · `) + spot;
     };
     padPanel.replaceChildren(

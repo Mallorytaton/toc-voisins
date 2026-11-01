@@ -15,8 +15,8 @@ export interface GameSource {
   /** Partie en ligne avec un écran de table (tablette) : le téléphone peut passer en mode manette. */
   readonly tableOn?: boolean;
   /** Ce que chaque place prépare (carte, billes possibles « s.i,s.i », bille choisie), pour l'écran de table. */
-  readonly aims?: Record<string, { card?: string; n?: string; pick?: string }>;
-  setAim?(a: { card: string; n: string; pick: string } | null): void;
+  readonly aims?: Record<string, { card?: string; n?: string; pick?: string; m?: string }>;
+  setAim?(a: { card: string; n: string; pick: string; m: string } | null): void;
   /** Prévient à chaque changement de la salle (écran de table, visées). */
   onRoom?(cb: () => void): () => void;
   readonly mySeat: number;
