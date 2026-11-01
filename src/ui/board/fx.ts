@@ -48,12 +48,20 @@ export function playFx(layer: HTMLElement, it: Fx) {
     kids.push(c);
   } else if (it.kind === 'banner') {
     y = it.y;
-    kids.push(div('left:-20px;top:-46px;width:433px;height:92px;background:linear-gradient(180deg,#ff8466,#f25a38);box-shadow:0 8px 0 #c9401f,0 24px 40px rgba(242,90,56,.35);transform:translateX(-115%)'));
-    kids.push(div("left:196px;top:0;white-space:nowrap;font:800 34px/1 var(--display);color:#fff;text-shadow:0 3px 0 #c9401f;opacity:0;padding-top:4px", it.t));
+    // Bandeau incliné qui porte son texte : ils entrent et sortent ensemble, le texte reste dans l'axe du bandeau.
+    // Le balayage passe par clip-path sur un cadre plus grand que le bandeau, pour garder son relief et son ombre.
+    const wrap = div('left:-30px;top:-42px;width:453px;height:84px;transform:rotate(-4deg);clip-path:inset(-80px 100% -80px -30px)');
+    const band = div('inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#ff8466,#f25a38);'
+      + 'box-shadow:0 8px 0 #c9401f,0 24px 40px rgba(242,90,56,.35),inset 0 3px 0 rgba(255,255,255,.3)');
+    const shine = div('left:0;top:-20%;bottom:-20%;width:70px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);transform:translateX(-100px) skewX(-20deg)');
+    const text = div('position:relative;white-space:nowrap;font:800 36px/1 var(--display);letter-spacing:.02em;color:#fff;text-shadow:0 3px 0 #c9401f;padding-top:5px;opacity:0', it.t);
+    band.append(shine, text);
+    wrap.append(band);
+    kids.push(wrap, text, shine);
   }
   if (it.kind !== 'card' && it.kind !== 'banner') ({ x, y } = it);
   const root = div(`left:${x}px;top:${y}px;width:0;height:0;pointer-events:none`);
-  root.append(...kids);
+  root.append(...(it.kind === 'banner' ? kids.slice(0, 1) : kids));
   layer.append(root);
 
   const A = (e: HTMLElement | undefined, k: Keyframe[], o: KeyframeAnimationOptions = {}) =>
@@ -94,14 +102,31 @@ export function playFx(layer: HTMLElement, it: Fx) {
       { transform: `translate(${it.x1}px,${it.y1}px) rotate(${it.r1 + 360}deg) scale(${it.s1})` },
     ], { easing: 'cubic-bezier(.45,0,.25,1)' });
   } else if (it.kind === 'banner') {
-    A(kids[0], [
-      { transform: 'translateX(-115%) skewY(-5deg)' }, { transform: 'translateX(0) skewY(-5deg)', offset: 0.2 },
-      { transform: 'translateX(2%) skewY(-5deg)', offset: 0.78 }, { transform: 'translateX(115%) skewY(-5deg)' },
-    ], { easing: 'cubic-bezier(.6,0,.3,1)' });
-    A(kids[1], [
-      { transform: 'translate(-50%,-50%) scale(.4)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(1.15)', opacity: 1, offset: 0.24 },
-      { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: 0.76 }, { transform: 'translate(-50%,-50%) scale(1.4)', opacity: 0 },
-    ]);
+    const [wrap, text, shine] = kids;
+    // Le bandeau se déroule de gauche à droite, tient, puis s'efface vers la droite.
+    A(wrap, [
+      { clipPath: 'inset(-80px 100% -80px -30px)' },
+      { clipPath: 'inset(-80px -30px -80px -30px)', offset: 0.2 },
+      { clipPath: 'inset(-80px -30px -80px -30px)', offset: 0.8 },
+      { clipPath: 'inset(-80px -30px -80px 100%)' },
+    ], { easing: 'cubic-bezier(.65,0,.35,1)' });
+    // Le texte glisse dans le même sens, juste derrière le balayage, puis repart avec lui.
+    A(text, [
+      { transform: 'translateX(-40px)', opacity: 0 },
+      { transform: 'translateX(-40px)', opacity: 0, offset: 0.06 },
+      { transform: 'translateX(4px)', opacity: 1, offset: 0.24 },
+      { transform: 'translateX(0)', opacity: 1, offset: 0.3 },
+      { transform: 'translateX(0)', opacity: 1, offset: 0.8 },
+      { transform: 'translateX(40px)', opacity: 0, offset: 0.96 },
+      { transform: 'translateX(40px)', opacity: 0 },
+    ], { easing: 'ease-out' });
+    // Un reflet traverse le bandeau une fois, quand il est en place.
+    A(shine, [
+      { transform: 'translateX(-100px) skewX(-20deg)' },
+      { transform: 'translateX(-100px) skewX(-20deg)', offset: 0.28 },
+      { transform: 'translateX(520px) skewX(-20deg)', offset: 0.6 },
+      { transform: 'translateX(520px) skewX(-20deg)' },
+    ], { easing: 'ease-in-out' });
   }
   setTimeout(() => root.remove(), D + 80);
 }
