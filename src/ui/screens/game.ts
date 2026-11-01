@@ -63,7 +63,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const tableJournal = h('div', { class: 'table-journal', hidden: true });
   root.append(tableJournal);
   const LOW_H = 760 - SPLIT_Y;
-  /** Écran de table : la barre, le plateau et les noms sous les avatars du bas (la main y est cachée). */
+  /** Écran de table : le plateau seul, des noms au-dessus des avatars du haut à ceux du bas (sans barre ni main). */
+  const TABLE_Y = 58;
   const TABLE_H = 488;
   const stage2 = h('div', { class: 'game__stage' });
   const frame2 = h('div', { class: 'game__frame', hidden: true }, stage2);
@@ -143,7 +144,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (P?.j) tableJournal.style.cssText = `left:${P.j.x}px;top:${P.j.y}px;width:${P.j.w}px;height:${P.j.h}px`;
     if (P) {
       putFrame(frame, P.a);
-      showRegion(stage, frame, 0, P.kind === 'table' ? TABLE_H : SPLIT_Y);
+      if (P.kind === 'table') showRegion(stage, frame, TABLE_Y, TABLE_H - TABLE_Y);
+      else showRegion(stage, frame, 0, SPLIT_Y);
       if (P.b) {
         putFrame(frame2, P.b);
         showRegion(stage2, frame2, SPLIT_Y, LOW_H);
@@ -161,6 +163,19 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
   };
   allowLandscape(true);
+  // Pendant une partie, la page ne défile pas (sinon l'iPhone peut la décaler en tournant).
+  document.documentElement.classList.add('in-game');
+  // iPhone : pendant une rotation, la taille passe par des valeurs intermédiaires ; on recale quand la mise en page
+  // est stable (taille réelle de l'écran de jeu), puis encore un peu après la rotation.
+  const sizeWatch = new ResizeObserver(() => { if (!disposed) fit(); });
+  sizeWatch.observe(root);
+  const settle = () => [120, 350, 800].forEach((ms) => setTimeout(() => {
+    if (disposed) return;
+    window.scrollTo(0, 0);
+    fit();
+  }, ms));
+  window.addEventListener('orientationchange', settle);
+  screen.orientation?.addEventListener?.('change', settle);
   mqFlex.addEventListener('change', fit);
   mqBook.addEventListener('change', fit);
   type Posture = EventTarget & { type: string };
@@ -881,7 +896,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         outer.classList.toggle('pawn--aim', !!aim?.pick && aim.pick === k);
       });
       if (aim?.card) turnEl.textContent = `Tour de ${nameOf(view.turn)} · ${rankName(aim.card)}`;
+      // La barre du haut est cachée sur la tablette : la manche et le score passent en tête du journal.
       tableJournal.replaceChildren(
+        h('div', { class: 'table-journal__top' }, h('span', { class: 't-label' }, roundEl.textContent ?? ''), scoreEl.cloneNode(true) as HTMLElement),
         h('span', { class: 'table-journal__turn' }, view.phase === 'over' ? 'Partie terminée' : turnEl.textContent ?? ''),
         h('span', { class: 't-label' }, 'Journal de la partie'), ...journalRows(8));
     }
@@ -1302,6 +1319,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       closeVictory();
       offRoom?.();
       allowLandscape(false);
+      document.documentElement.classList.remove('in-game');
+      sizeWatch.disconnect();
+      window.removeEventListener('orientationchange', settle);
+      screen.orientation?.removeEventListener?.('change', settle);
       if (lastAim !== 'null') src.setAim?.(null);
       document.removeEventListener('pointerdown', closeJournalOutside, true);
       unsub();

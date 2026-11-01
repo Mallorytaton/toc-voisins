@@ -6,6 +6,8 @@
 /* overflow: clip empêche le navigateur de faire défiler la scène vers une carte touchée. */
 .game__frame { position: absolute; inset: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; overflow: clip; }
 .game__stage { position: absolute; left: 0; top: 0; width: 393px; height: 750px; transform-origin: 0 0; }
+/* Pendant une partie, la page ne défile jamais (rotation de l'iPhone comprise). */
+html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0; }
 /* Pliants : les deux volets, et un fondu quand on plie ou déplie. */
 .game[data-layout='flex'] .game__frame + .game__frame, .game[data-layout='book'] .game__frame + .game__frame,
 .game[data-layout='open'] .game__frame + .game__frame { background: var(--app); border-radius: 18px; }
@@ -27,12 +29,15 @@
 /* Écran de table : le journal de la partie, toujours visible */
 .table-journal { position: absolute; z-index: 5; display: flex; flex-direction: column; gap: 12px; padding: 20px 20px; border-radius: 28px; background: #fff; box-shadow: 0 8px 0 var(--clay), 0 20px 30px rgba(70, 40, 20, .1); overflow: hidden; }
 .table-journal__turn { font: 800 26px/1.15 var(--display); padding-top: 3px; }
+.table-journal__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.table-journal__top .g-score { box-shadow: none; padding: 0; background: none; }
 .table-journal .g-journal-row { font-size: 17px; gap: 10px; }
 .table-journal .g-journal-row > i { width: 14px; height: 14px; }
 .table-journal .g-journal-card { font-size: 18px; }
 .pawn--aim > .bille { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--coral), 0 0 18px rgba(255, 107, 74, .8); animation: tocBob .8s ease-in-out infinite; }
 /* Écran de table : pas de main ni de bouton Jouer. */
-.game[data-layout='table'] .g-actions, .game[data-layout='table'] .g-timer, .game[data-layout='table'] .hand { display: none; }
+.game[data-layout='table'] .g-actions, .game[data-layout='table'] .g-timer, .game[data-layout='table'] .hand,
+.game[data-layout='table'] .g-top, .game[data-layout='table'] .g-journal-pop { display: none; }
 
 .g-top { position: absolute; left: 16px; right: 16px; top: 6px; height: 50px; display: flex; align-items: center; gap: 8px; }
 .g-top__mid { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }

@@ -19,17 +19,28 @@ export function tableScreen(code: string): { el: HTMLElement; cleanup: () => voi
   let game: { el: HTMLElement; cleanup: () => void } | null = null;
   let alive = true;
 
-  // La tablette reste allumée tant que l'écran de table est ouvert.
+  // La tablette ne se met pas en veille tant que l'écran de table est ouvert. Certains navigateurs (iPad) n'acceptent
+  // la demande qu'après un toucher : on la refait au premier toucher, au bouton et à chaque retour sur l'app.
   let wake: WakeLock | null = null;
+  const canWake = !!(navigator as WakeNavigator).wakeLock;
   const keepAwake = () => {
-    if (document.visibilityState !== 'visible') return;
-    (navigator as WakeNavigator).wakeLock?.request('screen').then((w) => { wake = w; }).catch(() => undefined);
+    if (wake || document.visibilityState !== 'visible') return;
+    (navigator as WakeNavigator).wakeLock?.request('screen').then((w) => {
+      wake = w;
+      // La veille revient si l'app passe en arrière-plan : on redemandera au retour.
+      (w as WakeLock & EventTarget).addEventListener?.('release', () => { wake = null; });
+    }).catch(() => undefined);
   };
   document.addEventListener('visibilitychange', keepAwake);
+  document.addEventListener('pointerdown', keepAwake, true);
   keepAwake();
 
   // Les sons (BOUM, victoire…) ne partent qu'après un premier toucher sur la tablette.
-  const sound = button('Activer le son', 'white', () => { unlockAudio(); sound.remove(); }, { size: 'md' });
+  const sound = button(canWake ? 'Activer le son et garder l’écran allumé' : 'Activer le son', 'white', () => { unlockAudio(); keepAwake(); sound.remove(); }, { size: 'md' });
+  const ios = /iPad|iPhone|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+  const noWake = canWake ? null : h('span', { class: 'table-wait__tip' }, ios
+    ? 'Cette tablette ne laisse pas l’app rester allumée : le temps de la partie, mets Réglages › Luminosité et affichage › Verrouillage automatique sur « Jamais ».'
+    : 'Cette tablette ne laisse pas l’app rester allumée : le temps de la partie, allonge la mise en veille de l’écran dans les paramètres d’affichage.');
   const waiting = (title: string, text: string, seats: HTMLElement[] = [], withSound = true) => el.replaceChildren(
     h('div', { class: 'table-wait' },
       mascot('content', 150),
@@ -37,7 +48,8 @@ export function tableScreen(code: string): { el: HTMLElement; cleanup: () => voi
       h('span', { class: 'table-wait__title' }, title),
       h('span', { class: 'table-wait__text' }, text),
       seats.length ? h('div', { class: 'table-wait__seats' }, ...seats) : null,
-      withSound ? sound : null));
+      withSound ? sound : null,
+      withSound ? noWake : null));
 
   const draw = () => {
     if (!alive || !session) return;
@@ -77,6 +89,7 @@ export function tableScreen(code: string): { el: HTMLElement; cleanup: () => voi
       game?.cleanup();
       session?.quit();
       document.removeEventListener('visibilitychange', keepAwake);
+      document.removeEventListener('pointerdown', keepAwake, true);
       wake?.release().catch(() => undefined);
     },
   };

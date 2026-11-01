@@ -116,6 +116,7 @@
 .table-wait__seats { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px; margin: 10px 0; }
 .table-wait__seat { display: flex; flex-direction: column; align-items: center; gap: 6px; font: 800 15px/1.1 var(--display); }
 .table-wait__seat--empty > span:last-child { color: var(--ink-3); }
+.table-wait__tip { max-width: 46ch; font: 700 13px/1.4 var(--text); color: var(--ink-3); }
 .table-qr { align-self: center; }
 
 /* Salle autour de la table (vue de dessus) */
