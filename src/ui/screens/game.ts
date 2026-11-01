@@ -33,7 +33,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const g = geom(N);
   const L = trackLen(N);
   const Z = N === 4
-    ? { hs: 13.5, ss: 16.5, rs: 13.5, ps: 17, av: 40, lift: 11 }
+    ? { hs: 13.5, ss: 16.5, rs: 13.5, ps: 17, av: 36, lift: 11 }
     : { hs: 10.5, ss: 13, rs: 10.5, ps: 13.5, av: 34, lift: 8 };
   const tint = (s: number) => COL[SEAT_COLORS[N][s]];
   const nick = draftProfile().nick || 'Toi';
@@ -310,8 +310,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const pl = isMe ? { ...src.players[s], ...draftProfile() } : src.players[s];
     const pulse = h('div', { class: 'seat-av__pulse', style: { background: ring } });
     const spin = h('div', { class: 'seat-av__spin', style: { borderColor: ring } });
-    const cards = h('span', { class: 'seat-av__cards', style: x > 200 ? { left: '-8px' } : { right: '-8px' } });
     const vert = Math.abs(x - 180) < 20;
+    // Pastille du nombre de cartes : côté extérieur, à l'opposé du nom (au-dessus du plateau, pas sur ses trous).
+    const cards = h('span', { class: 'seat-av__cards', style: { ...(x > 200 && !vert ? { right: '-8px' } : { left: '-8px' }), ...(y < 180 && !vert ? { top: 'auto', bottom: '-6px' } : {}) } });
     // Nom centré sous (ou sur) l'avatar ; aux coins, aligné sur le bord pour rester entier (avec « Commence », « Ensuite »).
     const across = x < 120 ? { left: '-4px' } : x > 273 ? { right: '-4px' } : { left: '50%', transform: 'translateX(-50%)' };
     const tag = vert && y < 180 ? { left: size + 8 + 'px', top: size / 2 - 9 + 'px' }

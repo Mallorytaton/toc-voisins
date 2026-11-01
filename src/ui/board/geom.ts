@@ -31,6 +31,8 @@ export interface Geom {
 }
 
 const H = SQUARES_PER_SEAT;
+/** Distance entre le centre d'un perso des côtés et le bord du plateau */
+const AV_EDGE = 14;
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const cache = new Map<number, Geom>();
 
@@ -59,7 +61,12 @@ export function geom(N: 4 | 6): Geom {
       for (let i = 0; i < n; i++) track.push(lerp(A, B, i / n));
     });
     lanes.push([1, 2, 3, 4].map((i) => pt(a, p, P.rout - P.ls * i, 0)));
-    avs.push(pt(a, p, P.av, 0));
+    // Persos : sur l'axe du bras ; ceux qui regardent vers la gauche ou la droite (coins à 4, côtés à 6) vont
+    // jusqu'au bord du plateau, pour ne cacher ni trou ni bille.
+    // En bas, un peu plus haut : leur nom (dessous) ne touche pas la consigne sous le plateau.
+    const av = Math.abs(a[0]) > 0.3 ? pt(a, p, (c - AV_EDGE) / Math.abs(a[0]) / f, 0) : pt(a, p, P.av, 0);
+    if (Math.abs(a[0]) > 0.3) av[1] = Math.min(av[1], 2 * c - AV_EDGE - 8);
+    avs.push(av);
     const bt = th + 180 / N, b: Pt = [Math.cos(bt * rad), Math.sin(bt * rad)], q: Pt = [-b[1], b[0]];
     const rp = N === 4 ? [[-55, 335], [-20, 300], [20, 300], [55, 335]] : [[-20, 310], [20, 310], [-20, 350], [20, 350]];
     res.push(rp.map(([t, r]) => pt(b, q, r, t)));

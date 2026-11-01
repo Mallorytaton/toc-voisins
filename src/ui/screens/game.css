@@ -117,7 +117,7 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .seat-av__chip--first { background: var(--coral); font-size: 9px; }
 .seat-av--off { filter: grayscale(.8); opacity: .7; }
 /* À qui le tour : anneau en pointillés qui tourne, et « … » après le nom */
-.seat-av__spin { position: absolute; inset: -9px; border-radius: 50%; border: 3px dashed; animation: tocSpin 3s linear infinite; }
+.seat-av__spin { position: absolute; inset: -8px; border-radius: 50%; border: 3px dashed; animation: tocSpin 3s linear infinite; }
 .seat-av--turn .seat-av__name::after { content: '...'; display: inline-block; width: 0; overflow: hidden; vertical-align: bottom; animation: tocDots 1.2s steps(4) infinite; }
 @keyframes tocDots { to { width: 1.1em; } }
 @keyframes tocSpin { to { rotate: 360deg; } }
