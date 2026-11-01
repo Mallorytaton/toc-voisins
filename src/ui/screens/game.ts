@@ -46,10 +46,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const stage = h('div', { class: 'game__stage' });
   const frame = h('div', { class: 'game__frame' }, stage);
   const root = h('div', { class: 'game' }, frame);
+  /** Contenu de l'écran de fin : à la même échelle que la scène (son fond, lui, couvre tout l'écran). */
+  let victoryInner: HTMLElement | null = null;
   const fit = () => {
     const w = frame.clientWidth, ht = frame.clientHeight;
     const s = Math.min(w / STAGE_W, ht / STAGE_H);
     stage.style.transform = `translate(${(w - STAGE_W * s) / 2}px,${Math.max(0, (ht - STAGE_H * s) / 2)}px) scale(${s})`;
+    if (victoryInner) victoryInner.style.transform = stage.style.transform;
   };
   window.addEventListener('resize', fit);
 
@@ -127,7 +130,17 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   // Fin de partie en grand : tout l'écran aux couleurs de l'équipe gagnante.
   let victoryEl: HTMLElement | null = null;
-  const closeVictory = () => { victoryEl?.remove(); victoryEl = null; };
+  // Barre d'état de l'app installée : elle prend la couleur de l'écran de fin, puis retrouve la sienne.
+  const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  let themeBefore: string | null = null;
+  const setTheme = (col: string) => { if (!themeMeta) return; themeBefore ??= themeMeta.content; themeMeta.content = col; };
+  const closeVictory = () => {
+    victoryEl?.remove();
+    victoryEl = null;
+    victoryInner = null;
+    if (themeMeta && themeBefore !== null) themeMeta.content = themeBefore;
+    themeBefore = null;
+  };
   const fx = (layer: 'board' | 'screen', it: Fx) => {
     if (it.kind === 'float') it = { ...it, x: Math.min(300, Math.max(60, it.x)), y: Math.max(40, it.y) };
     playFx(layer === 'board' ? fxBoard : fxScreen, it);
@@ -1042,9 +1055,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       left: `${(i * 37) % 100}%`, background: ['#ffc93c', '#fff', '#2ec4a0', '#4a7dff', '#ff6fae'][i % 5],
       animationDelay: `-${((i * 0.37) % 2.6).toFixed(2)}s`, animationDuration: `${(2.2 + (i % 4) * 0.3).toFixed(1)}s`,
     } }));
-    victoryEl = h('div', { class: 'victory' + (won ? '' : ' victory--lost'), role: 'dialog', 'aria-label': won ? 'Victoire' : 'Partie perdue', style: { '--vc': c.c, '--vd': c.d } },
-      won && h('span', { class: 'victory__rays' }),
-      won && h('span', { class: 'victory__confetti' }, ...confetti),
+    // Le fond (couleur, rayons, confettis) couvre tout l'écran, encoche et bas compris ;
+    // le contenu suit l'échelle de la scène, comme le plateau.
+    victoryInner = h('div', { class: 'victory__inner', style: { transform: stage.style.transform } },
       h('span', { class: 'victory__kicker' }, won ? `Équipe ${TEAM_NAMES[t]}` : `L’équipe ${TEAM_NAMES[t]} gagne`),
       h('span', { class: 'victory__title' }, won ? 'Victoire !' : 'Partie perdue'),
       h('div', { class: 'victory__toc' }, mascot(won ? 'vainqueur' : 'surpris', 150)),
@@ -1059,7 +1072,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       h('div', { style: { flex: 1 } }),
       button('Revanche', 'white', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
       button('Retour à l’accueil', 'text', () => { closeVictory(); o.onQuit(); }));
-    stage.append(victoryEl);
+    victoryEl = h('div', { class: 'victory' + (won ? '' : ' victory--lost'), role: 'dialog', 'aria-label': won ? 'Victoire' : 'Partie perdue', style: { '--vc': c.c, '--vd': c.d } },
+      won && h('span', { class: 'victory__rays' }),
+      won && h('span', { class: 'victory__confetti' }, ...confetti),
+      h('div', { class: 'victory__frame' }, victoryInner));
+    root.append(victoryEl);
+    setTheme(won ? c.c : '#4a4862');
   };
   const showEnd = (st: GameState) => {
     const won = teamOf(N, me) === st.winner;
@@ -1088,6 +1106,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     el: root,
     cleanup: () => {
       disposed = true;
+      closeVictory();
       document.removeEventListener('pointerdown', closeJournalOutside, true);
       unsub();
       unsubEmote?.();

@@ -86,12 +86,15 @@
 
 /* Fin de partie en grand */
 .victory {
-  position: absolute; inset: 0; z-index: 3000; display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 44px 24px 26px; text-align: center; color: #fff; overflow: hidden; animation: tocFade .35s ease-out both;
+  position: absolute; inset: 0; z-index: 3000; text-align: center; color: #fff; overflow: hidden; animation: tocFade .35s ease-out both;
   background: radial-gradient(120% 70% at 50% 28%, rgba(255, 255, 255, .3), transparent 60%), linear-gradient(180deg, var(--vc), var(--vd));
 }
 .victory--lost { background: radial-gradient(120% 70% at 50% 28%, rgba(255, 255, 255, .12), transparent 60%), linear-gradient(180deg, #4a4862, #2b2a3d); }
-.victory > :not(.victory__rays):not(.victory__confetti) { position: relative; }
+.victory__frame { position: absolute; inset: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; }
+.victory__inner {
+  position: absolute; left: 0; top: 0; width: 393px; height: 750px; transform-origin: 0 0;
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 44px 24px 26px;
+}
 .victory__rays { position: absolute; left: 50%; top: 34%; width: 900px; height: 900px; margin: -450px 0 0 -450px; border-radius: 50%; background: repeating-conic-gradient(rgba(255, 255, 255, .13) 0 9deg, transparent 9deg 18deg); animation: tocSpin 20s linear infinite; }
 .victory__confetti { position: absolute; inset: 0; pointer-events: none; }
 .victory__confetti i { position: absolute; top: -14px; width: 8px; height: 14px; border-radius: 2px; animation: tocFall 2.6s linear infinite; }
@@ -109,7 +112,7 @@
 .victory .btn--white { color: var(--vd); }
 .victory--lost .btn--white { color: var(--ink); }
 .victory .btn--text { color: #fff; }
-@keyframes tocFall { from { transform: translateY(0) rotate(0); } to { transform: translateY(800px) rotate(540deg); } }
+@keyframes tocFall { from { transform: translateY(0) rotate(0); } to { transform: translateY(110vh) rotate(540deg); } }
 @keyframes tocHop { 0%, 100% { translate: 0 0; scale: 1 1; } 15% { scale: 1.06 .94; } 45% { translate: 0 -18px; scale: .97 1.03; } 75% { scale: 1.04 .96; } }
 @keyframes tocFade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .victory__rays, .victory__confetti, .victory__toc, .seat-av__spin { animation: none; } }
