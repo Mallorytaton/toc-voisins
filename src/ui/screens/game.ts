@@ -303,7 +303,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const syncPawns = (st: GameState) => st.pawns.forEach((row, s) => row.forEach((pw, i) => place(s, i, pw.p)));
 
   // ---------- Avatars ----------
-  const avEls: { root: HTMLElement; pulse: HTMLElement; spin: HTMLElement; cards: HTMLElement }[] = [];
+  const avEls: { root: HTMLElement; pulse: HTMLElement; spin: HTMLElement; cards: HTMLElement; chip: HTMLElement; meTag: HTMLElement | null }[] = [];
   for (let s = 0; s < N; s++) {
     const [x, y] = g.avs[armOf(N, me, s)];
     const size = Z.av, ring = tint(s).c, isMe = s === me && !watching;
@@ -312,17 +312,22 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const spin = h('div', { class: 'seat-av__spin', style: { borderColor: ring } });
     const cards = h('span', { class: 'seat-av__cards', style: x > 200 ? { left: '-8px' } : { right: '-8px' } });
     const vert = Math.abs(x - 180) < 20;
+    // Nom centré sous (ou sur) l'avatar ; aux coins, aligné sur le bord pour rester entier (avec « Commence », « Ensuite »).
+    const across = x < 120 ? { left: '-4px' } : x > 273 ? { right: '-4px' } : { left: '50%', transform: 'translateX(-50%)' };
     const tag = vert && y < 180 ? { left: size + 8 + 'px', top: size / 2 - 9 + 'px' }
-      : y < 180 ? { left: '50%', top: '-20px', transform: 'translateX(-50%)' }
-        : { left: '50%', top: size + 5 + 'px', transform: 'translateX(-50%)' };
+      : y < 180 ? { ...across, top: '-20px' }
+        : { ...across, top: size + 5 + 'px' };
+    // Qui commence la donne (pendant la donne et l'échange), puis qui joue après le joueur actif.
+    const chip = h('i', { class: 'seat-av__chip', hidden: true });
+    const meTag = isMe ? h('span', { class: 'seat-av__name', style: tag, hidden: true }, 'Toi', chip) : null;
     const rootAv = h('div', { class: 'seat-av', style: { left: r1(x - size / 2), top: r1(y - size / 2), width: size, height: size } },
       pulse,
       spin,
       h('div', { class: 'seat-av__disc', style: { boxShadow: `0 0 0 3px ${ring},0 6px 12px rgba(70,40,20,.25)` } }),
       h('div', { style: { position: 'absolute', inset: 0 } }, avatar(pl.char, pl.color, size)),
       cards,
-      !isMe && h('span', { class: 'seat-av__name', style: tag }, pl.name));
-    avEls[s] = { root: rootAv, pulse, spin, cards };
+      isMe ? meTag : h('span', { class: 'seat-av__name', style: tag }, pl.name, chip));
+    avEls[s] = { root: rootAv, pulse, spin, cards, chip, meTag };
     avLayer.append(rootAv);
   }
 
@@ -854,10 +859,26 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }));
   };
 
+  /** Le joueur qui jouera après le joueur actif (le suivant qui a encore des cartes), ou -1. */
+  const nextSeat = () => {
+    for (let k = 1; k < N; k++) {
+      const s = (view.turn + k) % N;
+      if (view.hands[s]?.length) return s;
+    }
+    return -1;
+  };
+
   const renderAvatars = () => {
+    const starting = view.phase === 'deal' || view.phase === 'exchange';
+    const upNext = view.phase === 'play' ? nextSeat() : -1;
     for (let s = 0; s < N; s++) {
       const active = view.phase === 'play' && view.turn === s;
       const e = avEls[s];
+      const label = starting && s === view.turn ? 'Commence' : s === upNext ? 'Ensuite' : '';
+      e.chip.textContent = label;
+      e.chip.hidden = !label;
+      if (e.meTag) e.meTag.hidden = !label;
+      e.root.classList.toggle('seat-av--next', !!label);
       e.root.style.transform = `scale(${active ? 1.14 : 1})`;
       e.pulse.hidden = !active;
       // À qui le tour : un anneau tourne autour du joueur actif, les autres pâlissent un peu.
@@ -1035,7 +1056,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         setCoach(ls.mood);
         t = `Leçon ${lessonNo} sur ${LESSONS.length} · ${ls.title}`;
         sub = ls.text();
-      } else if (view.exchange[me]) { t = 'Carte donnée'; sub = src.slow ? 'On attend les autres : ils donneront leur carte en revenant.' : 'On attend que tout le monde échange.'; }
+      } else if (view.exchange[me]) {
+        t = 'Carte donnée';
+        sub = src.slow ? 'On attend les autres : ils donneront leur carte en revenant.'
+          : `On attend les autres. Ensuite, ${view.turn === me ? 'c’est toi qui commences' : nameOf(view.turn) + ' commence'}.`;
+      }
       else if (sel === null) { t = 'Échange'; sub = `Choisis une carte à passer à ${nameOf(partner(N, me))}.`; }
       else { t = cardLook(myHand()[sel]).t; sub = `Elle part chez ${nameOf(partner(N, me))}, face cachée.`; label = 'Donner'; }
     } else if (!myTurn()) {
@@ -1243,6 +1268,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const moved = !!next.lastMove && JSON.stringify(next.lastMove) !== JSON.stringify(prev.lastMove);
     if (moved) await animateMove(prev, next);
     const wasMyTurn = !watching && prev.phase === 'play' && prev.turn === me;
+    let opened = false;
     // Le coup d'un autre (ex. un robot qui échange sa carte) ne doit pas effacer la sélection en cours.
     const sameHand = JSON.stringify(prev.hands[me]) === JSON.stringify(next.hands[me]);
     if (moved || prev.phase !== next.phase || !sameHand) clearSel();
@@ -1261,11 +1287,19 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       await sleep(1300);
     } else if (prev.phase === 'exchange' && next.phase === 'play') {
       render();
-      toast(`${nameOf(partner(N, me))} t’a passé une carte`);
-      await sleep(600);
+      if (!watching) {
+        toast(`${nameOf(partner(N, me))} t’a passé une carte`, 1000);
+        await sleep(1050);
+      }
+      // Qui ouvre la donne, en grand pour toute la table.
+      const first = nameOf(next.turn);
+      const mine = !watching && next.turn === me;
+      fx('screen', { kind: 'banner', y: 262, t: mine ? 'TU COMMENCES !' : `${(first.length > 9 ? first.slice(0, 8) + '…' : first).toUpperCase()} COMMENCE !`, ms: 1700 });
+      opened = true;
+      if (!mine) await sleep(500);
     }
     if (!watching && next.phase === 'play' && next.turn === me && (!wasMyTurn || moved)) {
-      fx('screen', { kind: 'banner', y: 262, t: 'À TOI DE JOUER !', ms: 1500 });
+      if (!opened) fx('screen', { kind: 'banner', y: 262, t: 'À TOI DE JOUER !', ms: 1500 });
       sfx('tour');
       buzz([60, 40, 60]);
     }
