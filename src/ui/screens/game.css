@@ -21,7 +21,7 @@
 .pad-pawn { display: flex; align-items: center; gap: 10px; padding: 12px; border: none; border-radius: 20px; background: var(--seg); color: var(--ink); font: 800 13px/1.2 var(--text); text-align: left; cursor: pointer; box-shadow: 0 4px 0 var(--clay); }
 .pad-pawn b { width: 24px; font: 800 28px/1 var(--display); padding-top: 3px; text-align: center; }
 .pad-pawn--on { background: var(--coral-l); box-shadow: 0 0 0 3px var(--coral), 0 4px 0 var(--clay); }
-.pad-chip { position: absolute; right: 24px; top: 90px; z-index: 30; border: none; border-radius: 999px; padding: 7px 12px 6px; background: var(--ink); color: #fff; font: 800 12px var(--text); cursor: pointer; box-shadow: 0 3px 0 var(--dark-edge); }
+.pad-panel__turn { margin-top: auto; font: 800 12px/1.3 var(--text); color: var(--ink-3); }
 /* Écran de table : numéros des billes possibles du joueur dont c'est le tour, bille choisie qui brille. */
 .pawn[data-num]:not([data-num=''])::after { content: attr(data-num); position: absolute; top: -15px; right: -13px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--ink); color: #fff; font: 900 12px/18px var(--text); text-align: center; box-shadow: 0 0 0 2px #fff; z-index: 2; }
 /* Écran de table : le journal de la partie, toujours visible */

@@ -14,7 +14,7 @@ import { openRulesSheet } from './rules';
 import { buzz, sfx, soundSettings } from '../sound';
 import { type MascotMood, mascot } from '../mascot';
 import { openTableSheet } from '../table-invite';
-import { setLandscape } from '../orientation';
+import { allowLandscape } from '../orientation';
 
 const REPLIES = ['Aïe !', 'Tu vas voir…', 'Hahaha', 'Pas mal du tout', 'Sérieux ?'];
 const TURN_MS = 30_000;
@@ -102,9 +102,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
     // Manette en paysage : la barre et les billes à gauche, les cartes en grand à droite.
     if (manette() && W > H) {
-      const rot = document.documentElement.dataset.rot;
-      // Marges sûres vues dans l'app couchée (encoche et barre du bas passent sur les côtés).
-      const [L, R, T, B] = rot === '-90' ? [sa.t, sa.b, sa.r, sa.l] : rot === '90' ? [sa.b, sa.t, sa.l, sa.r] : [sa.l, sa.r, sa.t, sa.b];
+      const [L, R, T, B] = [sa.l, sa.r, sa.t, sa.b];
       const w = W - L - R, hh = H - T - B, wa = Math.round(w * 0.44);
       return { kind: 'manette', a: { x: L, y: T, w: wa - 4, h: hh }, b: { x: L + wa + 4, y: T, w: w - wa - 4, h: hh } };
     }
@@ -127,6 +125,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const fit = () => {
     const P = panes();
+    if (layout && (P?.kind === 'manette') !== (layout === 'manette')) requestAnimationFrame(() => { if (!disposed) render(); });
     const kind = P?.kind ?? 'phone';
     if (kind !== layout) {
       // Plier, déplier : les éléments du bas changent de volet, la partie continue (carte choisie comprise).
@@ -161,6 +160,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       victoryInner.style.transform = `translate(${(w - STAGE_W * s) / 2}px,${Math.max(0, (ht - STAGE_H * s) / 2)}px) scale(${s})`;
     }
   };
+  allowLandscape(true);
   mqFlex.addEventListener('change', fit);
   mqBook.addEventListener('change', fit);
   type Posture = EventTarget & { type: string };
@@ -228,9 +228,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   stage.append(board);
   // Mode manette : une tablette sert de plateau ; à sa place, le téléphone montre les billes jouables, numérotées.
   const padPanel = h('div', { class: 'pad-panel', hidden: true });
-  let showBoard = false;
-  const padChip = h('button', { class: 'pad-chip', type: 'button', hidden: true, onclick: () => { showBoard = false; render(); } }, 'Mode manette');
-  stage.append(padPanel, padChip);
+  stage.append(padPanel);
   const fxScreen = h('div', { class: 'fx-layer', style: { zIndex: 38 } });
   stage.append(fxScreen);
   // BOUM : Toc surgit au bas du plateau, l'air ébahi.
@@ -851,7 +849,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
 
   // ---------- Mode manette et écran de table ----------
-  const manette = () => !watching && !!src.tableOn && !showBoard;
+  // Mode manette : le téléphone tourné en paysage ne montre que les cartes et les billes à choisir ; en portrait, le plateau.
+  const manette = () => !watching && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600
+    && root.clientWidth > root.clientHeight;
   const rankName = (r: string) => (r === 'X' ? 'Joker' : RANK_SHORT[r as Rank] ?? r);
   /** Billes à choisir : les cibles du Valet une fois sa bille choisie, sinon les billes jouables. */
   const padList = (pl: Plan) => (pick && pl.targets.length ? pl.targets : pl.cands);
@@ -861,7 +861,6 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         : !myTurn() ? `Tour de ${nameOf(view.turn)}…`
           : sel === null ? 'À toi de jouer : choisis une carte en bas.' : 'Pas de bille à choisir avec cette carte : touche le bouton en bas.';
   let lastAim = 'null';
-  let landscapeOn = false;
   const renderPad = (pl: Plan) => {
     // Le téléphone dit à la tablette ce qu'il prépare (même s'il montre le plateau).
     if (src.setAim && src.tableOn && !watching) {
@@ -887,14 +886,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         h('span', { class: 't-label' }, 'Journal de la partie'), ...journalRows(8));
     }
     const on = manette();
-    if (on !== landscapeOn) {
-      landscapeOn = on;
-      setLandscape(on);
-      requestAnimationFrame(fit);
-    }
     root.classList.toggle('game--manette', on);
     padPanel.hidden = !on;
-    padChip.hidden = !(src.tableOn && !watching && showBoard);
     if (!on) return;
     const list = padList(pl);
     // Sans les numéros sur la tablette, le bouton dit où est la bille (et à qui elle est, si ce n'est pas la sienne).
@@ -905,10 +898,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     };
     padPanel.replaceChildren(
       h('div', { class: 'pad-panel__head' },
-        h('span', { class: 'pad-panel__title' }, 'Le plateau est sur la tablette'),
-        h('button', { class: 'pad-panel__link', type: 'button', onclick: () => { showBoard = true; render(); } }, 'Voir le plateau')),
+        h('span', { class: 'pad-panel__title' }, src.tableOn ? 'Le plateau est sur la tablette' : 'Mode cartes')),
       h('span', { class: 'pad-panel__hint' }, list.length
-        ? (pick && pl.targets.length ? 'Touche la bille à échanger : même numéro sur la tablette.' : 'Touche la bille à jouer : même numéro sur la tablette.')
+        ? (pick && pl.targets.length ? 'Touche la bille à échanger' : 'Touche la bille à jouer') + (src.tableOn ? ' : même numéro sur la tablette.' : '.')
         : padHint()),
       h('div', { class: 'pad-pawns' }, ...list.map((r, k) => {
         const steps = split.get(key(r)) ?? 0;
@@ -916,7 +908,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         return h('button', { class: 'pad-pawn' + (chosen ? ' pad-pawn--on' : ''), type: 'button', onclick: () => onPawn(r) },
           h('b', null, String(k + 1)), bille(SEAT_COLORS[N][r.s], { size: 30 }),
           h('span', null, where(r) + (steps ? ` · +${steps}` : '')));
-      })));
+      })),
+      h('span', { class: 'pad-panel__turn' }, 'Tourne le téléphone en portrait pour revoir le plateau.'));
   };
   // Changement dans la salle (tablette qui arrive ou part, visée d'un joueur) : on redessine.
   const offRoom = src.onRoom?.(() => { if (!disposed) render(); });
@@ -1308,7 +1301,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       disposed = true;
       closeVictory();
       offRoom?.();
-      if (landscapeOn) setLandscape(false);
+      allowLandscape(false);
       if (lastAim !== 'null') src.setAim?.(null);
       document.removeEventListener('pointerdown', closeJournalOutside, true);
       unsub();

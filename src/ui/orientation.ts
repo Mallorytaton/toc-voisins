@@ -10,25 +10,25 @@ function angle(): number {
   return ((a % 360) + 360) % 360;
 }
 
-/** Mode manette (une tablette sert de plateau) : le téléphone passe en paysage. */
-let wantLandscape = false;
+/** Pendant une partie, le paysage est permis : le téléphone tourné ne montre que les cartes (mode manette). */
+let landscapeOk = false;
 
 function apply() {
   const phone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
   const landscape = window.innerWidth > window.innerHeight;
   const a = angle();
-  // Portrait d'habitude ; en manette, paysage : tenu droit, l'app s'affiche couchée (on tourne le téléphone vers la gauche pour lire).
-  const rot = !phone ? '' : wantLandscape ? (landscape ? '' : '-90') : landscape ? (a === 270 ? '-90' : '90') : '';
+  // Portrait d'habitude : tourné, l'app pivote à l'inverse ; en partie, le paysage reste paysage (mode manette).
+  const rot = phone && landscape && !landscapeOk ? (a === 270 ? '-90' : '90') : '';
   if (rot) document.documentElement.dataset.rot = rot;
   else delete document.documentElement.dataset.rot;
 }
 
-/** Mode manette : paysage (Android l'impose ; iPhone et navigateurs : l'app s'affiche couchée). */
-export function setLandscape(on: boolean) {
-  if (on === wantLandscape) return;
-  wantLandscape = on;
+/** Partie en cours : le téléphone peut passer en paysage (Android lève le blocage portrait le temps de la partie). */
+export function allowLandscape(on: boolean) {
+  if (on === landscapeOk) return;
+  landscapeOk = on;
   const o = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
-  o?.lock?.(on ? 'landscape' : 'portrait').catch(() => undefined);
+  o?.lock?.(on ? 'any' : 'portrait').catch(() => undefined);
   apply();
 }
 
