@@ -211,17 +211,34 @@ describe('entrée en maison', () => {
     expect(applyMove(st, find(st, '6S0', () => true)).pawns[0][0].p).toBe(L + 4);
   });
 
-  it('impossible de dépasser le fond de la maison', () => {
+  it('impossible de dépasser le fond de la maison : la bille refait un tour, ou on défausse', () => {
     const st = mk(['8S0']);
     put(st, 0, 0, E - 2);
-    expect(movesOf(st, '8S0')).toHaveLength(0);
+    const ms = legalMoves(st);
+    expect(ms.filter((m) => m.kind === 'step' && !m.lap)).toHaveLength(0);
+    const lap = ms.find((m) => m.kind === 'step' && m.lap);
+    expect(lap).toBeTruthy();
+    // E-2 → E-1 → E (entrée), puis le départ (0) et 5 cases de plus.
+    expect(applyMove(st, lap!).pawns[0][0].p).toBe(5);
+    expect(ms.some((m) => m.kind === 'discard')).toBe(true);
+    expect(applyMove(st, { kind: 'discard', card: '' }).hands[0]).toEqual([]);
+  });
+
+  it('devant sa maison, on choisit : rentrer ou refaire un tour (pas de défausse)', () => {
+    const st = mk(['3S0']);
+    put(st, 0, 0, E - 2);
+    const ms = legalMoves(st).filter((m) => m.kind === 'step' && m.pawn.i === 0);
+    expect(ms.map((m) => (m.kind === 'step' && m.lap ? 'tour' : 'maison')).sort()).toEqual(['maison', 'tour']);
+    expect(legalMoves(st).some((m) => m.kind === 'discard')).toBe(false);
+    const lap = ms.find((m) => m.kind === 'step' && m.lap)!;
+    expect(applyMove(st, lap).pawns[0][0].p).toBe(0);
   });
 
   it('impossible de sauter un pion déjà en maison', () => {
     const st = mk(['5S0', '3S0']);
     put(st, 0, 0, E - 2);
     put(st, 0, 1, L + 2);
-    expect(movesOf(st, '5S0').filter((m) => m.kind === 'step' && m.pawn.i === 0)).toHaveLength(0);
+    expect(movesOf(st, '5S0').filter((m) => m.kind === 'step' && m.pawn.i === 0 && !m.lap)).toHaveLength(0);
     // Mais on peut s'arrêter juste avant.
     const m = find(st, '3S0', (m) => m.kind === 'step' && m.pawn.i === 0);
     expect(applyMove(st, m).pawns[0][0].p).toBe(L + 1);

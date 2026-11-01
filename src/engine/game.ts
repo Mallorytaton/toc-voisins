@@ -165,12 +165,12 @@ export function applyMove(st0: GameState, move: Move): GameState {
         const other = move.as === '5' && st.variants.fiveOthers;
         if (exp === 0 || move.steps !== exp) throw new Error('Déplacement invalide');
         if (other ? move.pawn.s === seat : move.pawn.s !== cs) throw new Error('Pion non jouable');
-        res = doStep(ctx, move.pawn, move.steps);
+        res = doStep(ctx, move.pawn, move.steps, !!move.lap);
         const suffix = /^\d+$/.test(label) ? '' : ` (${label})`;
         text =
           move.steps < 0
             ? `@${seat} recule ${own(move.pawn)} de ${-move.steps}${suffix}`
-            : `@${seat} avance ${own(move.pawn)} de ${move.steps}${suffix}`;
+            : `@${seat} avance ${own(move.pawn)} de ${move.steps}${suffix}${move.lap ? ' et refait un tour' : ''}`;
         break;
       }
       case 'swap':
@@ -183,7 +183,7 @@ export function applyMove(st0: GameState, move: Move): GameState {
         if (!st.variants.sevenAnyPawns && new Set(move.parts.map((p) => `${p.pawn.s}.${p.pawn.i}`)).size > 2)
           throw new Error('Le 7 se partage entre deux pions au plus');
         res = doSeven(ctx, seat, move.parts);
-        text = `@${seat} répartit le 7 (${move.parts.map((p) => p.steps).join(' + ')})${move.as !== rankOf(move.card) ? ' avec un Joker' : ''}`;
+        text = `@${seat} répartit le 7 (${move.parts.map((p) => p.steps).join(' + ')})${move.as !== rankOf(move.card) ? ' avec un Joker' : ''}${move.parts.some((p) => p.lap) ? ', un pion refait un tour' : ''}`;
         break;
     }
     if (!res) throw new Error('Coup impossible');

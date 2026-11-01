@@ -1,5 +1,5 @@
 import {
-  PAWNS_PER_SEAT, HOME_SIZE, Pawns, clonePawns, controlledSeat, homeIndex, inBase, inHome,
+  PAWNS_PER_SEAT, HOME_SIZE, Pawns, clonePawns, controlledSeat, homeEntry, homeIndex, inBase, inHome,
   isBlocker, occupant, onTrack, progressAt, sameRef, squareOf, startSq, stepForward, trackLen,
 } from './board';
 import { RANKS, rankOf } from './cards';
@@ -20,8 +20,11 @@ interface Walk {
   land: number;
 }
 
-/** Avance un pion de k pas en respectant blocages et maison. null si impossible. */
-export function walkForward(ctx: Ctx, ref: PawnRef, k: number): Walk | null {
+/**
+ * Avance un pion de k pas en respectant blocages et maison. null si impossible.
+ * lap : arrivé devant sa maison, le pion ne rentre pas et refait un tour (il repasse par son départ).
+ */
+export function walkForward(ctx: Ctx, ref: PawnRef, k: number, lap = false): Walk | null {
   const { n, pawns, v } = ctx;
   const L = trackLen(n);
   const pw = pawns[ref.s][ref.i];
@@ -29,7 +32,7 @@ export function walkForward(ctx: Ctx, ref: PawnRef, k: number): Walk | null {
   let p = pw.p;
   const passed: number[] = [];
   for (let step = 1; step <= k; step++) {
-    const np = stepForward(n, p);
+    const np = lap && p === homeEntry(n) ? 0 : stepForward(n, p);
     if (np < L) {
       const sq = squareOf(n, ref.s, np);
       const occ = occupant(n, pawns, sq, ref);
@@ -93,9 +96,15 @@ export function doExit(ctx: Ctx, owner: number, i: number): PawnRef[] | null {
   return caps;
 }
 
-/** Déplacement simple (steps < 0 : recul). */
-export function doStep(ctx: Ctx, ref: PawnRef, steps: number): PawnRef[] | null {
-  const w = steps > 0 ? walkForward(ctx, ref, steps) : walkBackward(ctx, ref, -steps);
+/** Le pion passe-t-il devant l'entrée de sa maison en avançant de k ? (il peut alors rentrer ou refaire un tour) */
+export const crossesEntry = (n: number, p: number, k: number) => onTrack(n, p) && p + k >= trackLen(n);
+
+/** Coup où une bille refait un tour au lieu de rentrer dans sa maison. */
+export const isLap = (m: Move) => (m.kind === 'step' && !!m.lap) || (m.kind === 'seven' && m.parts.some((p) => p.lap));
+
+/** Déplacement simple (steps < 0 : recul ; lap : refait un tour au lieu de rentrer). */
+export function doStep(ctx: Ctx, ref: PawnRef, steps: number, lap = false): PawnRef[] | null {
+  const w = steps > 0 ? walkForward(ctx, ref, steps, lap) : walkBackward(ctx, ref, -steps);
   if (!w) return null;
   const caps: PawnRef[] = [];
   landOn(ctx, ref, w, caps);
@@ -122,8 +131,8 @@ export function doSwap(ctx: Ctx, a: PawnRef, b: PawnRef): boolean {
 }
 
 /** Une étape du 7 : prend les pions atteints et (sauf variante) dépassés. */
-function sevenPart(ctx: Ctx, ref: PawnRef, k: number): PawnRef[] | null {
-  const w = walkForward(ctx, ref, k);
+function sevenPart(ctx: Ctx, ref: PawnRef, k: number, lap = false): PawnRef[] | null {
+  const w = walkForward(ctx, ref, k, lap);
   if (!w) return null;
   const caps: PawnRef[] = [];
   if (!ctx.v.sevenNoPassCapture) {
@@ -145,7 +154,7 @@ export function applySevenPrefix(ctx: Ctx, seat: number, parts: SevenPart[]): Pa
     const key = part.pawn.s + ':' + part.pawn.i;
     if (part.pawn.s !== cs || used.has(key) || part.steps < 1) return null;
     used.add(key);
-    const c = sevenPart(ctx, part.pawn, part.steps);
+    const c = sevenPart(ctx, part.pawn, part.steps, !!part.lap);
     if (!c) return null;
     caps.push(...c);
   }
@@ -161,7 +170,7 @@ export function doSeven(ctx: Ctx, seat: number, parts: SevenPart[]): PawnRef[] |
 const SEVEN_CAP = 4000;
 
 /** Toutes les façons ordonnées de répartir le 7 (chaque pion au plus une fois). */
-export function sevenSplits(ctx0: Ctx, seat: number, cap = SEVEN_CAP): SevenPart[][] {
+export function sevenSplits(ctx0: Ctx, seat: number, cap = SEVEN_CAP, laps = true): SevenPart[][] {
   const out: SevenPart[][] = [];
   const rec = (ctx: Ctx, remaining: number, used: string[], parts: SevenPart[]) => {
     if (out.length >= cap) return;
@@ -177,11 +186,18 @@ export function sevenSplits(ctx0: Ctx, seat: number, cap = SEVEN_CAP): SevenPart
       if (!ctx.v.sevenAnyPawns && used.length >= 2) continue;
       const ref = { s: cs, i };
       for (let k = 1; k <= remaining; k++) {
-        const c2: Ctx = { ...ctx, pawns: clonePawns(ctx.pawns) };
-        // Si k pas sont impossibles, k+1 le sont aussi (même chemin, plus long).
-        if (!sevenPart(c2, ref, k)) break;
-        rec(c2, remaining - k, [...used, key], [...parts, { pawn: ref, steps: k }]);
-        if (out.length >= cap) return;
+        // Devant sa maison, la bille peut rentrer ou refaire un tour.
+        const ways = laps && crossesEntry(ctx.n, ctx.pawns[cs][i].p, k) ? [false, true] : [false];
+        let any = false;
+        for (const lap of ways) {
+          const c2: Ctx = { ...ctx, pawns: clonePawns(ctx.pawns) };
+          if (!sevenPart(c2, ref, k, lap)) continue;
+          any = true;
+          rec(c2, remaining - k, [...used, key], [...parts, lap ? { pawn: ref, steps: k, lap: true } : { pawn: ref, steps: k }]);
+          if (out.length >= cap) return;
+        }
+        // Si k pas sont impossibles (des deux façons), k+1 le sont aussi (même chemin, plus long).
+        if (!any) break;
       }
     }
   };
@@ -191,7 +207,7 @@ export function sevenSplits(ctx0: Ctx, seat: number, cap = SEVEN_CAP): SevenPart
 
 type MoveTpl =
   | { kind: 'exit'; pawn: PawnRef }
-  | { kind: 'step'; pawn: PawnRef; steps: number }
+  | { kind: 'step'; pawn: PawnRef; steps: number; lap?: boolean }
   | { kind: 'swap'; pawn: PawnRef; target: PawnRef }
   | { kind: 'seven'; parts: SevenPart[] };
 
@@ -203,13 +219,21 @@ function ctxOf(st: GameState): Ctx {
   return { n: st.n, v: st.variants, pawns: st.pawns };
 }
 
-/** Coups possibles pour une valeur de carte donnée (sans tenir compte de la carte physique). */
-export function movesForRank(st: GameState, seat: number, rank: Rank, cap?: number): MoveTpl[] {
+/**
+ * Coups possibles pour une valeur de carte donnée (sans tenir compte de la carte physique).
+ * laps : compter aussi les billes qui dépassent leur maison pour refaire un tour.
+ */
+export function movesForRank(st: GameState, seat: number, rank: Rank, cap?: number, laps = true): MoveTpl[] {
   const ctx = ctxOf(st);
   const { n, variants: v } = st;
   const cs = controlledSeat(n, st.pawns, seat);
   const out: MoveTpl[] = [];
   const tryCtx = (): Ctx => ({ n, v, pawns: clonePawns(st.pawns) });
+  const forwardMoves = (ref: PawnRef, k: number) => {
+    if (walkForward(ctx, ref, k)) out.push({ kind: 'step', pawn: ref, steps: k });
+    // Devant sa maison, la bille peut aussi la dépasser et refaire un tour (au choix du joueur).
+    if (laps && crossesEntry(n, st.pawns[ref.s][ref.i].p, k) && walkForward(ctx, ref, k, true)) out.push({ kind: 'step', pawn: ref, steps: k, lap: true });
+  };
 
   if (rank === 'A' || rank === 'K') {
     const i = st.pawns[cs].findIndex((pw) => inBase(pw.p));
@@ -223,16 +247,12 @@ export function movesForRank(st: GameState, seat: number, rank: Rank, cap?: numb
   if (rank === '5' && v.fiveOthers) {
     for (let s = 0; s < n; s++) {
       if (s === seat) continue;
-      for (let i = 0; i < PAWNS_PER_SEAT; i++) {
-        if (walkForward(ctx, { s, i }, 5)) out.push({ kind: 'step', pawn: { s, i }, steps: 5 });
-      }
+      for (let i = 0; i < PAWNS_PER_SEAT; i++) forwardMoves({ s, i }, 5);
     }
     return out;
   }
   if (forward) {
-    for (let i = 0; i < PAWNS_PER_SEAT; i++) {
-      if (walkForward(ctx, { s: cs, i }, forward)) out.push({ kind: 'step', pawn: { s: cs, i }, steps: forward });
-    }
+    for (let i = 0; i < PAWNS_PER_SEAT; i++) forwardMoves({ s: cs, i }, forward);
   }
   if (rank === '4') {
     for (let i = 0; i < PAWNS_PER_SEAT; i++) {
@@ -252,7 +272,7 @@ export function movesForRank(st: GameState, seat: number, rank: Rank, cap?: numb
     }
   }
   if (rank === '7') {
-    for (const parts of sevenSplits(ctx, seat, cap)) out.push({ kind: 'seven', parts });
+    for (const parts of sevenSplits(ctx, seat, cap, laps)) out.push({ kind: 'seven', parts });
   }
   return out;
 }
@@ -275,7 +295,8 @@ export function legalMoves(st: GameState): Move[] {
     const ranks = r === 'X' ? RANKS : [r];
     for (const as of ranks) for (const t of get(as)) out.push({ ...t, card, as } as Move);
   }
-  if (out.length === 0 && hand.length > 0) out.push(...discardMoves(st, hand));
+  // Rien d'autre à jouer que refaire un tour : on peut aussi défausser (refaire un tour reste un choix).
+  if (hand.length > 0 && !out.some((m) => !isLap(m))) out.push(...discardMoves(st, hand));
   return out;
 }
 
@@ -294,7 +315,7 @@ export function legalMovesFor(st: GameState, seat: number, card: Card): Move[] {
   return legalMoves(st).filter((m) => m.kind === 'discard' ? m.card === card || m.card === '' : m.card === card);
 }
 
-/** Version rapide : le joueur a-t-il au moins un coup jouable ? */
+/** Version rapide : le joueur a-t-il au moins un coup jouable (refaire un tour ne compte pas : il peut défausser) ? */
 export function hasPlayableCard(st: GameState): boolean {
   const seat = st.turn;
   const seen = new Set<string>();
@@ -304,7 +325,7 @@ export function hasPlayableCard(st: GameState): boolean {
     for (const as of r === 'X' ? RANKS : [r]) {
       if (seen.has(as)) continue;
       seen.add(as);
-      if (movesForRank(st, seat, as, 1).length > 0) return true;
+      if (movesForRank(st, seat, as, 1, false).length > 0) return true;
     }
   }
   return false;
@@ -317,10 +338,10 @@ export function moveKey(m: Move): string {
     case 'exit':
       return `exit|${m.card}|${m.as}|${m.pawn.s}.${m.pawn.i}`;
     case 'step':
-      return `step|${m.card}|${m.as}|${m.pawn.s}.${m.pawn.i}|${m.steps}`;
+      return `step|${m.card}|${m.as}|${m.pawn.s}.${m.pawn.i}|${m.steps}${m.lap ? '|tour' : ''}`;
     case 'swap':
       return `swap|${m.card}|${m.as}|${m.pawn.s}.${m.pawn.i}|${m.target.s}.${m.target.i}`;
     case 'seven':
-      return `seven|${m.card}|${m.as}|` + m.parts.map((p) => `${p.pawn.s}.${p.pawn.i}x${p.steps}`).join(',');
+      return `seven|${m.card}|${m.as}|` + m.parts.map((p) => `${p.pawn.s}.${p.pawn.i}x${p.steps}${p.lap ? 't' : ''}`).join(',');
   }
 }

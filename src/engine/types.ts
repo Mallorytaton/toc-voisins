@@ -64,11 +64,13 @@ export type Phase = 'deal' | 'exchange' | 'play' | 'over';
 export interface SevenPart {
   pawn: PawnRef;
   steps: number;
+  /** La bille dépasse l'entrée de sa maison et refait un tour */
+  lap?: boolean;
 }
 
 export type Move =
   | { kind: 'exit'; card: Card; as: Rank; pawn: PawnRef }
-  | { kind: 'step'; card: Card; as: Rank; pawn: PawnRef; steps: number }
+  | { kind: 'step'; card: Card; as: Rank; pawn: PawnRef; steps: number; lap?: boolean }
   | { kind: 'swap'; card: Card; as: Rank; pawn: PawnRef; target: PawnRef }
   | { kind: 'seven'; card: Card; as: Rank; parts: SevenPart[] }
   /** card : la carte défaussée (variante discardOne), '' pour toute la main. */
