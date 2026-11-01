@@ -44,9 +44,20 @@ export interface GameSource {
   /** En ligne : envoie une émote à la table, et reçoit celles des autres. */
   emote?(t: string): void;
   onEmote?(cb: (seat: number, t: string) => void): () => void;
+  /** En ligne : la revanche part quand tous les joueurs (hors robots) sont d'accord. */
+  rematchVotes?(): RematchVote[];
+  voteRematch?(): void;
   /** En ligne : chat de table, vu par tous les joueurs. cb(tous les messages, nouveaux messages des autres). */
   chat?(t: string): void;
   onChat?(cb: (lines: TableMsg[], fresh: TableMsg[]) => void): () => void;
+}
+
+/** Un joueur et sa réponse pour la revanche. */
+export interface RematchVote {
+  seat: number;
+  name: string;
+  ok: boolean;
+  me: boolean;
 }
 
 /** Un message du chat de table. */

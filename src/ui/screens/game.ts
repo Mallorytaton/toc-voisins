@@ -1,5 +1,5 @@
 // 06 Plateau de jeu : rendu de la maquette, sélection des coups, animations.
-import type { GameSource, TableMsg } from '../../app/game-source';
+import type { GameSource, RematchVote, TableMsg } from '../../app/game-source';
 import { draftProfile } from '../../app/profile';
 import {
   type Card, type GameState, type Move, type PawnRef, type Rank, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, inHome, isLap, legalMovesFor, partner, rankOf, sameRef, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
@@ -265,7 +265,18 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
   let themeBefore: string | null = null;
   const setTheme = (col: string) => { if (!themeMeta) return; themeBefore ??= themeMeta.content; themeMeta.content = col; };
+  /** Revanche en ligne : le bouton et qui est d'accord, mis à jour à chaque changement dans la salle. */
+  let rematchUi: { btn: HTMLButtonElement; who: HTMLElement } | null = null;
+  const renderRematch = () => {
+    if (!rematchUi || !src.rematchVotes) return;
+    const votes: RematchVote[] = src.rematchVotes(), ok = votes.filter((x) => x.ok).length, mine = votes.find((x) => x.me)?.ok;
+    rematchUi.btn.textContent = mine ? `On attend les autres (${ok}/${votes.length})` : ok ? `Revanche (${ok}/${votes.length} d’accord)` : 'Revanche';
+    rematchUi.btn.disabled = !!mine;
+    rematchUi.who.replaceChildren(...votes.map((x) =>
+      h('span', { class: 'victory__vote' + (x.ok ? ' victory__vote--ok' : '') }, `${x.ok ? '✓' : '…'} ${x.me ? 'Toi' : x.name}`)));
+  };
   const closeVictory = () => {
+    rematchUi = null;
     closeEndChat();
     victoryEl?.remove();
     victoryEl = null;
@@ -1106,7 +1117,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // Changement dans la salle (tablette qui arrive ou part, visée d'un joueur) : on redessine.
   const offRoom = src.onRoom?.(() => { if (!disposed) render(); });
 
+  const rematchBox = () => {
+    const btn = button('Revanche', 'white', () => src.voteRematch?.(), { size: 'md', block: true }) as HTMLButtonElement;
+    const who = h('div', { class: 'victory__votes', 'aria-live': 'polite' });
+    rematchUi = { btn, who };
+    return h('div', { class: 'victory__rematch' }, btn, who);
+  };
   const render = () => {
+    renderRematch();
     renderTop();
     renderAvatars();
     renderHand();
@@ -1478,7 +1496,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
           h('span', null, `${Math.floor(st.dealNo / 3) + 1} manche${st.dealNo >= 3 ? 's' : ''}`))),
       h('div', { style: { flex: 1 } }),
       watching ? button('Fermer', 'white', closeVictory, { size: 'md', block: true })
-        : button('Revanche', 'white', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
+        // En ligne, la revanche part quand tout le monde a dit oui.
+        : src.voteRematch ? rematchBox()
+          : button('Revanche', 'white', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
       !watching && src.chat ? h('button', { class: 'victory__chat', type: 'button', onclick: openEndChat }, 'Discuter avec la table', endBadge) : null,
       watching ? null : button('Retour à l’accueil', 'text', () => { closeVictory(); o.onQuit(); }));
     victoryEl = h('div', { class: 'victory' + (won ? '' : ' victory--lost'), role: 'dialog', 'aria-label': won ? 'Victoire' : 'Partie perdue', style: { '--vc': c.c, '--vd': c.d } },
@@ -1486,6 +1506,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       won && h('span', { class: 'victory__confetti' }, ...confetti),
       h('div', { class: 'victory__frame' }, victoryInner));
     root.append(victoryEl);
+    renderRematch();
     fit();
     setTheme(won ? c.c : '#4a4862');
   };

@@ -13,7 +13,7 @@ import {
   endAt, get, limitToFirst, onDisconnect, onValue, orderByValue, push, query, runTransaction, serverTimestamp, set, update,
   ref,
 } from 'firebase/database';
-import type { GameSource, SeatPlayer, TableMsg } from '../app/game-source';
+import type { GameSource, RematchVote, SeatPlayer, TableMsg } from '../app/game-source';
 import { draftProfile, saveProfile } from '../app/profile';
 import { type Room, type RoomPlayer, type RoomSnapshot, inviteLink } from '../app/room';
 import {
@@ -60,6 +60,8 @@ interface PlayerInfo {
   aim?: Aim;
   /** Ses messages du chat de table (rangés dans sa fiche : c'est là que chacun peut écrire) */
   msgs?: Record<string, { t: string; at: number }>;
+  /** D'accord pour une revanche : numéro (v) de la partie terminée */
+  rematch?: number;
 }
 
 interface HandNode {
@@ -779,6 +781,7 @@ export class OnlineGame implements GameSource {
   /** Nouvel état ou nouvelle main reçue : on prévient l'écran (une fois la main de la donne arrivée). */
   refresh() {
     const r = this.s.room;
+    this.tryRematch();
     if (r) for (const [k, e] of Object.entries(r.emotes)) {
       if (e.at > (this.seenEmote[k] ?? 0)) {
         this.seenEmote[k] = e.at;
@@ -884,6 +887,25 @@ export class OnlineGame implements GameSource {
   restartDeal() {}
   rematch() {
     this.s.rematch().catch(() => undefined);
+  }
+  /** Revanche : chaque joueur (hors robots) dit oui, dans sa fiche de la salle. */
+  rematchVotes(): RematchVote[] {
+    const r = this.s.room, v = r?.state?.v;
+    if (!r || v === undefined) return [];
+    return r.seats.flatMap((u, seat) => (u && u !== BOT
+      ? [{ seat, name: r.players[u]?.name ?? '…', ok: r.players[u]?.rematch === v, me: u === this.s.uid }] : []));
+  }
+  voteRematch() {
+    const st = this.s.room?.state;
+    if (!st || st.phase !== 'over' || this.mySeat < 0) return;
+    set(node('rooms', this.code, 'players', this.s.uid, 'rematch'), st.v)
+      .then(() => this.tryRematch())
+      .catch(() => toast('Ta réponse n’est pas passée. Réessaie.', 2400));
+  }
+  /** Tout le monde est d'accord : la nouvelle partie part (un seul envoi passe, la version de l'état fait foi). */
+  private tryRematch() {
+    const votes = this.rematchVotes();
+    if (this.s.room?.state?.phase === 'over' && votes.length && votes.every((x) => x.ok)) this.s.rematch().catch(() => undefined);
   }
   leave() {}
 }
