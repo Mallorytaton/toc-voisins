@@ -19,44 +19,49 @@ async function shareInvite(room: Room) {
   }
 }
 
+/** Une place autour de la table : joueur assis, ou chaise vide qui invite. */
 function seatView(s: RoomSnapshot, seat: number, room: Room): HTMLElement {
   const p = s.seats[seat];
   const tint = COL[SEAT_COLORS[s.n][seat]];
   if (!p)
-    return h('div', { class: 'seat' },
-      h('div', { class: 'seat__wait' }),
-      h('button', { class: 'seat__invite', type: 'button', onclick: () => shareInvite(room) },
-        h('span', null, 'En attente…'), h('span', null, 'Inviter')));
+    return h('button', { class: 'rt-seat rt-seat--empty', type: 'button', 'aria-label': 'Place libre : inviter un ami', onclick: () => shareInvite(room) },
+      h('span', { class: 'rt-seat__chair' }, '+'), h('span', { class: 'rt-seat__name' }, 'Inviter'));
   const me = seat === s.mySeat;
   // À ton rythme, être absent est normal : pas de « Déconnecté·e », et personne ne prend ta place.
   const away = !p.bot && p.online === false && !s.slow;
   const tag = me ? (p.host ? 'Toi · hôte' : 'Toi') : away ? 'Déconnecté·e' : p.host ? 'Hôte' : p.bot ? 'Robot' : 'Prêt·e';
   if (s.status === 'playing' && s.mySeat < 0 && away && room.takeSeat)
-    return h('button', { class: 'seat seat__invite', type: 'button', style: { background: tint.l }, onclick: () => room.takeSeat!(seat) },
-      avatarRing(p.char, p.color, 38, tint.c, 3, 2, null),
-      h('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
-        h('span', { class: 'seat__name' }, p.name), h('span', null, 'Prendre sa place')));
-  return h('div', { class: 'seat', style: { background: tint.l, opacity: away ? 0.6 : 1 } },
-    avatarRing(p.char, p.color, 38, tint.c, 3, 2, null),
-    h('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
-      h('span', { class: 'seat__name' }, p.name), h('span', { class: 'seat__tag' }, tag)));
+    return h('button', { class: 'rt-seat', type: 'button', onclick: () => room.takeSeat!(seat) },
+      avatarRing(p.char, p.color, 44, tint.c, 3, 2, null),
+      h('span', { class: 'rt-seat__name' }, p.name), h('span', { class: 'rt-seat__tag', style: { color: 'var(--primary-bottom)' } }, 'Prendre sa place'));
+  return h('div', { class: 'rt-seat' + (away ? ' rt-seat--away' : '') },
+    avatarRing(p.char, p.color, 44, tint.c, 3, 2, null),
+    h('span', { class: 'rt-seat__name' }, p.name), h('span', { class: 'rt-seat__tag' }, tag));
 }
 
 export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; cleanup: () => void } {
   const s0 = room.snapshot();
   const half = s0.n / 2;
-  const copyBtn = button('Copier', 'dark', async () => {
-    try {
-      await navigator.clipboard.writeText(room.link());
-    } catch {
-      return shareInvite(room);
-    }
-    copyBtn.textContent = 'Copié !';
-    copyBtn.className = 'btn btn--ok btn--sm';
-    setTimeout(() => { copyBtn.textContent = 'Copier'; copyBtn.className = 'btn btn--dark btn--sm'; }, 1600);
-  }, { size: 'sm' });
-
-  const teams = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
+  // Salle vue de dessus : chacun à sa place autour de la table, son partenaire en face (comme sur le plateau).
+  // Le code de la salle est posé au milieu ; le toucher copie le lien.
+  const copyHint = h('span', { class: 'rt__copy' }, 'Toucher pour copier');
+  const codeCard = h('button', {
+    class: 'rt__code', type: 'button', 'aria-label': 'Copier le lien de la salle',
+    onclick: async () => {
+      try {
+        await navigator.clipboard.writeText(room.link());
+      } catch {
+        return shareInvite(room);
+      }
+      copyHint.textContent = 'Lien copié !';
+      setTimeout(() => { copyHint.textContent = 'Toucher pour copier'; }, 1600);
+    },
+  }, h('span', { class: 't-mini' }, 'Code de la salle'), h('b', null, 'TOC-' + s0.code), copyHint);
+  const table = h('div', { class: 'rt' });
+  const legend = h('div', { class: 'rt-legend' });
+  // Arrivées : la place qui vient d'être prise fait un petit rebond (on garde l'heure pour ne pas le couper aux mises à jour).
+  let taken = s0.seats.map(Boolean);
+  const arrived = new Map<number, number>();
   // Règles : l'hôte les choisit avant de lancer (celles d'un tournoi sont fixées à sa création).
   const rules = variantsCard(
     () => room.snapshot().variants,
@@ -90,18 +95,26 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
 
   const draw = () => {
     const s = room.snapshot();
-    // L'équipe du joueur d'abord, lui en premier.
-    const myTeam = s.mySeat >= 0 ? s.mySeat % half : 0;
-    const order = [myTeam, ...Array.from({ length: half }, (_, t) => t).filter((t) => t !== myTeam)];
-    teams.replaceChildren(...order.map((t) => {
-      const seats = [t, t + half];
-      if (seats[1] === s.mySeat) seats.reverse();
-      return h('div', { class: 'card card--lg', style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-          duo(SEAT_COLORS[s.n][seats[0]], SEAT_COLORS[s.n][seats[1]]),
-          h('span', { style: { font: '800 17px/1 var(--display)', paddingTop: 2 } }, 'Équipe ' + TEAM_NAMES[t])),
-        h('div', { class: 'seat-grid' }, ...seats.map((k) => seatView(s, k, room))));
+    // Toi en bas ; les places suivantes dans l'ordre du jeu, comme autour du plateau.
+    const me = s.mySeat >= 0 ? s.mySeat : 0;
+    const now = Date.now();
+    s.seats.forEach((p, k) => { if (p && !taken[k]) arrived.set(k, now); });
+    taken = s.seats.map(Boolean);
+    table.replaceChildren(h('div', { class: 'rt__top' }, codeCard), ...s.seats.map((_, k) => {
+      const a = Math.PI / 2 + (((k - me + s.n) % s.n) * 2 * Math.PI) / s.n;
+      const el = seatView(s, k, room);
+      el.style.left = (50 + Math.cos(a) * 41).toFixed(1) + '%';
+      el.style.top = (50 + Math.sin(a) * 41).toFixed(1) + '%';
+      const since = now - (arrived.get(k) ?? 0);
+      if (s.seats[k] && since < 900) {
+        el.classList.add('rt-seat--arrive');
+        el.style.animationDelay = -since + 'ms';
+      }
+      return el;
     }));
+    legend.replaceChildren(
+      ...Array.from({ length: half }, (_, t) => h('span', null, duo(SEAT_COLORS[s.n][t], SEAT_COLORS[s.n][t + half]), 'Équipe ' + TEAM_NAMES[t])),
+      h('span', { class: 'rt-legend__hint' }, 'Ton partenaire est assis en face de toi.'));
     const joined = s.seats.filter(Boolean).length;
     const full = joined === s.n;
     const host = !!s.seats[s.mySeat]?.host;
@@ -143,12 +156,8 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
       // Partie de tournoi : le nom du tournoi remplace « Salle privée ».
       h('span', { style: { flex: 1, minWidth: 0, font: '800 26px/1 var(--display)', paddingTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, s0.title ?? 'Salle privée'),
       h('span', { class: 'pill' }, s0.title ? 'Tournoi' : s0.n === 4 ? '4 joueurs · 2 équipes' : '6 joueurs · 3 équipes')),
-    h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px 14px 18px' } },
-      h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } },
-        h('span', { class: 't-mini' }, 'Code de la salle'),
-        h('span', { style: { font: '800 28px/1.05 var(--display)', letterSpacing: '.06em' } }, 'TOC-' + s0.code)),
-      copyBtn),
-    teams,
+    table,
+    legend,
     pace,
     rules.el,
     h('div', { class: 'spacer' }),

@@ -10,7 +10,8 @@ export type Fx =
   | { kind: 'confetti'; x: number; y: number; ms?: number }
   | { kind: 'float'; x: number; y: number; c: string; t: string; fs?: number; ms?: number }
   | { kind: 'card'; x0: number; y0: number; x1: number; y1: number; r0: number; r1: number; s0: number; s1: number; r: string; su: string; col: string; ms?: number }
-  | { kind: 'banner'; y: number; t: string; ms?: number };
+  | { kind: 'banner'; y: number; t: string; ms?: number }
+  | { kind: 'sticker'; x: number; y: number; t: string; ms?: number };
 
 const div = (style: string, text?: string) => {
   const el = h('div', null, text ?? null);
@@ -38,6 +39,9 @@ export function playFx(layer: HTMLElement, it: Fx) {
   } else if (it.kind === 'float') {
     kids.push(div(`left:0;top:0;white-space:nowrap;font:800 ${it.fs ?? 20}px/1 var(--display);color:${it.c};opacity:0;` +
       'text-shadow:0 2px 0 #fff,0 -2px 0 #fff,2px 0 0 #fff,-2px 0 0 #fff,2px 2px 0 #fff,-2px -2px 0 #fff,0 6px 10px rgba(0,0,0,.2)', it.t));
+  } else if (it.kind === 'sticker') {
+    kids.push(div('left:0;top:0;white-space:nowrap;font:800 34px/1 var(--display);color:#fff;padding:9px 16px 5px;border-radius:18px;background:#2b2a3d;'
+      + 'box-shadow:0 5px 0 #15141f,0 14px 24px rgba(0,0,0,.25);opacity:0', it.t));
   } else if (it.kind === 'card') {
     const c = div('left:-40px;top:-58px;width:80px;height:116px;border-radius:16px;background:#fff;box-shadow:0 6px 0 #e6dccf,0 16px 24px rgba(70,40,20,.25);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px');
     c.append(h('span', { style: { font: '800 40px/1 var(--display)', color: it.col } }, it.r), h('span', { style: { font: '700 22px/1 sans-serif', color: it.col } }, it.su));
@@ -73,6 +77,14 @@ export function playFx(layer: HTMLElement, it: Fx) {
       { transform: 'translate(-50%,-110%) scale(1.2)', opacity: 1, offset: 0.22 },
       { transform: 'translate(-50%,-150%) scale(1)', opacity: 1, offset: 0.7 },
       { transform: 'translate(-50%,-230%) scale(.9)', opacity: 0 },
+    ], { easing: 'ease-out' });
+  else if (it.kind === 'sticker')
+    A(kids[0], [
+      { transform: 'translate(-50%,-50%) rotate(-8deg) scale(.2)', opacity: 0 },
+      { transform: 'translate(-50%,-50%) rotate(-11deg) scale(1.25)', opacity: 1, offset: 0.16 },
+      { transform: 'translate(-50%,-50%) rotate(-6deg) scale(1)', opacity: 1, offset: 0.3 },
+      { transform: 'translate(-50%,-50%) rotate(-6deg) scale(1)', opacity: 1, offset: 0.82 },
+      { transform: 'translate(-50%,-90%) rotate(-6deg) scale(.9)', opacity: 0 },
     ], { easing: 'ease-out' });
   else if (it.kind === 'card') {
     const mx = (it.x0 + it.x1) / 2, my = Math.min(it.y0, it.y1) - 70;

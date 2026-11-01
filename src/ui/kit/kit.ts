@@ -164,35 +164,38 @@ export function segmented<T>(options: SegOption<T>[], value: T, onChange: (v: T)
 
 export type Tab = 'home' | 'friends' | 'ranking';
 
-const i = (style: string) => {
-  const el = h('i');
-  el.style.cssText = style;
-  return el;
+/** Icônes maison de la barre d'onglets, dans le verre des billes : une bille, deux billes qui sourient, une coupe. */
+const mg = (id: string, c: string, d: string) => `<radialGradient id="${id}" cx="36%" cy="30%" r="72%"><stop offset="0" stop-color="#fff"/><stop offset=".22" stop-color="${c}"/><stop offset=".82" stop-color="${c}"/><stop offset="1" stop-color="${d}"/></radialGradient>`;
+const TAB_ICONS: Record<Tab, string> = {
+  home: `<svg viewBox="0 0 32 32" aria-hidden="true"><defs>${mg('tbj', '#ff6b4a', '#d9482a')}</defs><ellipse cx="16" cy="28.5" rx="8" ry="2.2" fill="#000" opacity=".15"/><circle cx="16" cy="15" r="11" fill="url(#tbj)"/><path d="M13.6 10.4v9.2l7.2-4.6z" fill="#fff"/></svg>`,
+  friends: `<svg viewBox="0 0 32 32" aria-hidden="true"><defs>${mg('tba', '#4a7dff', '#2f5bd6')}${mg('tbb', '#ffc93c', '#d9a116')}</defs><ellipse cx="16" cy="29" rx="12" ry="2" fill="#000" opacity=".14"/><circle cx="11" cy="15.5" r="8.6" fill="url(#tba)"/><circle cx="21.4" cy="18" r="8.6" fill="url(#tbb)"/>`
+    + '<circle cx="8.6" cy="15" r="1.3" fill="#2b2a3d"/><circle cx="13" cy="15" r="1.3" fill="#2b2a3d"/><circle cx="19.2" cy="17.4" r="1.3" fill="#2b2a3d"/><circle cx="23.8" cy="17.4" r="1.3" fill="#2b2a3d"/><path d="M19.4 20.8q2.3 1.9 4.6 0" stroke="#2b2a3d" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>',
+  ranking: '<svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="tbc" x1="0" x2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset=".55" stop-color="#ffc93c"/><stop offset="1" stop-color="#d9a116"/></linearGradient></defs><ellipse cx="16" cy="29.2" rx="8" ry="1.9" fill="#000" opacity=".14"/>'
+    + '<path d="M8.5 8H5a4 4 0 0 0 4.6 6.2M23.5 8H27a4 4 0 0 1-4.6 6.2" stroke="#d9a116" stroke-width="2" fill="none"/><path d="M8 5.5h16v6a8 8 0 0 1-16 0z" fill="url(#tbc)"/><rect x="14" y="18.5" width="4" height="4.5" fill="#d9a116"/><rect x="10" y="23" width="12" height="4.2" rx="1.6" fill="#2b2a3d"/>'
+    + '<path d="M16 7.6l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z" fill="#fff"/></svg>',
 };
+/** Dernier onglet affiché : la pastille glisse depuis lui vers le nouvel onglet. */
+let lastTab: Tab | null = null;
 
 /** Barre d'onglets flottante : Jouer · Amis · Classement. */
 export function tabbar(current: Tab, go: (t: Tab) => void): HTMLElement {
-  const icons: Record<Tab, () => HTMLElement> = {
-    home: () => h('span', { class: 'tabbar__icon', style: { width: 22 } },
-      i('left:5px;top:0;width:12px;height:12px;border-radius:50%'),
-      i('left:2px;top:12px;width:18px;height:9px;border-radius:7px 7px 3px 3px')),
-    friends: () => h('span', { class: 'tabbar__icon' },
-      i('left:2px;top:2px;width:10px;height:10px;border-radius:50%'),
-      i('left:0;top:13px;width:14px;height:8px;border-radius:7px 7px 3px 3px'),
-      i('left:13px;top:0;width:11px;height:11px;border-radius:50%;opacity:.6'),
-      i('left:11px;top:12px;width:15px;height:9px;border-radius:7px 7px 3px 3px;opacity:.6')),
-    ranking: () => h('span', { class: 'tabbar__icon', style: { display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 3 } },
-      ...[12, 20, 15].map((ht) => {
-        const b = h('i', { style: { position: 'static', width: 6, height: ht, borderRadius: 2 } });
-        return b;
-      })),
-  };
   const labels: Record<Tab, string> = { home: 'Jouer', friends: 'Amis', ranking: 'Classement' };
+  const tabs = Object.keys(labels) as Tab[];
+  const to = tabs.indexOf(current), from = lastTab ? tabs.indexOf(lastTab) : to;
+  lastTab = current;
+  const pill = h('span', { class: 'tabbar__pill', style: { '--i': String(from) } });
+  if (from !== to) requestAnimationFrame(() => requestAnimationFrame(() => pill.style.setProperty('--i', String(to))));
+  const icon = (t: Tab) => {
+    const el = h('span', { class: 'tabbar__icon' });
+    el.innerHTML = TAB_ICONS[t];
+    return el;
+  };
   return h('nav', { class: 'tabbar', 'aria-label': 'Navigation' },
-    (Object.keys(labels) as Tab[]).map((t) =>
+    pill,
+    tabs.map((t) =>
       h('button', {
         class: 'tabbar__btn', type: 'button', 'aria-current': t === current ? 'page' : undefined,
         onclick: () => go(t),
-      }, icons[t](), labels[t])),
+      }, icon(t), labels[t])),
   );
 }

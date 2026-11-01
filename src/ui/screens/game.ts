@@ -113,6 +113,21 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   stage.append(board);
   const fxScreen = h('div', { class: 'fx-layer', style: { zIndex: 38 } });
   stage.append(fxScreen);
+  // BOUM : Toc surgit au bas du plateau, l'air ébahi.
+  const tocPeek = () => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const el = h('div', { class: 'toc-peek', 'aria-hidden': 'true' }, mascot('surpris', 92));
+    stage.append(el);
+    const a = el.animate?.([
+      { translate: '0 60px', opacity: 0 }, { translate: '0 0', opacity: 1, offset: 0.18 },
+      { translate: '0 0', opacity: 1, offset: 0.82 }, { translate: '0 60px', opacity: 0 },
+    ], { duration: 1700, easing: 'cubic-bezier(.3,1.4,.5,1)' });
+    if (a) a.onfinish = () => el.remove();
+    else setTimeout(() => el.remove(), 1700);
+  };
+  // Fin de partie en grand : tout l'écran aux couleurs de l'équipe gagnante.
+  let victoryEl: HTMLElement | null = null;
+  const closeVictory = () => { victoryEl?.remove(); victoryEl = null; };
   const fx = (layer: 'board' | 'screen', it: Fx) => {
     if (it.kind === 'float') it = { ...it, x: Math.min(300, Math.max(60, it.x)), y: Math.max(40, it.y) };
     playFx(layer === 'board' ? fxBoard : fxScreen, it);
@@ -144,12 +159,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const syncPawns = (st: GameState) => st.pawns.forEach((row, s) => row.forEach((pw, i) => place(s, i, pw.p)));
 
   // ---------- Avatars ----------
-  const avEls: { root: HTMLElement; pulse: HTMLElement; cards: HTMLElement }[] = [];
+  const avEls: { root: HTMLElement; pulse: HTMLElement; spin: HTMLElement; cards: HTMLElement }[] = [];
   for (let s = 0; s < N; s++) {
     const [x, y] = g.avs[armOf(N, me, s)];
     const size = Z.av, ring = tint(s).c, isMe = s === me;
     const pl = isMe ? { ...src.players[s], ...draftProfile() } : src.players[s];
     const pulse = h('div', { class: 'seat-av__pulse', style: { background: ring } });
+    const spin = h('div', { class: 'seat-av__spin', style: { borderColor: ring } });
     const cards = h('span', { class: 'seat-av__cards', style: x > 200 ? { left: '-8px' } : { right: '-8px' } });
     const vert = Math.abs(x - 180) < 20;
     const tag = vert && y < 180 ? { left: size + 8 + 'px', top: size / 2 - 9 + 'px' }
@@ -157,11 +173,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         : { left: '50%', top: size + 5 + 'px', transform: 'translateX(-50%)' };
     const rootAv = h('div', { class: 'seat-av', style: { left: r1(x - size / 2), top: r1(y - size / 2), width: size, height: size } },
       pulse,
+      spin,
       h('div', { class: 'seat-av__disc', style: { boxShadow: `0 0 0 3px ${ring},0 6px 12px rgba(70,40,20,.25)` } }),
       h('div', { style: { position: 'absolute', inset: 0 } }, avatar(pl.char, pl.color, size)),
       cards,
       !isMe && h('span', { class: 'seat-av__name', style: tag }, pl.name));
-    avEls[s] = { root: rootAv, pulse, cards };
+    avEls[s] = { root: rootAv, pulse, spin, cards };
     avLayer.append(rootAv);
   }
 
@@ -614,6 +631,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const e = avEls[s];
       e.root.style.transform = `scale(${active ? 1.14 : 1})`;
       e.pulse.hidden = !active;
+      // À qui le tour : un anneau tourne autour du joueur actif, les autres pâlissent un peu.
+      e.spin.hidden = !active;
+      e.root.classList.toggle('seat-av--turn', active);
+      e.root.classList.toggle('seat-av--wait', view.phase === 'play' && !active);
       e.cards.textContent = String(view.hands[s]?.length ?? 0);
       e.root.classList.toggle('seat-av--off', !src.players[s].online && !src.players[s].bot && s !== me);
       rpads[s].classList.toggle('pad--glow', active);
@@ -636,7 +657,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const cards = myHand();
     const n = cards.length;
     const active = myTurn() || giving();
+    // Cartes injouables : elles pâlissent, sauf si aucune carte ne se joue (il faut alors défausser).
+    const playable = new Set(myTurn() ? myMoves().filter((m) => m.kind !== 'discard').map((m) => m.card) : []);
     hand.replaceChildren(...cards.map((card, i) => {
+      const dead = playable.size > 0 && !playable.has(card);
       const m = i - (n - 1) / 2, on = sel === i;
       const el = playingCard(card, {
         selected: on, ...view.variants,
@@ -649,10 +673,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         },
       });
       el.style.left = r1(STAGE_W / 2 - 40 + m * 60) + 'px';
-      el.style.top = (on ? 2 : r1(34 + m * m * 5)) + 'px';
-      el.style.transform = `rotate(${on ? 0 : r1(m * 6)}deg)`;
+      el.style.top = (on ? 0 : r1(34 + m * m * 6)) + 'px';
+      el.style.transform = `rotate(${on ? 0 : r1(m * 7)}deg)`;
       el.style.zIndex = String(on ? 20 : i + 1);
-      el.style.opacity = active ? '1' : '.6';
+      el.style.opacity = !active ? '.6' : dead && !on ? '.55' : '1';
+      el.classList.toggle('pcard--dead', active && dead && !on);
       const ls = sel === null ? currentLesson() : null;
       if (ls && ls.ranks().includes(rankOf(card))) el.classList.add('pcard--coach');
       if (dealing) {
@@ -874,8 +899,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       for (const v of next.lastCaptures) {
         const [x, y] = center2(v.s, v.i, prev.pawns[v.s][v.i].p);
         fx('board', { kind: 'confetti', x, y, ms: 1100 });
-        fx('board', { kind: 'float', x, y: y - 22, c: '#2b2a3d', t: 'BOUM !', fs: 30, ms: 1100 });
+        fx('board', { kind: 'ring', x, y, c: '#fff', ms: 650 });
+        fx('board', { kind: 'sticker', x: Math.min(290, Math.max(70, x)), y: Math.max(50, y - 34), t: 'BOUM !', ms: 1300 });
       }
+      tocPeek();
       board.classList.remove('board--shake');
       void board.offsetWidth;
       board.classList.add('board--shake');
@@ -893,6 +920,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const animate = async (prev: GameState, next: GameState, reset: boolean) => {
     if (reset) {
       closeSheet();
+      closeVictory();
       view = next;
       shown = next.lastCard;
       clearSel();
@@ -983,19 +1011,42 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       button('Annuler', 'text', () => openPause()),
     )) : h('span'),
   );
+  const showVictory = (st: GameState, won: boolean) => {
+    closeVictory();
+    const t = st.winner, c = tint(t);
+    const plOf = (k: number) => (k === me ? { ...src.players[k], ...draftProfile() } : src.players[k]);
+    // Gains : seulement pour les parties en ligne (comme awardGame).
+    const reward = src.local ? '' : won ? '+150 XP · +100 pièces' : '+60 XP · +20 pièces';
+    const confetti = Array.from({ length: 18 }, (_, i) => h('i', { style: {
+      left: `${(i * 37) % 100}%`, background: ['#ffc93c', '#fff', '#2ec4a0', '#4a7dff', '#ff6fae'][i % 5],
+      animationDelay: `-${((i * 0.37) % 2.6).toFixed(2)}s`, animationDuration: `${(2.2 + (i % 4) * 0.3).toFixed(1)}s`,
+    } }));
+    victoryEl = h('div', { class: 'victory' + (won ? '' : ' victory--lost'), role: 'dialog', 'aria-label': won ? 'Victoire' : 'Partie perdue', style: { '--vc': c.c, '--vd': c.d } },
+      won && h('span', { class: 'victory__rays' }),
+      won && h('span', { class: 'victory__confetti' }, ...confetti),
+      h('span', { class: 'victory__kicker' }, won ? `Équipe ${TEAM_NAMES[t]}` : `L’équipe ${TEAM_NAMES[t]} gagne`),
+      h('span', { class: 'victory__title' }, won ? 'Victoire !' : 'Partie perdue'),
+      h('div', { class: 'victory__toc' }, mascot(won ? 'vainqueur' : 'surpris', 150)),
+      h('div', { class: 'victory__team' }, ...[t, t + N / 2].flatMap((k, i) => [
+        i ? h('span', { style: { opacity: 0.75 } }, '&') : null, avatar(plOf(k).char, plOf(k).color, 32), h('span', null, nameOf(k))])),
+      h('div', { class: 'victory__card' },
+        reward ? h('div', { class: 'victory__reward' }, h('span', null, won ? 'Bravo l’équipe !' : 'Revanche ?'), h('b', null, reward)) : null,
+        h('div', { class: 'victory__chips' },
+          h('span', null, `${st.stats.captures[me] ?? 0} BOUM`),
+          h('span', null, `${st.stats.exits[me] ?? 0} bille${(st.stats.exits[me] ?? 0) > 1 ? 's' : ''} sortie${(st.stats.exits[me] ?? 0) > 1 ? 's' : ''}`),
+          h('span', null, `${Math.floor(st.dealNo / 3) + 1} manche${st.dealNo >= 3 ? 's' : ''}`))),
+      h('div', { style: { flex: 1 } }),
+      button('Revanche', 'white', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
+      button('Retour à l’accueil', 'text', () => { closeVictory(); o.onQuit(); }));
+    stage.append(victoryEl);
+  };
   const showEnd = (st: GameState) => {
     const won = teamOf(N, me) === st.winner;
     if (src.initiation) setCoach(won ? 'vainqueur' : 'surpris');
     sfx(won ? 'victoire' : 'defaite');
     if (won) buzz([80, 60, 80, 60, 200]);
     for (let k = 0; k < 3; k++) setTimeout(() => fx('board', { kind: 'confetti', x: 120 + k * 60, y: 160 + (k % 2) * 40, ms: 1200 }), k * 250);
-    setTimeout(() => openSheet(
-      mascot(won ? 'vainqueur' : 'surpris', 120),
-      h('span', { class: 'sheet__title' }, won ? 'Victoire !' : 'Partie perdue'),
-      h('span', { class: 'sheet__text' }, `L’équipe ${TEAM_NAMES[st.winner]} a rentré toutes ses billes${won ? '. Bravo l’équipe !' : '. Revanche ?'}`),
-      button('Revanche', 'primary', () => { closeSheet(); src.rematch(); }, { size: 'md', block: true }),
-      button('Retour à l’accueil', 'white', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
-    ), 900);
+    setTimeout(() => showVictory(st, won), 900);
   };
 
   // ---------- Démarrage ----------
