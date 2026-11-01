@@ -315,7 +315,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     tip = null; // le joueur choisit lui-même : l'explication de l'astuce ne vaut plus
     if (pl.targets.some((t) => sameRef(t, r))) target = r;
     else if (pl.cands.some((c) => sameRef(c, r))) {
-      if (pl.sevenPawns.length && pick) giveStep(r);
+      if (pl.sevenPawns.length && pick) giveStep(r, pl);
       else {
         pick = r;
         target = null;
@@ -326,13 +326,30 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
 
   /**
-   * Partage du 7 : la bille touchée gagne un pas, pris sur la bille qui en a le plus.
+   * Partage du 7. Une nouvelle bille touchée : on passe directement au partage jouable le plus proche
+   * (ex. ta dernière bille +2 et les 5 autres pas pour ton partenaire), au lieu d'ajouter les pas un à un.
+   * Une bille déjà dans le partage : elle gagne un pas, pris sur la bille qui en a le plus.
    * Si on touche une nouvelle bille alors que le partage est au maximum de billes (deux, en règle de base),
    * elle prend la place de celle qui a le moins de pas.
    */
-  const giveStep = (r: PawnRef) => {
+  const giveStep = (r: PawnRef, pl: Plan) => {
     const k = key(r);
     const cur = new Map([...split].filter(([, n]) => n > 0));
+    if (!cur.has(k)) {
+      const near = pl.moves
+        .filter((m): m is Extract<Move, { kind: 'seven' }> => m.kind === 'seven' && m.parts.some((p) => sameRef(p.pawn, r)))
+        .map((m) => {
+          const parts = new Map(m.parts.map((p) => [key(p.pawn), p.steps] as const));
+          // Écart avec le partage en cours (une bille retirée compte tous ses pas).
+          const dist = [...cur].reduce((a, [kk, n]) => a + Math.abs((parts.get(kk) ?? 0) - n), 0);
+          return { parts, dist, mine: parts.get(k) ?? 0 };
+        })
+        .sort((a, b) => a.dist - b.dist || b.mine - a.mine)[0];
+      if (near) {
+        split = near.parts;
+        return;
+      }
+    }
     const others = [...cur.entries()].filter(([kk]) => kk !== k).sort((a, b) => b[1] - a[1]);
     const maxPawns = view.variants.sevenAnyPawns ? Infinity : 2;
     const total = [...cur.values()].reduce((a, b) => a + b, 0);
@@ -755,7 +772,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         label = 'Défausser';
       } else if (split.size && [...split.values()].some((n) => n > 0) && (pl.sevenPawns.length || pl.chosen?.kind === 'seven')) {
         const parts = [...split.values()].filter((n) => n > 0);
-        t = parts.length > 1 ? `Le 7 · ${parts.map((n) => '+' + n).join(' et ')}` : 'Le 7 · +7';
+        t = `Le 7 · ${parts.map((n) => '+' + n).join(' et ')}`;
         t += cap ? ' · capture !' : '';
         const left = 7 - parts.reduce((a, b) => a + b, 0);
         sub = left > 0 ? `Encore ${left} pas à placer : touche une bille.`
@@ -770,7 +787,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
               : !pl.chosen && pl.targets.length > 1 ? 'Touche la bille à échanger.'
                 : c.rule;
         if (pl.chosen) label = 'Jouer';
-        if (!pl.moves.length) sub = 'Cette carte ne peut pas jouer.';
+        // Carte injouable : on dit pourquoi pour le 7 (règle la plus souvent mal comprise).
+        if (!pl.moves.length)
+          sub = rankOf(myHand()[sel]) !== '7' ? 'Cette carte ne peut pas être jouée pour l’instant.'
+            : view.variants.sevenAnyPawns ? 'Le 7 se joue en entier : pas assez de pas possibles ici.'
+              : 'Le 7 se joue en entier, sur deux billes au plus : pas possible ici.';
       }
     }
     hintT.textContent = t;
