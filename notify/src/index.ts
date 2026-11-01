@@ -25,8 +25,8 @@ interface Env {
   FIREBASE_API_KEY: string;
 }
 
-type Kind = 'invite' | 'league' | 'turn' | 'nudge' | 'chat' | 'leagueChat' | 'soiree' | 'offline';
-const KINDS: Kind[] = ['invite', 'league', 'turn', 'nudge', 'chat', 'leagueChat', 'soiree', 'offline'];
+type Kind = 'invite' | 'league' | 'leagueGame' | 'turn' | 'nudge' | 'chat' | 'leagueChat' | 'soiree' | 'offline';
+const KINDS: Kind[] = ['invite', 'league', 'leagueGame', 'turn', 'nudge', 'chat', 'leagueChat', 'soiree', 'offline'];
 const ORIGINS = ['https://mallorytaton.github.io', 'http://localhost:5180', 'http://localhost:4173'];
 const TEAM_NAMES = ['Soleil', 'Myrtilles', 'Framboises'];
 const MAX_DEVICES = 5;
@@ -176,6 +176,21 @@ async function notify(env: Env, db: Db, me: string, b: Record<string, unknown>) 
       if (!text) return { sent: 0 };
       msg = { title: name, body: text, url: `${app}#/amis`, tag: `chat-${me}`, renotify: true, ttl: 43_200, urgency: 'normal' };
     }
+  } else if (kind === 'leagueGame') {
+    // Partie de tournoi : prévenir les autres membres du tournoi (amis ou non) que la partie les attend.
+    if (!code) return { sent: 0 };
+    const meta = await db.get<{ league?: string }>(`rooms/${code}/meta`);
+    const lg = meta?.league ? await db.get<League>(`leagues/${meta.league}`) : null;
+    if (!lg?.members?.[me]) return { sent: 0 };
+    // Une relance par partie et par joueur et par minute au plus (bouton « Prévenir tout le monde »).
+    const key = `lg:${code}:${me}`;
+    if (await env.SUBS.get(key)) return { sent: 0, tried: 0, limited: true };
+    await env.SUBS.put(key, '1', { expirationTtl: 60 });
+    allowed = (u) => !!lg.members?.[u];
+    msg = {
+      title: `${name} lance une partie`, body: `${(lg.name ?? 'Votre tournoi').slice(0, 30)} : ta place t’attend. Touche pour la rejoindre.`,
+      url: `${app}?g=${code}`, tag: `invite-${code}`, renotify: true, ttl: 3600, urgency: 'high',
+    };
   } else if (kind === 'turn' || kind === 'nudge') {
     if (!code) return { sent: 0 };
     // « Secouer » : une relance par partie et par joueur qui secoue, toutes les 12 h au plus.

@@ -18,6 +18,8 @@ export interface LeagueMember {
   name: string;
   char: CharId;
   color: ColorName;
+  /** Partie lancée par ce membre (code de salle), pour que les autres la rejoignent sans lien */
+  room?: { code: string; at: number };
 }
 
 export interface LeagueGame {
@@ -349,3 +351,26 @@ export async function recordLeagueGame(code: string, key: string, winner: number
   if (!res.committed) return;
   await runTransaction(node('leagues', code, 'wins', winner), (cur) => (Number(cur) || 0) + 1);
 }
+
+/** Une partie lancée par un membre est proposée aux autres pendant 2 h. */
+const LIVE_MS = 2 * 3_600_000;
+
+/** La partie lancée par un autre membre et qu'on peut rejoindre (la plus récente), ou null. */
+export function liveGame(l: League, me: string): { code: string; by: string } | null {
+  const now = Date.now();
+  const live = Object.entries(l.members)
+    .filter(([u, m]) => u !== me && m.room?.code && now - (m.room.at ?? 0) < LIVE_MS)
+    .sort((a, b) => (b[1].room!.at ?? 0) - (a[1].room!.at ?? 0))[0];
+  return live ? { code: live[1].room!.code, by: live[1].name } : null;
+}
+
+/**
+ * Partie de tournoi lancée : elle est notée dans sa fiche de membre (les autres la voient dans l'app, sans lien)
+ * et les autres membres reçoivent une notification (amis ou non).
+ */
+export async function announceLeagueGame(league: string, room: string, to: string[]) {
+  const me = await ensureAuth();
+  await set(node('leagues', league, 'members', me, 'room'), { code: room, at: serverTimestamp() });
+  notifyPlayers(to, 'leagueGame', { code: room });
+}
+

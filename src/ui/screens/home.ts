@@ -1,6 +1,6 @@
 // 04 Accueil : profil, choix 4/6 joueurs, partie privée, code de salle ou de tournoi, tes tournois.
 import { XP_PER_LEVEL, draftProfile, levelOf } from '../../app/profile';
-import { type League, parseLeagueCode, refusedBy, watchMyLeagues } from '../../net/league';
+import { type League, liveGame, parseLeagueCode, refusedBy, watchMyLeagues } from '../../net/league';
 import { RoomSession, deleteRoom } from '../../net/session';
 import { type SlowGame, forgetGame, watchMyGames } from '../../net/slow';
 import { currentUid, watchFriends } from '../../net/social';
@@ -100,6 +100,8 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   // Sous le nom : une partie hors app qui attend ton accord, sinon la prochaine soirée.
   const leagueNote = (l: League) => {
     const me = currentUid();
+    const live = liveGame(l, me);
+    if (live) return h('span', { class: 'league-row__when league-row__live' }, `${live.by} lance une partie · touche pour rejoindre`);
     if (l.seats.includes(me) && l.offline.some((o) => !o.votes[me] && !refusedBy(o).length))
       return h('span', { class: 'league-row__when' }, 'Une partie hors app à valider');
     return l.soiree && h('span', { class: 'league-row__when' }, 'Soirée : ' + soireeLabel(l.soiree.at));
@@ -108,7 +110,7 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   const drawLeagues = (list: League[]) => {
     leagueList.replaceChildren(...(list.length
       ? list.slice(0, 2).map((l) => h('button', {
-        class: 'league-row', type: 'button', onclick: () => go('/tournoi/' + l.code),
+        class: 'league-row', type: 'button', onclick: () => { const live = liveGame(l, currentUid()); go(live ? '/salle/' + live.code : '/tournoi/' + l.code); },
       },
         h('span', { class: 'league-row__name' }, l.name, leagueNote(l)),
         h('span', { class: 'league-row__score' }, ...l.wins.flatMap((w, t) => [

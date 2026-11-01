@@ -258,7 +258,8 @@ export class RoomSession implements Room {
     if (!seats.includes(uid) && meta.status === 'waiting') {
       // Tournoi : chacun retrouve sa place (donc son duo) ; sinon, l'ordre d'arrivée habituel.
       const mine = Object.entries(meta.reserved ?? {}).find(([, u]) => u === uid);
-      const order = mine ? [Number(mine[0])] : JOIN_ORDER[meta.n];
+      // Équipes fixes du tournoi : chaque membre a sa place ; un non-membre entre sans place (il ne prend celle de personne).
+      const order = meta.reserved ? (mine ? [Number(mine[0])] : []) : JOIN_ORDER[meta.n];
       for (const k of order) {
         if (seats[k]) continue;
         const res = await runTransaction(node('rooms', code, 'seats', k), (cur) => (cur ? undefined : uid));
@@ -412,6 +413,8 @@ export class RoomSession implements Room {
       title: r.meta.title,
       variants: r.meta.variants,
       slow: !!r.meta.slow,
+      league: r.meta.league,
+      reserved: r.meta.reserved ? Array.from({ length: r.meta.n }, (_, k) => r.meta.reserved?.[k] ?? '') : undefined,
     };
   }
 
@@ -448,10 +451,15 @@ export class RoomSession implements Room {
 
   fillBots() {
     const r = this.room;
-    if (!r || !this.isHost || r.meta.status !== 'waiting') return;
+    // Tournoi : les places sont celles des membres (équipes fixes), pas de robots à leur place.
+    if (!r || !this.isHost || r.meta.status !== 'waiting' || r.meta.league) return;
     const updates: Record<string, string> = {};
     r.seats.forEach((uid, k) => { if (!uid) updates[k] = BOT; });
     update(node('rooms', this.code, 'seats'), updates).catch((e) => toast('Impossible d’ajouter les robots : ' + e.message));
+  }
+
+  notifyLeague(to: string[]) {
+    notifyPlayers(to, 'leagueGame', { code: this.code });
   }
 
   /** Reprend la place d'un joueur déconnecté (nouveau téléphone, autre navigateur…). */

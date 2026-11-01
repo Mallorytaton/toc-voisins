@@ -8,7 +8,7 @@ import { getProfile } from './app/profile';
 import { type GameSource, LocalGame } from './app/game-source';
 import { LocalRoom, type RoomSnapshot } from './app/room';
 import { RoomSession } from './net/session';
-import { getLeagueOnce, recordLeagueGame } from './net/league';
+import { announceLeagueGame, getLeagueOnce, recordLeagueGame } from './net/league';
 import { inviteFriend, setInGame, startPresence, syncProfile, watchInvites } from './net/social';
 import { DEMO } from './ui/demo';
 import { h, toast } from './ui/dom';
@@ -300,7 +300,8 @@ async function openOnlineRoom(code: string, n: 4 | 6, ligue: string | null = nul
         if (!l) throw new Error('Ce tournoi n’existe plus.');
         currentSession = await RoomSession.create(l.n, l.variants, { league: l.code, title: l.name, reserved: l.seats });
         const me = currentSession.uid;
-        for (const u of l.seats) if (u && u !== me) inviteFriend(u, currentSession.code).catch((e) => console.warn('invitation', e));
+        // Les membres se connaissent : pas de lien à partager, la partie leur est annoncée (app et notification).
+        announceLeagueGame(l.code, currentSession.code, l.seats.filter((u) => u && u !== me)).catch((e) => console.warn('annonce', e));
       } else currentSession = await RoomSession.create(n);
     } catch (e) {
       console.error(e);

@@ -1,6 +1,6 @@
 // Tournois : création, page du tournoi (équipes fixes, score cumulé, dernières parties).
 import {
-  type League, type OfflineClaim, type Rsvp, answerSoiree, cancelSoiree, claimApproved, createLeague, deleteLeague, dropOffline,
+  type League, type OfflineClaim, type Rsvp, answerSoiree, cancelSoiree, claimApproved, createLeague, deleteLeague, dropOffline, liveGame,
   type LeagueMsg, leagueLink, leaveLeague, proposeOffline, proposeSoiree, refusedBy, sendLeagueMsg, settleOffline, takeLeagueSeat,
   voteOffline, watchLeague, watchLeagueChat,
 } from '../../net/league';
@@ -596,8 +596,10 @@ export function leagueScreen(code: string): View {
     play.hidden = !seated && full;
     play.disabled = !full || !seated;
     play.className = 'btn btn--lg btn--block ' + (full && seated ? 'btn--primary' : 'btn--off');
-    play.textContent = full ? 'Jouer une partie' : 'En attente des joueurs…';
-    play.onclick = () => go(`/salle/nouvelle?n=${l.n}&ligue=${code}`);
+    // Un autre membre a lancé une partie : on la rejoint (sa place est gardée), au lieu d'en créer une autre.
+    const live = seated ? liveGame(l, me) : null;
+    play.textContent = live ? `Rejoindre la partie de ${live.by}` : full ? 'Jouer une partie' : 'En attente des joueurs…';
+    play.onclick = () => go(live ? '/salle/' + live.code : `/salle/nouvelle?n=${l.n}&ligue=${code}`);
   };
 
   const stop = watchLeague(code, draw);

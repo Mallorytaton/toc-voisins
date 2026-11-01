@@ -141,6 +141,7 @@ button.rt-seat { cursor: pointer; }
 .rt-seat__name { max-width: 100%; font: 800 13px/1.15 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 3px; }
 .rt-seat__tag { font: 800 10px var(--text); color: #1d7f67; }
 .rt-seat--away { opacity: .6; }
+.rt-seat--wanted .avatar-ring { opacity: .45; filter: grayscale(.4); }
 .rt-seat--empty .rt-seat__name { color: var(--primary-bottom); }
 .rt-seat__chair {
   width: 50px; height: 50px; border-radius: 50%; border: 2.5px dashed #c9b49c; background: #fff8ef; display: grid; place-items: center;
@@ -309,6 +310,7 @@ button.rt-seat { cursor: pointer; }
 .friend__open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0; border: none; background: none; cursor: pointer; text-align: left; color: inherit; }
 button.rank-row { width: 100%; border: none; cursor: pointer; text-align: left; font: inherit; color: inherit; }
 .league-row__when { display: block; font: 800 11px var(--text); color: #7a5600; margin-top: 2px; }
+.league-row__live { color: var(--primary-bottom); }
 /* Accueil : ligne d'un tournoi (nom et victoires par équipe) */
 .league-row {
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; border: none; border-radius: 16px;

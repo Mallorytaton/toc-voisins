@@ -27,6 +27,9 @@ export interface RoomSnapshot {
   variants: Variants;
   /** Partie à ton rythme : pas de minuteur, on attend les absents (plusieurs jours). */
   slow?: boolean;
+  /** Partie de tournoi : son code, et le membre attendu à chaque place ('' si aucun). */
+  league?: string;
+  reserved?: string[];
 }
 
 export interface Room {
@@ -37,6 +40,8 @@ export interface Room {
   launch(): void;
   /** Remplit les places libres avec des robots (hôte seulement). */
   fillBots?(): void;
+  /** Partie de tournoi : prévient ces membres (notification) que la partie les attend. */
+  notifyLeague?(to: string[]): void;
   /** Reprend la place d'un joueur déconnecté pendant une partie. */
   takeSeat?(seat: number): Promise<void>;
   /** L'hôte choisit les règles avant de lancer. */

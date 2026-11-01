@@ -8,6 +8,8 @@ import { variantsCard } from './rules';
 import { confirmSheet } from '../confirm';
 import { openTableSheet } from '../table-invite';
 import { DEMO } from '../demo';
+import { getLeagueOnce } from '../../net/league';
+import type { CharId, ColorName } from '../kit/data';
 
 async function shareInvite(room: Room) {
   const url = room.link();
@@ -22,9 +24,20 @@ async function shareInvite(room: Room) {
 }
 
 /** Une place autour de la table : joueur assis, ou chaise vide qui invite. */
-function seatView(s: RoomSnapshot, seat: number, room: Room): HTMLElement {
+/** Membres du tournoi (partie de tournoi) : nom et perso, pour les places encore vides. */
+type Members = Record<string, { name: string; char: CharId; color: ColorName }>;
+
+function seatView(s: RoomSnapshot, seat: number, room: Room, members: Members, notify: (to: string[]) => void): HTMLElement {
   const p = s.seats[seat];
   const tint = COL[SEAT_COLORS[s.n][seat]];
+  // Partie de tournoi : la place attend un membre précis (équipes fixes) ; on le prévient, pas de lien à partager.
+  const want = !p ? s.reserved?.[seat] : '';
+  if (want) {
+    const m = members[want];
+    return h('button', { class: 'rt-seat rt-seat--wanted', type: 'button', 'aria-label': `Prévenir ${m?.name ?? 'ce joueur'}`, onclick: () => notify([want]) },
+      m ? avatarRing(m.char, m.color, 44, tint.c, 3, 2, null) : h('span', { class: 'rt-seat__chair' }, '…'),
+      h('span', { class: 'rt-seat__name' }, m?.name ?? '…'), h('span', { class: 'rt-seat__tag', style: { color: 'var(--primary-bottom)' } }, 'Prévenir'));
+  }
   if (!p)
     return h('button', { class: 'rt-seat rt-seat--empty', type: 'button', 'aria-label': 'Place libre : inviter un ami', onclick: () => shareInvite(room) },
       h('span', { class: 'rt-seat__chair' }, '+'), h('span', { class: 'rt-seat__name' }, 'Inviter'));
@@ -88,6 +101,20 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
   const status = h('span', { class: 'status-line' });
   const launch = button('', 'primary', () => room.launch(), { size: 'lg', block: true });
   const bots = button('Compléter avec des robots', 'text', () => room.fillBots?.());
+  // Partie de tournoi : les membres se connaissent ; on les prévient (notification), sans lien d'invitation.
+  let members: Members = {};
+  if (s0.league) getLeagueOnce(s0.league).then((l) => { if (l) { members = l.members; draw(); } }).catch(() => undefined);
+  let notifiedAt = 0;
+  const notify = (to: string[]) => {
+    if (!to.length) return;
+    if (Date.now() - notifiedAt < 60_000) return toast('Notification déjà envoyée il y a moins d’une minute.');
+    notifiedAt = Date.now();
+    room.notifyLeague?.(to);
+    const names = to.map((u) => members[u]?.name).filter(Boolean);
+    toast(names.length ? `Notification envoyée à ${names.join(', ').replace(/, ([^,]*)$/, ' et $1')}.` : 'Notification envoyée.', 2600);
+  };
+  const waitingFor = () => { const s = room.snapshot(); return (s.reserved ?? []).filter((u, k) => u && !s.seats[k]); };
+  const notifyAll = button('Prévenir tout le monde', 'white', () => notify(waitingFor()), { size: 'md', block: true });
   // Écran de table : une tablette au milieu de la table montre le plateau (salles en ligne seulement).
   const tableBtn = h('button', { class: 'link-btn', type: 'button', hidden: DEMO || !navigator.onLine, onclick: () => openTableSheet(s0.code) },
     'Afficher le plateau sur une tablette');
@@ -107,7 +134,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     taken = s.seats.map(Boolean);
     table.replaceChildren(h('div', { class: 'rt__top' }, codeCard), ...s.seats.map((_, k) => {
       const a = Math.PI / 2 + (((k - me + s.n) % s.n) * 2 * Math.PI) / s.n;
-      const el = seatView(s, k, room);
+      const el = seatView(s, k, room, members, notify);
       el.style.left = (50 + Math.cos(a) * 41).toFixed(1) + '%';
       el.style.top = (50 + Math.sin(a) * 41).toFixed(1) + '%';
       const since = now - (arrived.get(k) ?? 0);
@@ -130,7 +157,8 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     launch.textContent = full ? (host ? 'Lancer la partie' : 'L’hôte lance la partie…') : 'En attente…';
     launch.className = 'btn btn--lg btn--block ' + (full && host ? 'btn--primary' : 'btn--off');
     launch.disabled = !full || !host;
-    bots.hidden = full || !host || !room.fillBots;
+    bots.hidden = full || !host || !room.fillBots || !!s.league;
+    notifyAll.hidden = !s.league || s.status !== 'waiting' || !waitingFor().length;
     del.hidden = !host || !room.remove;
     launch.hidden = s.status === 'playing';
     rules.refresh();
@@ -168,6 +196,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     h('div', { class: 'spacer' }),
     status,
     bots,
+    notifyAll,
     launch,
     tableBtn,
     del,
