@@ -88,7 +88,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const s = (arm - armOf(N, me, 0) + N) % N; // place assise sur ce bras
     const c = tint(s);
     const pad = (b: typeof am.rpad) =>
-      h('div', { class: 'pad', style: { left: b.x, top: b.y, width: b.w, height: b.h, borderRadius: b.r, background: c.l, transform: `rotate(${b.rot}deg)` } });
+      h('div', { class: 'pad', style: { left: b.x, top: b.y, width: b.w, height: b.h, borderRadius: b.r, background: c.c, transform: `rotate(${b.rot}deg)` } });
     const rp = pad(am.rpad);
     rpads[s] = rp;
     board.append(rp, pad(am.lpad));
@@ -100,12 +100,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const c = tint((arm - armOf(N, me, 0) + N) % N);
     board.append(st
       ? hole(x, y, Z.ss, c.l, `inset 0 2px 3px rgba(0,0,0,.18),0 0 0 ${N === 4 ? 3 : 2}px ${c.c}`)
-      : hole(x, y, Z.hs, '#ead8c4', 'inset 0 2px 3px rgba(90,60,30,.28),0 1px 0 rgba(255,255,255,.9)'));
+      : hole(x, y, Z.hs, 'var(--hole-bg)', 'var(--hole-sh)'));
   });
   g.lanes.forEach((ln, arm) => {
     const c = tint((arm - armOf(N, me, 0) + N) % N);
-    ln.forEach(([x, y]) => board.append(hole(x, y, Z.hs, c.c, 'inset 0 2px 3px rgba(0,0,0,.3),0 1px 0 rgba(255,255,255,.8)')));
-    g.res[arm].forEach(([x, y]) => board.append(hole(x, y, Z.rs, 'rgba(90,60,30,.14)', 'inset 0 2px 3px rgba(90,60,30,.25)')));
+    ln.forEach(([x, y]) => board.append(hole(x, y, Z.hs, c.c, 'var(--lane-sh)')));
+    g.res[arm].forEach(([x, y]) => board.append(hole(x, y, Z.rs, 'var(--res-bg)', 'var(--res-sh)')));
   });
   board.append(pathLayer,
     h('div', { class: 'pile', style: { transform: `scale(${N === 4 ? 1 : 0.72})` } }, cardBack(), discard),
