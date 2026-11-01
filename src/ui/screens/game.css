@@ -137,6 +137,11 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .toc-peek { position: absolute; left: 150px; top: 366px; z-index: 40; pointer-events: none; }
 
 /* Fin de partie en grand */
+/* Écran de fin : continuer à discuter */
+.victory__chat { position: relative; width: 100%; height: 46px; flex: none; border: 2px solid rgba(255, 255, 255, .75); border-radius: 23px; background: rgba(255, 255, 255, .14); color: #fff; font: 800 16px/1 var(--display); padding-top: 3px; cursor: pointer; }
+.victory__chat:active { transform: scale(.97); }
+.victory__chatsheet { position: absolute; left: 16px; right: 16px; top: 48px; z-index: 5; padding: 14px; border-radius: 24px; background: #fff; color: var(--ink); text-align: left; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 10px 0 rgba(0, 0, 0, .12), 0 24px 40px rgba(0, 0, 0, .3); animation: tocIn .25s ease-out both; }
+.victory__chatsheet .table-chat__list { height: 300px; }
 .victory {
   position: absolute; inset: 0; z-index: 3000; text-align: center; color: #fff; overflow: hidden; animation: tocFade .35s ease-out both;
   background: radial-gradient(120% 70% at 50% 28%, rgba(255, 255, 255, .3), transparent 60%), linear-gradient(180deg, var(--vc), var(--vd));

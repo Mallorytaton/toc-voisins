@@ -266,6 +266,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let themeBefore: string | null = null;
   const setTheme = (col: string) => { if (!themeMeta) return; themeBefore ??= themeMeta.content; themeMeta.content = col; };
   const closeVictory = () => {
+    closeEndChat();
     victoryEl?.remove();
     victoryEl = null;
     victoryInner = null;
@@ -392,7 +393,31 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     emotePop.hidden = !open;
     emoteBtn.setAttribute('aria-expanded', String(open));
     chatPop.hidden = !open || !src.chat;
-    if (open) { unread = 0; chatBadge.hidden = true; chatList.scrollTop = chatList.scrollHeight; }
+    if (open) { unread = 0; showUnread(); chatList.scrollTop = chatList.scrollHeight; }
+  };
+  /** Écran de fin : bouton « Discuter avec la table » et sa pastille. */
+  const endBadge = h('span', { class: 'emote-btn__badge', hidden: true });
+  const showUnread = () => {
+    for (const b of [chatBadge, endBadge]) { b.textContent = String(unread); b.hidden = !unread; }
+  };
+  // Après la partie, on continue de discuter : le chat s'ouvre par-dessus l'écran de fin (en haut, le clavier ne le cache pas).
+  let endChat: HTMLElement | null = null;
+  const closeEndChat = () => {
+    if (!endChat) return;
+    chatPop.append(chatList, chatForm);
+    endChat.remove();
+    endChat = null;
+  };
+  const openEndChat = () => {
+    if (endChat || !victoryInner) return;
+    unread = 0;
+    showUnread();
+    endChat = h('div', { class: 'victory__chatsheet', role: 'dialog', 'aria-label': 'Chat de la table' },
+      h('div', { class: 'table-chat__head' }, h('span', { class: 'pop__title' }, 'Chat de la table'),
+        h('button', { class: 'table-chat__close', type: 'button', 'aria-label': 'Fermer le chat', onclick: closeEndChat }, '×')),
+      chatList, chatForm);
+    victoryInner.append(endChat);
+    chatList.scrollTop = chatList.scrollHeight;
   };
   emoteBtn.addEventListener('click', () => setEmotes(!!emotePop.hidden));
   chatClose.addEventListener('click', () => setEmotes(false));
@@ -1395,7 +1420,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     renderChat(lines);
     for (const m of fresh) {
       chatBubble(m.seat, m.t);
-      if (chatPop.hidden) { unread++; chatBadge.textContent = String(unread); chatBadge.hidden = false; }
+      if (chatPop.hidden && !endChat) { unread++; showUnread(); }
     }
   });
 
@@ -1454,6 +1479,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       h('div', { style: { flex: 1 } }),
       watching ? button('Fermer', 'white', closeVictory, { size: 'md', block: true })
         : button('Revanche', 'white', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
+      !watching && src.chat ? h('button', { class: 'victory__chat', type: 'button', onclick: openEndChat }, 'Discuter avec la table', endBadge) : null,
       watching ? null : button('Retour à l’accueil', 'text', () => { closeVictory(); o.onQuit(); }));
     victoryEl = h('div', { class: 'victory' + (won ? '' : ' victory--lost'), role: 'dialog', 'aria-label': won ? 'Victoire' : 'Partie perdue', style: { '--vc': c.c, '--vd': c.d } },
       won && h('span', { class: 'victory__rays' }),
