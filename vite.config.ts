@@ -3,6 +3,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   base: '/toc-voisins/',
+  // Date de construction, affichée dans « Ton compte » : on voit si le téléphone a bien la dernière version.
+  define: { __BUILD__: JSON.stringify(new Date().toISOString()) },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',

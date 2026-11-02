@@ -467,7 +467,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       unread = 0;
       showUnread();
       chatList.scrollTop = chatList.scrollHeight;
-      if (write) chatInput.focus();
+      if (write) { startTyping(); chatInput.focus({ preventScroll: true }); }
     } else {
       chatInput.blur();
       stopTyping();
@@ -495,7 +495,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (!typing) return;
     const safeTop = probe('padding-top:env(safe-area-inset-top)').t;
     const vTop = vv?.offsetTop ?? 0, vH = vv?.height ?? innerHeight;
-    const top = Math.max(vTop + 8, safeTop + 4), bottom = Math.max(top + 140, vTop + vH - 8);
+    // Clavier pas encore ouvert : on place déjà le champ assez haut pour que l'iPhone n'ait pas à faire glisser la page.
+    const kbd = vH < innerHeight * 0.8;
+    const top = Math.max(vTop + 8, safeTop + 4);
+    const bottom = kbd ? Math.max(top + 140, vTop + vH - 8) : top + Math.min(330, innerHeight * 0.42);
     if (layout === 'wide-stack') {
       sideChat.style.top = `${Math.round(top)}px`;
       sideChat.style.height = `${Math.round(bottom - top)}px`;
@@ -511,7 +514,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     drawer.classList.add('chat-drawer--typing');
     placeTyping();
     // Le clavier et le glissement de la page arrivent juste après : on recale.
-    [150, 400].forEach((ms) => setTimeout(placeTyping, ms));
+    [100, 250, 500, 900].forEach((ms) => setTimeout(placeTyping, ms));
     chatList.scrollTop = chatList.scrollHeight;
   };
   function stopTyping() {
@@ -523,6 +526,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   }
   vv?.addEventListener('resize', placeTyping);
   vv?.addEventListener('scroll', placeTyping);
+  // L'iPhone peut aussi faire défiler toute la page : pendant la saisie, on la remet en place et on recale le chat.
+  const onPageScroll = () => {
+    if (!typing) return;
+    if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) window.scrollTo(0, 0);
+    placeTyping();
+  };
+  window.addEventListener('scroll', onPageScroll, true);
   chatInput.addEventListener('focus', startTyping);
   chatInput.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== chatInput) stopTyping(); }, 300));
   chatForm.addEventListener('submit', () => { if (drawerOpen) chatInput.focus(); });
@@ -1702,6 +1712,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       unsubChat?.();
       vv?.removeEventListener('resize', placeTyping);
       vv?.removeEventListener('scroll', placeTyping);
+      window.removeEventListener('scroll', onPageScroll, true);
       document.removeEventListener('pointerdown', closeOutside, true);
       stopTimer();
       clearTimeout(toastTimer);
