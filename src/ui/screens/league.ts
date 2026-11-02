@@ -326,14 +326,14 @@ export function newLeagueScreen(): View {
       create.disabled = false;
     }
   }, { block: true });
-  const el = h('div', { class: 'screen', style: { gap: 16, paddingTop: 'calc(var(--safe-top) + 8px)' } },
+  const el = h('div', { class: 'screen new-league', 'data-wide': '', style: { gap: 16, paddingTop: 'calc(var(--safe-top) + 8px)' } },
     h('div', { class: 'screen__head' },
       backButton(() => go(ROUTES.home)),
       h('span', { class: 't-title', style: { paddingTop: 3 } }, 'Nouveau tournoi')),
-    h('p', { class: 't-body', style: { margin: 0 } },
+    h('p', { class: 't-body new-league__desc', style: { margin: 0 } },
       'Toujours les mêmes équipes, et les victoires s’additionnent de partie en partie. Idéal pour jouer entre voisins.'),
-    h('label', { style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Nom du tournoi'), name),
-    h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Joueurs'),
+    h('label', { class: 'new-league__name', style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Nom du tournoi'), name),
+    h('div', { class: 'new-league__players', style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Joueurs'),
       segmented<4 | 6>([{ value: 4, label: '4 joueurs', sub: '2 équipes de 2' }, { value: 6, label: '6 joueurs', sub: '3 équipes de 2' }], n, (v) => { n = v; })),
     rules.el,
     h('div', { class: 'spacer' }),

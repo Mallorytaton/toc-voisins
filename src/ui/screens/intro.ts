@@ -29,7 +29,7 @@ export function logo() {
 }
 
 export function splashScreen(): HTMLElement {
-  return h('div', { class: 'screen splash' },
+  return h('div', { class: 'screen splash', 'data-wide': '' },
     blob({ left: -120, top: -90, width: 360, height: 360, background: 'var(--coral-l)' }),
     blob({ right: -150, top: 290, width: 330, height: 330, background: 'var(--blue-l)' }),
     blob({ left: -90, bottom: -130, width: 310, height: 310, background: 'var(--teal-l)' }),
@@ -116,7 +116,7 @@ export function onboardScreen(): HTMLElement {
     next.textContent = i === 2 ? 'Choisir mon perso' : 'Suivant';
   };
   show(0);
-  return h('div', { class: 'screen onboard' },
+  return h('div', { class: 'screen onboard', 'data-wide': '' },
     h('div', { class: 'onboard__top' }, count, button('Passer', 'text', () => go(ROUTES.pick))),
     panel,
     h('div', { class: 'onboard__text' }, title, body),
@@ -169,7 +169,7 @@ export function pickScreen(): HTMLElement {
     if (!DEMO && navigator.onLine) syncProfile().catch((e) => console.warn('profil', e));
     go(takeLink() ?? ROUTES.home);
   };
-  return h('div', { class: 'screen pick' },
+  return h('div', { class: 'screen pick', 'data-wide': '' },
     h('div', { class: 'screen__head' },
       backButton(() => go(ROUTES.onboard)),
       h('div', { style: { display: 'flex', flexDirection: 'column' } },
@@ -177,8 +177,8 @@ export function pickScreen(): HTMLElement {
         h('span', { class: 'pick__sub' }, 'Tu pourras le changer quand tu veux.'))),
     h('div', { class: 'pick__preview' }, disc, name),
     grid,
-    h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Ta couleur'), colors),
-    h('label', { style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Ton surnom'), nick),
+    h('div', { class: 'pick__colorbox', style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Ta couleur'), colors),
+    h('label', { class: 'pick__nick', style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Ton surnom'), nick),
     h('div', { class: 'spacer' }),
     button('C’est moi, ça !', 'primary', done, { block: true }));
 }

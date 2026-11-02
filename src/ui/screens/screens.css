@@ -2,6 +2,33 @@
 
 /* ---- 01 Splash ---- */
 .splash { padding: 0 28px calc(var(--safe-bottom) + 36px); align-items: center; gap: 0; overflow: hidden; }
+/* Grand écran plus large que haut (.is-wide, fit.ts) : écrans simples en deux colonnes */
+/* Démarrage : une colonne, des boutons à largeur de téléphone */
+.is-wide .splash__hero { margin-top: 40px; }
+.is-wide .splash__actions { max-width: 380px; }
+.is-wide .onboard { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: 'top top' 'panel text' 'panel foot'; column-gap: 44px; row-gap: 20px; }
+.is-wide .onboard__top { grid-area: top; }
+.is-wide .onboard__panel { grid-area: panel; height: auto; min-height: 0; margin-top: 0; }
+.is-wide .onboard__panel > * { scale: .86; }
+.is-wide .onboard__text { grid-area: text; align-self: end; margin-top: 0; }
+.is-wide .onboard__foot { grid-area: foot; }
+.is-wide .onboard > .spacer { display: none; }
+.is-wide .pick { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); grid-template-areas: 'head head' 'preview chars' 'preview colors' 'preview nick' 'preview go'; column-gap: 40px; row-gap: 16px; align-content: center; }
+.is-wide .pick > .screen__head { grid-area: head; }
+.is-wide .pick__preview { grid-area: preview; align-self: center; }
+.is-wide .pick__grid { grid-area: chars; }
+.is-wide .pick__colorbox { grid-area: colors; }
+.is-wide .pick__nick { grid-area: nick; }
+.is-wide .pick > .btn { grid-area: go; }
+.is-wide .pick > .spacer { display: none; }
+.is-wide .new-league { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: 'head head' 'desc rules' 'name rules' 'players go'; column-gap: 40px; row-gap: 18px; align-content: center; }
+.is-wide .new-league > .screen__head { grid-area: head; }
+.is-wide .new-league__desc { grid-area: desc; }
+.is-wide .new-league__name { grid-area: name; }
+.is-wide .new-league__players { grid-area: players; }
+.is-wide .new-league > .variants-card { grid-area: rules; align-self: start; }
+.is-wide .new-league > .btn { grid-area: go; align-self: end; }
+.is-wide .new-league > .spacer { display: none; }
 .splash__float { position: absolute; animation: tocFloat 3s ease-in-out infinite; }
 .splash__hero { margin-top: clamp(96px, 23vh, 210px); display: flex; flex-direction: column; align-items: center; gap: 22px; }
 .splash__kicker { font: 800 14px var(--text); letter-spacing: .26em; text-transform: uppercase; color: var(--ink-2); }
