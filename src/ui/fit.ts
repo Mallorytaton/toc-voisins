@@ -39,7 +39,12 @@ function safeVars(stage: HTMLElement, s: number) {
   stage.style.setProperty('--safe-bottom', `max(12px, calc(${bottom} / ${s}))`);
 }
 
-export function fitScreen(screen: HTMLElement, mode: FitMode): { el: HTMLElement; dispose: () => void } {
+/**
+ * minW : largeur minimale de la scène. Dans un volet de pliant, plus étroit qu'un téléphone, on la baisse :
+ * le contenu se réorganise sur la largeur du volet au lieu d'être rapetissé.
+ */
+export function fitScreen(screen: HTMLElement, mode: FitMode, opts: { minW?: number } = {}): { el: HTMLElement; dispose: () => void } {
+  const MIN_W = opts.minW ?? BASE_W;
   const stage = h('div', { class: 'fit__stage' }, screen);
   const root = h('div', { class: 'fit' }, stage);
 
@@ -52,7 +57,7 @@ export function fitScreen(screen: HTMLElement, mode: FitMode): { el: HTMLElement
     screen.style.height = 'auto';
     return screen.offsetHeight;
   };
-  const widthFor = (W: number, s: number) => Math.min(MAX_W, Math.max(BASE_W, Math.floor(W / s)));
+  const widthFor = (W: number, s: number) => Math.min(MAX_W, Math.max(MIN_W, Math.floor(W / s)));
 
   const apply = () => {
     const W = root.clientWidth, H = root.clientHeight;
@@ -61,7 +66,8 @@ export function fitScreen(screen: HTMLElement, mode: FitMode): { el: HTMLElement
     if (mode === 'tabs') {
       // Même échelle pour les trois onglets : l'accueil (le plus haut) tient pile, encoche comprise.
       const { t, b } = insets();
-      s = Math.min(W / BASE_W, (H - Math.max(t, 8) - Math.max(b, 12)) / (TABS_H - MIN_SAFE), MAX_SCALE);
+      // Dans un volet de pliant, jamais plus petit qu'un téléphone : la liste défile plutôt que de rapetisser.
+      s = Math.min(W / MIN_W, Math.max((H - Math.max(t, 8) - Math.max(b, 12)) / (TABS_H - MIN_SAFE), opts.minW ? 1 : 0), MAX_SCALE);
       w = widthFor(W, s);
       // Sécurité (écrans sans liste qui défile) : s'il est plus haut que prévu, on réduit juste ce qu'il faut.
       if (!screen.querySelector('.scroll-y')) {
@@ -70,8 +76,8 @@ export function fitScreen(screen: HTMLElement, mode: FitMode): { el: HTMLElement
       }
     } else {
       // Deux passes : en élargissant la scène, le texte se réorganise et la hauteur change un peu.
-      s = Math.min(W / BASE_W, MAX_SCALE);
-      w = BASE_W;
+      w = Math.max(MIN_W, Math.min(BASE_W, Math.floor(W)));
+      s = Math.min(W / w, MAX_SCALE);
       for (let k = 0; k < 3; k++) {
         s = Math.min(W / w, H / natural(w, s), MAX_SCALE);
         const next = widthFor(W, s);

@@ -8,7 +8,8 @@ import { getProfile } from './app/profile';
 import { type GameSource, LocalGame } from './app/game-source';
 import { LocalRoom, type RoomSnapshot } from './app/room';
 import { RoomSession } from './net/session';
-import { announceLeagueGame, getLeagueOnce, recordLeagueGame } from './net/league';
+import { announceLeagueGame, getLeagueOnce, recordLeagueGame, watchMyLeagues } from './net/league';
+import { ensureAuth } from './net/firebase';
 import { inviteFriend, setInGame, startPresence, syncProfile, watchInvites } from './net/social';
 import { DEMO } from './ui/demo';
 import { h, toast } from './ui/dom';
@@ -91,11 +92,11 @@ let cleanup: (() => void) | null = null;
 type View = HTMLElement | { el: HTMLElement; cleanup: () => void };
 
 // ---------- Pliant ouvert : la liste à gauche, le détail à droite ----------
-/** Pliant ouvert (écran presque carré) ou à moitié plié en livre. Les tablettes et les téléphones gardent un seul écran. */
+/** Pliant ouvert, à moitié plié en livre, ou tablette : deux colonnes. Les téléphones gardent un seul écran. */
 function wideFold() {
   if (matchMedia('(horizontal-viewport-segments: 2)').matches) return true;
   const W = innerWidth, H = innerHeight;
-  return matchMedia('(pointer: coarse)').matches && Math.min(W, H) >= 560 && W / H >= 0.76 && W / H <= 1.3;
+  return matchMedia('(pointer: coarse)').matches && Math.min(W, H) >= 560 && W / H >= 0.6 && W / H <= 1.8;
 }
 type ListKind = 'home' | 'friends' | 'ranking';
 let lastList: ListKind = 'home';
@@ -105,7 +106,8 @@ let split: { el: HTMLElement; kind: ListKind; rightPane: HTMLElement; rightOff: 
 function mount(v: View): { el: HTMLElement; off: () => void } {
   const { el, cleanup: c } = v instanceof HTMLElement ? { el: v, cleanup: null } : v;
   if (el.classList.contains('screen') && el.dataset.fit !== 'scroll') {
-    const f = fitScreen(el, el.dataset.fit === 'tabs' ? 'tabs' : 'fit');
+    // Un volet est souvent plus étroit qu'un téléphone : le contenu s'y réorganise, à taille normale.
+    const f = fitScreen(el, el.dataset.fit === 'tabs' ? 'tabs' : 'fit', { minW: 320 });
     return { el: f.el, off: () => { f.dispose(); c?.(); } };
   }
   return { el, off: () => c?.() };
@@ -132,8 +134,30 @@ function setSplit(kind: ListKind, list: () => View, detail: View) {
 }
 
 /** Volet de droite vide : on dit quoi toucher à gauche. */
-const pickHint = (text: string) => h('div', { class: 'split__empty' },
-  mascot('content', 140), h('span', { class: 't-title' }, 'Le détail s’affiche ici'), h('span', { class: 't-body' }, text));
+const pickHint = (text: string, action?: [string, () => void]) => h('div', { class: 'split__empty' },
+  mascot('content', 140), h('span', { class: 't-title' }, 'Le détail s’affiche ici'), h('span', { class: 't-body' }, text),
+  action && button(action[0], 'primary', action[1], { size: 'md' }));
+
+/** Volet de droite par défaut : un écran choisi dès que ses données arrivent (l'indication en attendant). */
+function lazyPane(hint: HTMLElement, pick: (show: (v: View) => void) => () => void): View {
+  const box = h('div', { class: 'split__auto' }, hint);
+  let cur: (() => void) | null = null;
+  const stop = pick((v) => { cur?.(); const m = mount(v); cur = m.off; box.replaceChildren(m.el); });
+  return { el: box, cleanup: () => { stop(); cur?.(); } };
+}
+/** Ta fiche de joueur (Amis, Classement), en attendant qu'on touche quelqu'un à gauche. */
+const myPane = (text: string) => lazyPane(pickHint(text), (show) => {
+  let alive = navigator.onLine;
+  if (alive) ensureAuth().then((uid) => { if (alive && uid) show(playerScreen(uid)); }).catch(() => undefined);
+  return () => { alive = false; };
+});
+/** Ton tournoi le plus récent (Jouer), sinon de quoi en créer un. */
+const leaguePane = () => lazyPane(pickHint('Touche un de tes tournois : sa prochaine soirée, son classement et son chat s’affichent ici.',
+  ['Créer un tournoi', () => go('/tournoi/nouveau')]), (show) => {
+  if (!navigator.onLine) return () => {};
+  let done = false;
+  return watchMyLeagues((list) => { if (done || !list.length) return; done = true; show(leagueScreen(list[0].code)); });
+});
 
 // On plie ou déplie hors partie : l'écran se réorganise (la partie, elle, gère ses propres volets).
 let wasWide = wideFold();
@@ -243,17 +267,17 @@ function router() {
   }
   switch (path) {
     case ROUTES.friends:
-      if (wideFold()) return setSplit('friends', () => listView('friends', params), pickHint('Touche un ami pour voir sa fiche de joueur.'));
+      if (wideFold()) return setSplit('friends', () => listView('friends', params), myPane('Touche un ami pour voir sa fiche de joueur.'));
       return setView(friendsScreen(params.get('ajout')));
     case ROUTES.ranking:
-      if (wideFold()) return setSplit('ranking', () => listView('ranking', params), pickHint('Touche un joueur pour voir sa fiche.'));
+      if (wideFold()) return setSplit('ranking', () => listView('ranking', params), myPane('Touche un joueur pour voir sa fiche.'));
       return setView(rankingScreen());
     case ROUTES.home:
       // Sur un téléphone, dans le navigateur : on propose d'installer l'app.
       // (seulement si on est encore sur l'accueil : jamais au milieu d'une salle ou d'une partie)
       // Sinon (installée, ou déjà proposé), on propose les notifications.
       setTimeout(() => { if (location.hash.startsWith('#' + ROUTES.home) && !maybeOfferInstall()) maybeOfferPush(); }, 1500);
-      if (wideFold()) return setSplit('home', () => listView('home', params), pickHint('Touche un de tes tournois : sa prochaine soirée, son classement et son chat s’affichent ici.'));
+      if (wideFold()) return setSplit('home', () => listView('home', params), leaguePane());
       return setView(homeScreen());
     default:
       return go(ROUTES.home);
