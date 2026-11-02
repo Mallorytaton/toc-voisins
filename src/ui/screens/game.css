@@ -238,8 +238,8 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .chat-drawer__close { flex: none; width: 34px; height: 34px; border: none; border-radius: 50%; background: var(--muted-bg); display: grid; place-items: center; cursor: pointer; }
 .chat-drawer__close i { width: 9px; height: 9px; border-right: 2.5px solid var(--ink); border-bottom: 2.5px solid var(--ink); transform: translateY(-2px) rotate(45deg); }
 .chat-drawer__panel .table-chat__list { flex: 1; height: auto; min-height: 0; }
-/* Pendant la saisie : en haut de l'écran, au-dessus du clavier */
-.chat-drawer--typing .chat-drawer__panel { top: 62px; height: 330px; }
+/* Pendant la saisie : game.ts cale le panneau dans la partie visible au-dessus du clavier */
+.chat-drawer--typing .chat-drawer__panel { animation: none; }
 /* Chat de table : au-dessus des émotes, dans la moitié haute (le clavier ne le cache pas). */
 .pop--chat { top: 66px; width: 361px; display: flex; flex-direction: column; gap: 8px; }
 .table-chat__list { height: 168px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 2px 4px; overscroll-behavior: contain; }

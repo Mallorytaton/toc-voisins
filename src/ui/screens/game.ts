@@ -470,7 +470,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       if (write) chatInput.focus();
     } else {
       chatInput.blur();
-      drawer.classList.remove('chat-drawer--typing');
+      stopTyping();
     }
   };
   drawerBar.addEventListener('click', () => setDrawer(true));
@@ -485,8 +485,46 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   swipe(drawerBar, -1, () => setDrawer(true));
   swipe(drawerHead, 1, () => setDrawer(false));
   // Pendant la saisie, le chat monte en haut de l'écran, au-dessus du clavier (téléphone en portrait).
-  chatInput.addEventListener('focus', () => { if (drawerOpen && layout === 'phone') drawer.classList.add('chat-drawer--typing'); });
-  chatInput.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== chatInput) drawer.classList.remove('chat-drawer--typing'); }, 300));
+  // Pendant la saisie (téléphone, ou pliant tenu en hauteur) : le chat se cale dans la partie visible au-dessus du clavier.
+  // L'iPhone fait glisser la page pour montrer le champ : on suit la zone visible (visualViewport), rien n'est coupé.
+  // On déplace le panneau, jamais le champ (le déplacer lui ferait perdre le clavier).
+  let typing = false;
+  let chatBox: Box | undefined;
+  const vv = window.visualViewport;
+  const placeTyping = () => {
+    if (!typing) return;
+    const safeTop = probe('padding-top:env(safe-area-inset-top)').t;
+    const vTop = vv?.offsetTop ?? 0, vH = vv?.height ?? innerHeight;
+    const top = Math.max(vTop + 8, safeTop + 4), bottom = Math.max(top + 140, vTop + vH - 8);
+    if (layout === 'wide-stack') {
+      sideChat.style.top = `${Math.round(top)}px`;
+      sideChat.style.height = `${Math.round(bottom - top)}px`;
+      return;
+    }
+    const r = drawer.parentElement!.getBoundingClientRect(), k = r.width / STAGE_W;
+    drawerPanel.style.top = `${(top - r.top) / k}px`;
+    drawerPanel.style.height = `${(bottom - top) / k}px`;
+  };
+  const startTyping = () => {
+    if (typing || !drawerOpen || !(layout === 'phone' || layout === 'wide-stack')) return;
+    typing = true;
+    drawer.classList.add('chat-drawer--typing');
+    placeTyping();
+    // Le clavier et le glissement de la page arrivent juste après : on recale.
+    [150, 400].forEach((ms) => setTimeout(placeTyping, ms));
+    chatList.scrollTop = chatList.scrollHeight;
+  };
+  function stopTyping() {
+    if (!typing) return;
+    typing = false;
+    drawer.classList.remove('chat-drawer--typing');
+    drawerPanel.style.top = drawerPanel.style.height = '';
+    if (chatBox) sideChat.style.cssText = `left:${chatBox.x}px;top:${chatBox.y}px;width:${chatBox.w}px;height:${chatBox.h}px`;
+  }
+  vv?.addEventListener('resize', placeTyping);
+  vv?.addEventListener('scroll', placeTyping);
+  chatInput.addEventListener('focus', startTyping);
+  chatInput.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== chatInput) stopTyping(); }, 300));
   chatForm.addEventListener('submit', () => { if (drawerOpen) chatInput.focus(); });
   let unread = 0;
   const renderChat = (lines: TableMsg[]) => {
@@ -578,7 +616,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   root.classList.toggle('with-drawer', drawerOn);
   layoutHook = (P) => {
     if (!drawerOn) return;
-    if (P?.c) sideChat.style.cssText = `left:${P.c.x}px;top:${P.c.y}px;width:${P.c.w}px;height:${P.c.h}px`;
+    chatBox = P?.c;
+    if (P?.c && !typing) sideChat.style.cssText = `left:${P.c.x}px;top:${P.c.y}px;width:${P.c.w}px;height:${P.c.h}px`;
     const home = wideChat() ? sideChat : drawerPanel;
     if (!endChat && chatList.parentElement !== home) homeChat();
     if (layout === 'wide-side') { unread = 0; showUnread(); }
@@ -1661,6 +1700,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       unsub();
       unsubEmote?.();
       unsubChat?.();
+      vv?.removeEventListener('resize', placeTyping);
+      vv?.removeEventListener('scroll', placeTyping);
       document.removeEventListener('pointerdown', closeOutside, true);
       stopTimer();
       clearTimeout(toastTimer);
