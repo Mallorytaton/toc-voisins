@@ -176,7 +176,9 @@ function setView(v: View) {
   const { el, cleanup: c } = v instanceof HTMLElement ? { el: v, cleanup: null } : v;
   // Les écrans de la maquette tiennent dans le téléphone (la vitrine, elle, défile).
   if (el.classList.contains('screen') && el.dataset.fit !== 'scroll') {
-    const f = fitScreen(el, el.dataset.fit === 'tabs' ? 'tabs' : 'fit');
+    // Grand écran (pliant ouvert, tablette) : les écrans prévus pour s'élargissent (deux colonnes).
+    const big = el.dataset.wide !== undefined && Math.min(innerWidth, innerHeight) >= 560;
+    const f = fitScreen(el, el.dataset.fit === 'tabs' ? 'tabs' : 'fit', big ? { maxW: 1000 } : {});
     cleanup = () => { f.dispose(); c?.(); };
     app.replaceChildren(f.el);
   } else {

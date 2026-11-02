@@ -183,23 +183,16 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
   const unsub = room.subscribe(draw);
   draw();
 
-  const el = h('div', { class: 'screen', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 8px)' } },
+  const el = h('div', { class: 'screen room', 'data-wide': '', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 8px)' } },
     h('div', { class: 'screen__head' },
       backButton(() => go(ROUTES.home)),
       // Partie de tournoi : le nom du tournoi remplace « Salle privée ».
       h('span', { style: { flex: 1, minWidth: 0, font: '800 26px/1 var(--display)', paddingTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, s0.title ?? 'Salle privée'),
       h('span', { class: 'pill' }, s0.title ? 'Tournoi' : s0.n === 4 ? '4 joueurs · 2 équipes' : '6 joueurs · 3 équipes')),
-    table,
-    legend,
-    pace,
-    rules.el,
-    h('div', { class: 'spacer' }),
-    status,
-    bots,
-    notifyAll,
-    launch,
-    tableBtn,
-    del,
+    // Grand écran : la table à gauche, le reste à droite. Téléphone : les deux colonnes s'effacent (une seule pile).
+    h('div', { class: 'room__cols' },
+      h('div', { class: 'room__left' }, table, legend),
+      h('div', { class: 'room__right' }, pace, rules.el, h('div', { class: 'spacer' }), status, bots, notifyAll, launch, tableBtn, del)),
     overlay);
   return { el, cleanup: () => { unsub(); room.leave(); } };
 }

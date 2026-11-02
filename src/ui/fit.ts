@@ -10,6 +10,8 @@ import { h } from './dom';
 const BASE_W = 393;
 const MAX_W = 480;
 const MAX_SCALE = 1.25;
+/** Largeur de scène à partir de laquelle un écran qui s'élargit passe en deux colonnes. */
+const WIDE_AT = 600;
 /** Hauteur de référence des onglets : celle de l'accueil, le plus haut des trois (marges sûres minimales). */
 const TABS_H = 808;
 /** Marges sûres minimales comptées dans TABS_H (8 en haut, 12 en bas). */
@@ -43,8 +45,10 @@ function safeVars(stage: HTMLElement, s: number) {
  * minW : largeur minimale de la scène. Dans un volet de pliant, plus étroit qu'un téléphone, on la baisse :
  * le contenu se réorganise sur la largeur du volet au lieu d'être rapetissé.
  */
-export function fitScreen(screen: HTMLElement, mode: FitMode, opts: { minW?: number } = {}): { el: HTMLElement; dispose: () => void } {
+export function fitScreen(screen: HTMLElement, mode: FitMode, opts: { minW?: number; maxW?: number } = {}): { el: HTMLElement; dispose: () => void } {
   const MIN_W = opts.minW ?? BASE_W;
+  // maxW : sur grand écran, l'écran peut s'élargir ; au-delà de WIDE_AT, sa mise en page passe en deux colonnes (.is-wide).
+  const MAXW = opts.maxW ?? MAX_W;
   const stage = h('div', { class: 'fit__stage' }, screen);
   const root = h('div', { class: 'fit' }, stage);
 
@@ -52,12 +56,13 @@ export function fitScreen(screen: HTMLElement, mode: FitMode, opts: { minW?: num
   const natural = (w: number, s: number) => {
     safeVars(stage, s);
     stage.style.transform = 'none';
+    stage.classList.toggle('is-wide', w >= WIDE_AT);
     stage.style.width = w + 'px';
     stage.style.height = 'auto';
     screen.style.height = 'auto';
     return screen.offsetHeight;
   };
-  const widthFor = (W: number, s: number) => Math.min(MAX_W, Math.max(MIN_W, Math.floor(W / s)));
+  const widthFor = (W: number, s: number) => Math.min(MAXW, Math.max(MIN_W, Math.floor(W / s)));
 
   const apply = () => {
     const W = root.clientWidth, H = root.clientHeight;
@@ -78,15 +83,21 @@ export function fitScreen(screen: HTMLElement, mode: FitMode, opts: { minW?: num
       // Deux passes : en élargissant la scène, le texte se réorganise et la hauteur change un peu.
       w = Math.max(MIN_W, Math.min(BASE_W, Math.floor(W)));
       s = Math.min(W / w, MAX_SCALE);
-      for (let k = 0; k < 3; k++) {
-        s = Math.min(W / w, H / natural(w, s), MAX_SCALE);
-        const next = widthFor(W, s);
+      // Écran qui s'élargit : l'échelle suit la hauteur, la largeur suit (deux colonnes, donc moins haut).
+      const grow = MAXW > MAX_W;
+      for (let k = 0; k < (grow ? 4 : 3); k++) {
+        s = Math.min(grow ? Infinity : W / w, H / natural(w, s), MAX_SCALE);
+        // Plus large que haut : deux colonnes (on les garde, sinon on hésite entre une et deux) ;
+        // plus haut que large : une seule colonne, élargie (deux colonnes laisseraient le bas vide).
+        const wide2 = W >= WIDE_AT && W >= H * 0.95;
+        const next = !grow ? widthFor(W, s) : wide2 ? Math.max(WIDE_AT, widthFor(W, s)) : Math.min(WIDE_AT - 1, widthFor(W, s));
         if (next === w) break;
         w = next;
       }
       s = Math.min(W / w, H / natural(w, s), MAX_SCALE);
     }
     safeVars(stage, s);
+    stage.classList.toggle('is-wide', w >= WIDE_AT);
     stage.style.width = w + 'px';
     stage.style.height = H / s + 'px';
     screen.style.height = '100%';

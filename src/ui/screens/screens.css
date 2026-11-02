@@ -120,6 +120,13 @@
 .table-qr { align-self: center; }
 
 /* Salle autour de la table (vue de dessus) */
+/* Salle : deux colonnes sur grand écran ; sur téléphone, les colonnes s'effacent */
+.room__cols, .room__left, .room__right { display: contents; }
+.is-wide .room__cols { display: flex; flex: 1; min-height: 0; gap: 32px; align-items: stretch; }
+.is-wide .room__left { display: flex; flex: 1.25; min-width: 0; flex-direction: column; justify-content: center; align-items: center; gap: 14px; }
+.is-wide .room__right { display: flex; flex: 1; min-width: 0; flex-direction: column; justify-content: center; gap: 12px; padding-bottom: 8px; }
+.is-wide .room__right > .spacer { flex: 0 0 4px; }
+.is-wide .room .rt { max-width: 440px; }
 .rt { position: relative; width: 100%; max-width: 360px; aspect-ratio: 1; align-self: center; flex: none; margin: 6px 0 2px; }
 .rt__top {
   position: absolute; inset: 21%; border-radius: 50%; display: grid; place-items: center;
