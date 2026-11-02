@@ -392,30 +392,80 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const chatPop = h('div', { class: 'pop pop--chat', hidden: true, role: 'dialog', 'aria-label': 'Chat de la table' },
     h('div', { class: 'table-chat__head' }, h('span', { class: 'pop__title' }, 'Chat de la table'), chatClose), chatList, !watching && chatForm);
   const chatBadge = h('span', { class: 'emote-btn__badge', hidden: true });
-  if (src.chat) { emoteBtn.append(chatBadge); emoteBtn.setAttribute('aria-label', 'Émotes et chat de la table'); }
+  // Tiroir du chat (parties en ligne) : replié, une barre sous les cartes (dernier message, « Écrire ») ;
+  // ouvert, le chat à la place des cartes, jamais sur le plateau. Il se replie quand c'est ton tour.
+  const drawerOn = !!src.chat && !watching;
+  if (src.chat && !drawerOn) { emoteBtn.append(chatBadge); emoteBtn.setAttribute('aria-label', 'Émotes et chat de la table'); }
+  const lastLine = h('div', { class: 'chat-drawer__last chat-drawer__last--empty' }, 'Chat de la table : écris aux autres');
+  const drawerBadge = h('span', { class: 'emote-btn__badge chat-drawer__badge', hidden: true });
+  const writeBtn = h('button', { class: 'chat-drawer__write', type: 'button' }, 'Écrire');
+  const drawerBar = h('div', { class: 'chat-drawer__bar', role: 'button', tabindex: 0, 'aria-label': 'Ouvrir le chat de la table' },
+    h('i', { class: 'chat-drawer__grip' }), lastLine, drawerBadge, writeBtn);
+  const drawerStatus = h('span', { class: 'chat-drawer__status' });
+  const drawerClose = h('button', { class: 'chat-drawer__close', type: 'button', 'aria-label': 'Replier le chat' }, h('i'));
+  const drawerHead = h('div', { class: 'chat-drawer__head' }, h('b', null, 'Chat de la table'), drawerStatus, drawerClose);
+  const drawerPanel = h('div', { class: 'chat-drawer__panel', hidden: true, role: 'dialog', 'aria-label': 'Chat de la table' },
+    h('i', { class: 'chat-drawer__grip' }), drawerHead);
+  const drawer = h('div', { class: 'chat-drawer', hidden: !drawerOn }, drawerBar, drawerPanel);
+  if (drawerOn) drawerPanel.append(chatList, chatForm);
+  let drawerOpen = false;
+  const setDrawer = (open: boolean, write = false) => {
+    if (!drawerOn) return;
+    drawerOpen = open;
+    drawerPanel.hidden = !open;
+    drawerBar.hidden = open;
+    if (open) {
+      unread = 0;
+      showUnread();
+      chatList.scrollTop = chatList.scrollHeight;
+      if (write) chatInput.focus();
+    } else {
+      chatInput.blur();
+      drawer.classList.remove('chat-drawer--typing');
+    }
+  };
+  drawerBar.addEventListener('click', () => setDrawer(true));
+  writeBtn.addEventListener('click', (e) => { e.stopPropagation(); setDrawer(true, true); });
+  drawerClose.addEventListener('click', () => setDrawer(false));
+  // Glisser vers le haut sur la barre ouvre, vers le bas sur l'en-tête replie.
+  const swipe = (el: HTMLElement, dir: 1 | -1, act: () => void) => {
+    let y0 = NaN;
+    el.addEventListener('pointerdown', (e) => { y0 = e.clientY; });
+    el.addEventListener('pointerup', (e) => { if ((e.clientY - y0) * dir > 24) act(); y0 = NaN; });
+  };
+  swipe(drawerBar, -1, () => setDrawer(true));
+  swipe(drawerHead, 1, () => setDrawer(false));
+  // Pendant la saisie, le chat monte en haut de l'écran, au-dessus du clavier (téléphone en portrait).
+  chatInput.addEventListener('focus', () => { if (drawerOpen && layout === 'phone') drawer.classList.add('chat-drawer--typing'); });
+  chatInput.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== chatInput) drawer.classList.remove('chat-drawer--typing'); }, 300));
+  chatForm.addEventListener('submit', () => { if (drawerOpen) chatInput.focus(); });
   let unread = 0;
   const renderChat = (lines: TableMsg[]) => {
     chatList.replaceChildren(...(lines.length ? lines.slice(-40).map((m) => h('div', { class: 'table-chat__line' + (m.mine ? ' table-chat__line--me' : '') },
       h('b', { style: { color: m.seat >= 0 ? COL[SEAT_COLORS[N][m.seat]].c : 'var(--ink-2)' } }, m.mine ? 'Toi' : m.name), h('span', null, m.t)))
       : [h('span', { class: 'table-chat__empty' }, 'Personne n’a encore écrit. Lance la discussion !')]));
     chatList.scrollTop = chatList.scrollHeight;
+    const last = lines[lines.length - 1];
+    lastLine.classList.toggle('chat-drawer__last--empty', !last);
+    lastLine.replaceChildren(...(last ? [h('b', { style: { color: last.seat >= 0 ? COL[SEAT_COLORS[N][last.seat]].d : 'var(--ink-2)' } }, last.mine ? 'Toi' : last.name), h('span', null, last.t)]
+      : ['Chat de la table : écris aux autres']));
   };
   const setEmotes = (open: boolean) => {
     emotePop.hidden = !open;
     emoteBtn.setAttribute('aria-expanded', String(open));
-    chatPop.hidden = !open || !src.chat;
-    if (open) { unread = 0; showUnread(); chatList.scrollTop = chatList.scrollHeight; }
+    chatPop.hidden = !open || !src.chat || drawerOn;
+    if (open && !drawerOn) { unread = 0; showUnread(); chatList.scrollTop = chatList.scrollHeight; }
   };
   /** Écran de fin : bouton « Discuter avec la table » et sa pastille. */
   const endBadge = h('span', { class: 'emote-btn__badge', hidden: true });
   const showUnread = () => {
-    for (const b of [chatBadge, endBadge]) { b.textContent = String(unread); b.hidden = !unread; }
+    for (const b of [chatBadge, endBadge, drawerBadge]) { b.textContent = String(unread); b.hidden = !unread; }
   };
   // Après la partie, on continue de discuter : le chat s'ouvre par-dessus l'écran de fin (en haut, le clavier ne le cache pas).
   let endChat: HTMLElement | null = null;
   const closeEndChat = () => {
     if (!endChat) return;
-    chatPop.append(chatList, chatForm);
+    (drawerOn ? drawerPanel : chatPop).append(chatList, chatForm);
     endChat.remove();
     endChat = null;
   };
@@ -475,7 +525,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const timerEl = h('div', { class: 'g-timer', 'aria-hidden': 'true' }, timerBar);
   const hand = h('div', { class: 'hand' });
   stage.append(actions, timerEl, hand);
-  lowEls.push(actions, timerEl, hand);
+  lowEls.push(actions, timerEl, hand, drawer);
+  root.classList.toggle('with-drawer', drawerOn);
 
   // ---------- Sélection ----------
   let sel: number | null = null;
@@ -1125,6 +1176,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const render = () => {
     renderRematch();
+    if (drawerOn) drawerStatus.textContent = view.phase === 'play' ? (view.turn === me ? '· À toi de jouer' : `· ${nameOf(view.turn)} réfléchit…`)
+      : view.phase === 'exchange' ? '· Échange des cartes' : '';
     renderTop();
     renderAvatars();
     renderHand();
@@ -1376,6 +1429,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     view = next;
     syncPawns(next);
     if (prev.phase === 'deal' && next.phase === 'exchange') {
+      if (drawerOpen && document.activeElement !== chatInput) setDrawer(false);
       shown = '';
       renderDiscard();
       dealing = true;
@@ -1400,6 +1454,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       if (!mine) await sleep(500);
     }
     if (!watching && next.phase === 'play' && next.turn === me && (!wasMyTurn || moved)) {
+      if (drawerOpen && document.activeElement !== chatInput) setDrawer(false);
       if (!opened) fx('screen', { kind: 'banner', y: 262, t: 'À TOI DE JOUER !', ms: 1500 });
       sfx('tour');
       buzz([60, 40, 60]);
@@ -1438,7 +1493,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     renderChat(lines);
     for (const m of fresh) {
       chatBubble(m.seat, m.t);
-      if (chatPop.hidden && !endChat) { unread++; showUnread(); }
+      if ((drawerOn ? !drawerOpen : chatPop.hidden) && !endChat) { unread++; showUnread(); }
     }
   });
 
