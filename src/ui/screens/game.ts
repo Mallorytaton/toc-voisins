@@ -62,6 +62,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const tableJournal = h('div', { class: 'table-journal', hidden: true });
   root.append(tableJournal);
   const LOW_H = 760 - SPLIT_Y;
+  /** Grand écran plus haut que large : consigne et cartes côte à côte, sur une rangée (scène deux fois plus large). */
+  const ROW_Y = 446, ROW_H = 166, ROW_W = 2 * 393;
+  /** Grand écran : la région du plateau descend jusqu'aux noms des persos du bas. */
+  const BOARD_H = 474;
+  /** Le chat suit la mise en page (rangé plus bas, une fois le chat construit). */
+  let layoutHook: (P: ReturnType<typeof panes>) => void = () => {};
   /** Écran de table : le plateau seul, des noms au-dessus des avatars du haut à ceux du bas (sans barre ni main). */
   const TABLE_Y = 58;
   const TABLE_H = 488;
@@ -85,7 +91,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     probe(`left:env(viewport-segment-left ${i} ${j});top:env(viewport-segment-top ${i} ${j});width:env(viewport-segment-width ${i} ${j});height:env(viewport-segment-height ${i} ${j})`);
   const mqFlex = matchMedia('(vertical-viewport-segments: 2)');
   const mqBook = matchMedia('(horizontal-viewport-segments: 2)');
-  const panes = (): { kind: string; a: Box; b?: Box; j?: Box } | null => {
+  const panes = (): { kind: string; a: Box; b?: Box; c?: Box; j?: Box } | null => {
     const W = root.clientWidth, H = root.clientHeight;
     const sa = probe('padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)');
     const { t, b } = sa;
@@ -107,18 +113,33 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       return { kind: 'manette', a: { x: L, y: T, w: wa - 4, h: hh }, b: { x: L + wa + 4, y: T, w: w - wa - 4, h: hh } };
     }
     if (document.documentElement.dataset.rot) return null;
-    if (mqFlex.matches) return { kind: 'flex', a: clip(segment(0, 0)), b: clip(segment(0, 1)) };
-    if (mqBook.matches) return { kind: 'book', a: clip(segment(0, 0)), b: clip(segment(1, 0)) };
-    // Pliant ouvert à plat, tenu plus large que haut (écran presque carré) : deux moitiés.
-    if (matchMedia('(pointer: coarse)').matches && Math.min(W, H) >= 560 && W / H >= 1 && W / H <= 1.4)
-      return { kind: 'open', a: clip({ x: 0, y: 0, w: W / 2 - 4, h: H }), b: clip({ x: W / 2 + 4, y: 0, w: W / 2 - 4, h: H }) };
+    // Pliant à moitié plié (ou posture inconnue) : un volet de chaque côté de la pliure.
+    const posture = (navigator as Navigator & { devicePosture?: { type: string } }).devicePosture?.type;
+    if (posture !== 'continuous' && mqFlex.matches) return { kind: 'flex', a: clip(segment(0, 0)), b: clip(segment(0, 1)) };
+    if (posture !== 'continuous' && mqBook.matches) return { kind: 'book', a: clip(segment(0, 0)), b: clip(segment(1, 0)) };
+    // Grand écran (pliant ouvert à plat, tablette) : tout l'écran, charnière comprise.
+    if (matchMedia('(pointer: coarse)').matches && Math.min(W, H) >= 560) {
+      const f = clip({ x: sa.l, y: 0, w: W - sa.l - sa.r, h: H });
+      if (f.w >= f.h * 0.95) {
+        // Plus large que haut : le plateau à gauche, toute la hauteur ; à droite le chat, puis la consigne et les cartes.
+        const wb = Math.round(Math.min(400, Math.max(300, f.w * 0.38))), hb = Math.round(LOW_H * wb / STAGE_W);
+        const chat = !!src.chat && f.h - hb > 220;
+        return { kind: 'wide-side', a: { x: f.x, y: f.y, w: f.w - wb - 8, h: f.h },
+          b: { x: f.x + f.w - wb, y: chat ? f.y + f.h - hb : f.y + Math.round((f.h - hb) / 2), w: wb, h: hb },
+          c: chat ? { x: f.x + f.w - wb + 8, y: f.y + 10, w: wb - 16, h: f.h - hb - 18 } : undefined };
+      }
+      // Plus haut que large : le plateau en haut, toute la largeur ; dessous, la consigne et les cartes côte à côte.
+      const hb = Math.round(ROW_H * Math.min(1.15, f.w / ROW_W)), top = f.y + Math.round(f.h * 0.4);
+      return { kind: 'wide-stack', a: { x: f.x, y: f.y, w: f.w, h: f.h - hb }, b: { x: f.x, y: f.y + f.h - hb, w: f.w, h: hb },
+        c: { x: f.x + 12, y: top, w: f.w - 24, h: f.y + f.h - hb - 8 - top } };
+    }
     return null;
   };
   /** Montre la région [y0, y0 + hReg] de la scène `st`, centrée et à la plus grande échelle possible dans `fr`. */
-  const showRegion = (st: HTMLElement, fr: HTMLElement, y0: number, hReg: number) => {
+  const showRegion = (st: HTMLElement, fr: HTMLElement, y0: number, hReg: number, wReg = STAGE_W) => {
     const w = fr.clientWidth, ht = fr.clientHeight;
-    const s = Math.min(w / STAGE_W, ht / hReg);
-    st.style.transform = `translate(${(w - STAGE_W * s) / 2}px,${(ht - hReg * s) / 2 - y0 * s}px) scale(${s})`;
+    const s = Math.min(w / wReg, ht / hReg);
+    st.style.transform = `translate(${(w - wReg * s) / 2}px,${(ht - hReg * s) / 2 - y0 * s}px) scale(${s})`;
   };
   const putFrame = (fr: HTMLElement, x: Box) => {
     fr.style.cssText = `inset:auto;left:${x.x}px;top:${x.y}px;width:${x.w}px;height:${x.h}px`;
@@ -143,11 +164,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (P?.j) tableJournal.style.cssText = `left:${P.j.x}px;top:${P.j.y}px;width:${P.j.w}px;height:${P.j.h}px`;
     if (P) {
       putFrame(frame, P.a);
+      const wide = P.kind === 'wide-side' || P.kind === 'wide-stack';
       if (P.kind === 'table') showRegion(stage, frame, TABLE_Y, TABLE_H - TABLE_Y);
-      else showRegion(stage, frame, 0, SPLIT_Y);
+      else showRegion(stage, frame, 0, wide ? BOARD_H : SPLIT_Y);
+      stage2.classList.toggle('lowrow', P.kind === 'wide-stack');
       if (P.b) {
         putFrame(frame2, P.b);
-        showRegion(stage2, frame2, SPLIT_Y, LOW_H);
+        if (P.kind === 'wide-stack') showRegion(stage2, frame2, ROW_Y, ROW_H, ROW_W);
+        else showRegion(stage2, frame2, SPLIT_Y, LOW_H);
       }
     } else {
       frame.style.cssText = '';
@@ -155,6 +179,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const s = Math.min(w / STAGE_W, ht / STAGE_H);
       stage.style.transform = `translate(${(w - STAGE_W * s) / 2}px,${Math.max(0, (ht - STAGE_H * s) / 2)}px) scale(${s})`;
     }
+    layoutHook(P);
     if (victoryInner) {
       const fr = victoryInner.parentElement!, w = fr.clientWidth, ht = fr.clientHeight;
       const s = Math.min(w / STAGE_W, ht / STAGE_H);
@@ -409,11 +434,35 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const drawer = h('div', { class: 'chat-drawer', hidden: !drawerOn }, drawerBar, drawerPanel);
   if (drawerOn) drawerPanel.append(chatList, chatForm);
   let drawerOpen = false;
+  // Grand écran : le chat sort de la scène. Plus large que haut, une colonne toujours ouverte ; plus haut que large,
+  // une feuille qui s'ouvre depuis la barre, par-dessus le bas du plateau.
+  const sideStatus = h('span', { class: 'chat-drawer__status' });
+  const sideClose = h('button', { class: 'chat-drawer__close', type: 'button', 'aria-label': 'Replier le chat' }, h('i'));
+  const sideChat = h('div', { class: 'side-chat', hidden: true, role: 'complementary', 'aria-label': 'Chat de la table' },
+    h('div', { class: 'side-chat__head' }, h('b', null, 'Chat de la table'), sideStatus, sideClose));
+  root.append(sideChat);
+  const wideChat = () => layout === 'wide-side' || layout === 'wide-stack';
+  /** Le chat est-il sous les yeux ? (sinon les messages qui arrivent comptent comme pas lus) */
+  const chatVisible = () => (drawerOn ? layout === 'wide-side' || drawerOpen : !chatPop.hidden);
+  /** Range la liste et le champ du chat là où il s'affiche selon la mise en page. */
+  const homeChat = () => {
+    if (!drawerOn) chatPop.append(chatList, chatForm);
+    else if (wideChat()) sideChat.append(chatForm, chatList);
+    else drawerPanel.append(chatList, chatForm);
+  };
+  const syncDrawer = () => {
+    if (!drawerOn) return;
+    const side = layout === 'wide-side', stack = layout === 'wide-stack';
+    sideChat.hidden = !(side || (stack && drawerOpen));
+    sideChat.classList.toggle('side-chat--sheet', stack);
+    drawerPanel.hidden = side || stack || !drawerOpen;
+    drawerBar.hidden = side || drawerOpen;
+  };
+  sideClose.addEventListener('click', () => setDrawer(false));
   const setDrawer = (open: boolean, write = false) => {
     if (!drawerOn) return;
     drawerOpen = open;
-    drawerPanel.hidden = !open;
-    drawerBar.hidden = open;
+    syncDrawer();
     if (open) {
       unread = 0;
       showUnread();
@@ -465,7 +514,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let endChat: HTMLElement | null = null;
   const closeEndChat = () => {
     if (!endChat) return;
-    (drawerOn ? drawerPanel : chatPop).append(chatList, chatForm);
+    homeChat();
     endChat.remove();
     endChat = null;
   };
@@ -527,6 +576,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   stage.append(actions, timerEl, hand);
   lowEls.push(actions, timerEl, hand, drawer);
   root.classList.toggle('with-drawer', drawerOn);
+  layoutHook = (P) => {
+    if (!drawerOn) return;
+    if (P?.c) sideChat.style.cssText = `left:${P.c.x}px;top:${P.c.y}px;width:${P.c.w}px;height:${P.c.h}px`;
+    const home = wideChat() ? sideChat : drawerPanel;
+    if (!endChat && chatList.parentElement !== home) homeChat();
+    if (layout === 'wide-side') { unread = 0; showUnread(); }
+    syncDrawer();
+  };
 
   // ---------- Sélection ----------
   let sel: number | null = null;
@@ -1176,7 +1233,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const render = () => {
     renderRematch();
-    if (drawerOn) drawerStatus.textContent = view.phase === 'play' ? (view.turn === me ? '· À toi de jouer' : `· ${nameOf(view.turn)} réfléchit…`)
+    if (drawerOn) drawerStatus.textContent = sideStatus.textContent = view.phase === 'play' ? (view.turn === me ? '· À toi de jouer' : `· ${nameOf(view.turn)} réfléchit…`)
       : view.phase === 'exchange' ? '· Échange des cartes' : '';
     renderTop();
     renderAvatars();
@@ -1493,7 +1550,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     renderChat(lines);
     for (const m of fresh) {
       chatBubble(m.seat, m.t);
-      if ((drawerOn ? !drawerOpen : chatPop.hidden) && !endChat) { unread++; showUnread(); }
+      if (!chatVisible() && !endChat) { unread++; showUnread(); }
     }
   });
 

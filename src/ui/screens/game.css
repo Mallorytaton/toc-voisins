@@ -11,6 +11,22 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 /* Pliants : les deux volets, et un fondu quand on plie ou déplie. */
 .game[data-layout='flex'] .game__frame + .game__frame, .game[data-layout='book'] .game__frame + .game__frame,
 .game[data-layout='open'] .game__frame + .game__frame { background: var(--app); border-radius: 18px; }
+/* Grand écran (pliant ouvert à plat, tablette) : plateau en grand, consigne et cartes à côté ou dessous */
+.game[data-layout='wide-side'] .game__frame + .game__frame, .game[data-layout='wide-stack'] .game__frame + .game__frame { background: var(--app); border-radius: 22px; }
+.game[data-layout='wide-side'] .hand { transform: none; }
+.game[data-layout='wide-side'] .chat-drawer { display: none; }
+.game__stage.lowrow { width: 786px; }
+.lowrow .g-actions { right: auto; width: 361px; }
+.lowrow .g-timer { right: auto; width: 291px; }
+.game .lowrow .hand { left: 393px; top: 418px; transform: none; }
+.lowrow .chat-drawer__bar { top: 556px; right: auto; width: 361px; }
+/* Chat sur grand écran : colonne toujours ouverte, ou feuille par-dessus le bas du plateau */
+.side-chat { position: absolute; z-index: 30; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 22px; background: #fff; box-shadow: 0 6px 0 var(--clay-2), 0 14px 30px rgba(70, 40, 20, .12); }
+.side-chat--sheet { z-index: 60; box-shadow: 0 -6px 0 var(--clay), 0 -12px 34px rgba(70, 40, 20, .22); animation: tocIn .2s ease-out both; }
+.side-chat__head { display: flex; align-items: center; gap: 8px; }
+.side-chat__head > b { font: 800 18px/1 var(--display); padding-top: 3px; }
+.side-chat:not(.side-chat--sheet) .chat-drawer__close { display: none; }
+.side-chat .table-chat__list { flex: 1; height: auto; min-height: 0; }
 .game--relayout .game__frame { animation: tocFade .4s ease-out; }
 /* Mode manette : la tablette montre le plateau ; le téléphone, les billes jouables en gros boutons numérotés. */
 .game--manette .board { visibility: hidden; }
