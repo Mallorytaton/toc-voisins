@@ -14,6 +14,7 @@ import {
   ref,
 } from 'firebase/database';
 import type { GameSource, RematchVote, SeatPlayer, TableMsg } from '../app/game-source';
+import type { Look } from '../app/shop';
 import { draftProfile, saveProfile } from '../app/profile';
 import { type Room, type RoomPlayer, type RoomSnapshot, inviteLink } from '../app/room';
 import {
@@ -62,6 +63,8 @@ interface PlayerInfo {
   msgs?: Record<string, { t: string; at: number }>;
   /** D'accord pour une revanche : numéro (v) de la partie terminée */
   rematch?: number;
+  /** Boutique : ce que le joueur porte (vu par toute la table) */
+  look?: Look;
 }
 
 interface HandNode {
@@ -193,7 +196,7 @@ async function purgeExpired() {
 
 function me(): PlayerInfo {
   const p = draftProfile();
-  return { name: (p.nick || 'Toi').slice(0, 20), char: p.char, color: p.color, joinedAt: Date.now() };
+  return { name: (p.nick || 'Toi').slice(0, 20), char: p.char, color: p.color, joinedAt: Date.now(), look: p.look ?? {} };
 }
 
 export class RoomSession implements Room {
@@ -411,7 +414,7 @@ export class RoomSession implements Room {
         if (!uid) return null;
         if (uid === BOT) return { ...botProfile(r.meta.n, k), host: false, bot: true, online: true };
         const p = r.players[uid];
-        return { name: p?.name ?? '…', char: p?.char ?? 'tuque', color: p?.color ?? 'coral', host: uid === r.meta.host, online: this.isOnline(uid) };
+        return { name: p?.name ?? '…', char: p?.char ?? 'tuque', color: p?.color ?? 'coral', host: uid === r.meta.host, online: this.isOnline(uid), look: p?.look };
       }),
       mySeat: this.mySeat,
       status: r.meta.status,
@@ -770,7 +773,7 @@ export class OnlineGame implements GameSource {
     const snap = this.s.snapshot();
     return snap.seats.map((p, k) => ({
       name: p?.name ?? '…', char: p?.char ?? 'tuque', color: p?.color ?? 'coral',
-      bot: !!p?.bot, online: k === snap.mySeat || !!p?.online,
+      bot: !!p?.bot, online: k === snap.mySeat || !!p?.online, look: p?.look,
     }));
   }
 

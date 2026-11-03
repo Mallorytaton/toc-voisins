@@ -54,6 +54,7 @@ export function openAccountSheet() {
       soundSettings(),
       navigator.onLine && button('Ma fiche de joueur', 'white', () => { close(); go('/joueur/' + currentUid()); }, { size: 'md', block: true }),
       button('Changer de perso', 'white', () => { close(); go(ROUTES.pick); }, { size: 'md', block: true }),
+      button('Boutique', 'white', () => { close(); go('/boutique'); }, { size: 'md', block: true }),
       button('Fermer', 'text', close),
       h('span', { class: 't-mini', style: { textAlign: 'center', color: 'var(--ink-3)' } },
         `Version du ${new Date(__BUILD__).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}`)));

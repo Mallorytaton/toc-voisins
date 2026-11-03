@@ -49,7 +49,8 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
       h('div', { class: 'home-head__xp' },
         h('div', { class: 'bar', style: { width: 64, flex: 'none' } }, h('div', { style: { width: `${Math.round((inLevel / XP_PER_LEVEL) * 100)}%` } })),
         `${fmt(inLevel)} / ${fmt(XP_PER_LEVEL)} XP`)),
-    h('div', { class: 'tokens', 'aria-label': `${p.tokens} jetons` }, h('i'), h('span', null, fmt(p.tokens))));
+    // Les pièces ouvrent la boutique.
+    h('button', { class: 'tokens', type: 'button', 'aria-label': `${p.tokens} pièces · ouvrir la boutique`, onclick: () => go('/boutique') }, h('i'), h('span', null, fmt(p.tokens))));
 
   const createBtn = button('', 'on-blue', () => go('/salle/nouvelle?n=' + mode), { size: 'md' });
   const setMode = (m: 4 | 6) => {

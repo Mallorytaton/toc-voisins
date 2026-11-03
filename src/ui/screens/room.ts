@@ -8,6 +8,7 @@ import { variantsCard } from './rules';
 import { confirmSheet } from '../confirm';
 import { openTableSheet } from '../table-invite';
 import { DEMO } from '../demo';
+import { titreOf } from '../../app/shop';
 import { getLeagueOnce } from '../../net/league';
 import type { CharId, ColorName } from '../kit/data';
 
@@ -49,9 +50,10 @@ function seatView(s: RoomSnapshot, seat: number, room: Room, members: Members, n
     return h('button', { class: 'rt-seat', type: 'button', onclick: () => room.takeSeat!(seat) },
       avatarRing(p.char, p.color, 44, tint.c, 3, 2, null),
       h('span', { class: 'rt-seat__name' }, p.name), h('span', { class: 'rt-seat__tag', style: { color: 'var(--primary-bottom)' } }, 'Prendre sa place'));
+  const titre = titreOf(p.look);
   return h('div', { class: 'rt-seat' + (away ? ' rt-seat--away' : '') },
     avatarRing(p.char, p.color, 44, tint.c, 3, 2, null),
-    h('span', { class: 'rt-seat__name' }, p.name), h('span', { class: 'rt-seat__tag' }, tag));
+    h('span', { class: 'rt-seat__name' }, p.name), titre && h('span', { class: 'rt-seat__titre' }, titre), h('span', { class: 'rt-seat__tag' }, tag));
 }
 
 export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; cleanup: () => void } {

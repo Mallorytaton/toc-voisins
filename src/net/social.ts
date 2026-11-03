@@ -13,6 +13,7 @@ import { type Profile, draftProfile, getProfile, saveProfile } from '../app/prof
 import type { CharId, ColorName } from '../ui/kit/data';
 import { database, ensureAuth, node, serverNow } from './firebase';
 import { notifyPlayers } from './push';
+import type { Look } from '../app/shop';
 import { type GameResult, type PlayerStats, addGame } from '../app/player-stats';
 
 export interface PublicProfile {
@@ -25,6 +26,9 @@ export interface PublicProfile {
   city: string;
   qc: boolean;
   code: string;
+  /** Boutique : objets achetés et portés */
+  owned?: string[];
+  look?: Look;
 }
 
 export type Presence = 'on' | 'game' | 'off';
@@ -67,7 +71,7 @@ export async function syncProfile(p: Profile = draftProfile()) {
   }
   await update(node('users', me), {
     nick: p.nick, char: p.char, color: p.color, xp: p.xp, tokens: p.tokens, points: p.points ?? 0,
-    city: p.city ?? '', qc: !!p.qc, code: p.friendCode ?? '', updatedAt: serverTimestamp(),
+    city: p.city ?? '', qc: !!p.qc, code: p.friendCode ?? '', owned: p.owned ?? [], look: p.look ?? {}, updatedAt: serverTimestamp(),
   });
 }
 

@@ -88,6 +88,12 @@ export function bille(color: ColorName, o: BilleOpts = {}): HTMLElement {
   });
 }
 
+/** Bille de la boutique (motif sur la couleur du joueur) ; « classique » : la bille de base. */
+export function billeSkin(el: HTMLElement, skin: string | undefined): HTMLElement {
+  if (skin && skin !== 'classique') el.classList.add('bille--' + skin);
+  return el;
+}
+
 export interface CardViewOpts extends CardOptions {
   selected?: boolean;
   onclick?: () => void;

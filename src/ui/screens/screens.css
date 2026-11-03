@@ -107,6 +107,7 @@
 .home-head__who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .home-head__hi { font: 800 20px/1 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-head__xp { display: flex; align-items: center; gap: 8px; font: 700 12px var(--text); color: var(--ink-2); white-space: nowrap; }
+button.tokens { border: none; cursor: pointer; color: var(--ink); }
 .tokens {
   display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px 0 6px; border-radius: 19px; background: #fff;
   box-shadow: 0 4px 0 var(--clay), 0 8px 14px var(--drop); font: 800 16px/1 var(--display);
@@ -426,3 +427,25 @@ button.rank-row { width: 100%; border: none; cursor: pointer; text-align: left; 
   box-shadow: 0 0 0 3px var(--coral), 0 12px 24px rgba(242, 90, 56, .25);
 }
 .rank-me .rank-row__n { width: 34px; color: var(--coral-d); }
+
+/* ---- Boutique ---- */
+.shop__list { display: flex; flex-direction: column; gap: 12px; margin: 0 -20px; padding: 2px 20px 18px; }
+.shop__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.shop__item { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 10px 10px; border-radius: 22px; background: #fff; box-shadow: 0 5px 0 var(--clay), 0 10px 18px var(--drop); }
+.shop__item--on { box-shadow: 0 0 0 3px var(--teal), 0 5px 0 var(--clay), 0 10px 18px var(--drop); }
+.shop__marbles { display: flex; gap: 5px; padding: 12px 10px; border-radius: 14px; background: linear-gradient(180deg, #dcab72, #c48a52); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .12); }
+.shop__fxbox { position: relative; width: 100%; height: 66px; border: none; border-radius: 14px; background: linear-gradient(180deg, #dcab72, #c48a52); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .12); display: grid; place-items: center; padding: 0; }
+button.shop__fxbox { cursor: pointer; }
+.shop__fx { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.shop__cri { font: 800 20px/1 var(--display); color: #fff; padding: 7px 12px 4px; border-radius: 12px; background: var(--ink); box-shadow: 0 3px 0 #15141f; transform: rotate(-6deg); white-space: nowrap; }
+.shop__titre { font: 800 13px var(--text); padding: 5px 11px; border-radius: 999px; background: #fff; color: var(--coral-d); }
+.shop__name { font: 800 15px/1.1 var(--display); text-align: center; padding-top: 2px; }
+.shop__btn { width: 100%; min-height: 36px; border: none; border-radius: 12px; padding: 4px 8px 2px; display: flex; align-items: center; justify-content: center; gap: 5px; font: 800 13px/1.15 var(--display); background: var(--muted-bg); color: var(--ink); cursor: pointer; }
+.shop__btn--buy { background: var(--ink); color: #fff; }
+.shop__btn:disabled { background: var(--muted-bg); color: var(--ink-3); cursor: default; font-size: 11.5px; }
+.shop__coin { flex: none; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffe48a 0, var(--yellow) 55%, var(--yellow-d) 100%); }
+.shop__state { min-height: 36px; display: flex; align-items: center; font: 800 13px var(--display); color: var(--teal-d); }
+.shop__foot { margin: 4px 0 0; text-align: center; font: 600 13px var(--text); color: var(--ink-2); }
+.rt-seat__titre { max-width: 100%; font: 800 10px var(--text); color: var(--coral-d); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-head__titre { font: 800 12px var(--text); color: var(--coral-d); }
+

@@ -164,6 +164,13 @@
     0 calc(var(--s) * .32px) calc(var(--s) * .4px) rgba(70, 40, 20, .32);
   transform-origin: 50% 90%;
 }
+/* Billes de la boutique : un motif posé sur la couleur du joueur (on reconnaît toujours l'équipe) */
+.bille--rayee { background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .95) 0 10%, transparent 32%), repeating-linear-gradient(135deg, rgba(255, 255, 255, .5) 0 calc(var(--s) * .09px), transparent calc(var(--s) * .09px) calc(var(--s) * .22px)), radial-gradient(circle at 50% 48%, var(--c) 55%, var(--d) 100%); }
+.bille--pois { background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .95) 0 10%, transparent 32%), radial-gradient(circle, rgba(255, 255, 255, .75) 0 18%, transparent 21%) 0 0 / calc(var(--s) * .34px) calc(var(--s) * .34px), radial-gradient(circle at 50% 48%, var(--c) 55%, var(--d) 100%); }
+.bille--cristal { background: radial-gradient(circle at 30% 26%, #fff 0 12%, transparent 30%), radial-gradient(circle at 68% 72%, rgba(255, 255, 255, .6) 0 10%, transparent 26%), radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--c) 55%, #fff) 25%, var(--c) 70%, var(--d) 100%); }
+.bille--lave { background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .9) 0 9%, transparent 28%), radial-gradient(circle at 62% 66%, #ffe066 0 8%, #ff7a1a 16%, transparent 34%), radial-gradient(circle at 34% 72%, #ff9a3c 0 6%, transparent 20%), radial-gradient(circle at 50% 48%, var(--c) 45%, var(--d) 100%); box-shadow: 0 calc(var(--s) * .16px) 0 var(--d), 0 0 calc(var(--s) * .5px) rgba(255, 120, 30, .65); }
+.bille--or { background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .95) 0 10%, transparent 32%), radial-gradient(circle at 70% 26%, #fff6c8 0 5%, transparent 12%), radial-gradient(circle at 50% 48%, var(--c) 55%, var(--d) 100%); box-shadow: 0 0 0 calc(var(--s) * .1px) #ffd34d, 0 calc(var(--s) * .18px) 0 #c99a1b, 0 calc(var(--s) * .34px) calc(var(--s) * .4px) rgba(70, 40, 20, .32); }
+.bille--galaxie { background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .9) 0 8%, transparent 26%), radial-gradient(circle at 66% 40%, #fff 0 3%, transparent 6%), radial-gradient(circle at 40% 68%, #fff 0 2.5%, transparent 5%), radial-gradient(circle at 72% 70%, rgba(255, 255, 255, .85) 0 2%, transparent 4%), radial-gradient(circle at 50% 48%, var(--c) 25%, color-mix(in srgb, var(--d) 55%, #1b1440) 100%); }
 .bille--sel {
   animation: tocBob .8s ease-in-out infinite;
   box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--c), 0 8px 12px rgba(0, 0, 0, .25);

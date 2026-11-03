@@ -8,6 +8,8 @@ export type Fx =
   | { kind: 'ring'; x: number; y: number; c: string; ms?: number }
   | { kind: 'burst'; x: number; y: number; c: string; ms?: number }
   | { kind: 'confetti'; x: number; y: number; ms?: number }
+  | { kind: 'hearts'; x: number; y: number; ms?: number }
+  | { kind: 'splat'; x: number; y: number; c: string; ms?: number }
   | { kind: 'float'; x: number; y: number; c: string; t: string; fs?: number; ms?: number }
   | { kind: 'card'; x0: number; y0: number; x1: number; y1: number; r0: number; r1: number; s0: number; s1: number; r: string; su: string; col: string; ms?: number }
   | { kind: 'banner'; y: number; t: string; ms?: number }
@@ -36,6 +38,11 @@ export function playFx(layer: HTMLElement, it: Fx) {
     }
   } else if (it.kind === 'confetti') {
     for (let i = 0; i < 22; i++) kids.push(div(`left:-3px;top:-5px;width:${i % 2 ? 6 : 8}px;height:${i % 2 ? 10 : 6}px;border-radius:2px;background:${FX_PAL[i % 6]}`));
+  } else if (it.kind === 'hearts') {
+    for (let i = 0; i < 12; i++) kids.push(div(`left:-8px;top:-9px;font:900 ${14 + (i % 3) * 5}px/1 sans-serif;color:${['#ff4f7b', '#ff6fae', '#e5482a'][i % 3]}`, '♥'));
+  } else if (it.kind === 'splat') {
+    kids.push(div(`left:-30px;top:-30px;width:60px;height:60px;border-radius:46% 54% 42% 58% / 52% 44% 56% 48%;background:${it.c};box-shadow:inset 0 -6px 0 rgba(0,0,0,.12),inset 0 5px 0 rgba(255,255,255,.3);opacity:0`));
+    for (let i = 0; i < 8; i++) { const z = 6 + (i % 3) * 4; kids.push(div(`left:${-z / 2}px;top:${-z / 2}px;width:${z}px;height:${z}px;border-radius:50%;background:${it.c}`)); }
   } else if (it.kind === 'float') {
     kids.push(div(`left:0;top:0;white-space:nowrap;font:800 ${it.fs ?? 20}px/1 var(--display);color:${it.c};opacity:0;` +
       'text-shadow:0 2px 0 #fff,0 -2px 0 #fff,2px 0 0 #fff,-2px 0 0 #fff,2px 2px 0 #fff,-2px -2px 0 #fff,0 6px 10px rgba(0,0,0,.2)', it.t));
@@ -68,8 +75,16 @@ export function playFx(layer: HTMLElement, it: Fx) {
     e?.animate?.(k, { duration: D, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards', ...o });
   if (it.kind === 'puff') A(kids[0], [{ transform: 'scale(.5)', opacity: 0.7 }, { transform: 'scale(1.9)', opacity: 0 }]);
   else if (it.kind === 'ring') A(kids[0], [{ transform: 'scale(.3)', opacity: 1 }, { transform: 'scale(3.2)', opacity: 0 }]);
-  else if (it.kind === 'burst' || it.kind === 'confetti') {
-    const cf = it.kind === 'confetti';
+  else if (it.kind === 'splat') {
+    A(kids[0], [{ transform: 'scale(.2) rotate(-20deg)', opacity: 0.95 }, { transform: 'scale(1.18) rotate(4deg)', opacity: 0.95, offset: 0.12 },
+      { transform: 'scale(1) rotate(0deg)', opacity: 0.9, offset: 0.2 }, { transform: 'scale(1)', opacity: 0.85, offset: 0.75 }, { transform: 'scale(1.05)', opacity: 0 }]);
+    kids.slice(1).forEach((k, i) => {
+      const a = (i / 8) * Math.PI * 2 + 0.3, d = 34 + (i % 3) * 9;
+      A(k, [{ transform: 'translate(0,0)', opacity: 1 }, { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d}px)`, opacity: 1, offset: 0.15 },
+        { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d}px)`, opacity: 0.85, offset: 0.75 }, { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d + 6}px)`, opacity: 0 }]);
+    });
+  } else if (it.kind === 'burst' || it.kind === 'confetti' || it.kind === 'hearts') {
+    const cf = it.kind !== 'burst';
     kids.forEach((k, i) => {
       const a = (i / kids.length) * Math.PI * 2 + Math.random() * 0.5, d = (cf ? 55 : 26) + Math.random() * (cf ? 50 : 20);
       const dx = Math.cos(a) * d, dy = Math.sin(a) * d, r = (Math.random() - 0.5) * 720;

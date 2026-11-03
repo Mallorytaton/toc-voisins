@@ -30,7 +30,7 @@ async function onlineProfile(uid: string): Promise<Profile | null> {
   if (!p?.nick) return null;
   return {
     nick: p.nick, char: p.char, color: p.color, level: 1, xp: p.xp ?? 0, tokens: p.tokens ?? 0,
-    points: p.points ?? 0, city: p.city ?? '', qc: p.qc, friendCode: p.code || undefined,
+    points: p.points ?? 0, city: p.city ?? '', qc: p.qc, friendCode: p.code || undefined, owned: p.owned ?? [], look: p.look ?? {},
   };
 }
 

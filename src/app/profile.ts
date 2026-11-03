@@ -1,5 +1,6 @@
 // Profil du joueur. Gardé sur l'appareil ; synchronisé avec Firebase à l'étape « comptes ».
 import type { CharId, ColorName } from '../ui/kit/data';
+import type { Look } from './shop';
 
 export interface Profile {
   nick: string;
@@ -19,6 +20,9 @@ export interface Profile {
   partner?: { uid: string; name: string; char: CharId; color: ColorName };
   /** Code ami (ex. FREDO#2741), créé une fois pour toutes. */
   friendCode?: string;
+  /** Boutique : objets achetés, et ce que le joueur porte. */
+  owned?: string[];
+  look?: Look;
 }
 
 const KEY = 'toc.profile';

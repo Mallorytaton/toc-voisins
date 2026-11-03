@@ -3,6 +3,7 @@ import { DEMO, DEMO_GUESTS } from '../ui/demo';
 import { type CharId, type ColorName, SEAT_COLORS } from '../ui/kit/data';
 import { DEFAULT_VARIANTS, type Variants } from '../engine';
 import { draftProfile } from './profile';
+import type { Look } from './shop';
 
 export interface RoomPlayer {
   name: string;
@@ -12,6 +13,8 @@ export interface RoomPlayer {
   bot?: boolean;
   /** Connecté (en ligne) ; toujours vrai pour un robot. */
   online?: boolean;
+  /** Boutique : billes, effet de BOUM, cri, titre */
+  look?: Look;
 }
 
 export interface RoomSnapshot {
@@ -71,7 +74,7 @@ export class LocalRoom implements Room {
   constructor(n: 4 | 6, code = String(1000 + Math.floor(Math.random() * 9000))) {
     const p = draftProfile();
     const seats: (RoomPlayer | null)[] = Array(n).fill(null);
-    seats[0] = { name: p.nick || 'Toi', char: p.char, color: p.color, host: true };
+    seats[0] = { name: p.nick || 'Toi', char: p.char, color: p.color, host: true, look: p.look };
     this.s = { code, n, seats, mySeat: 0, status: 'waiting', variants: { ...DEFAULT_VARIANTS } };
     if (DEMO) {
       // Ordre d'arrivée de la maquette : le partenaire d'abord, puis les adversaires.

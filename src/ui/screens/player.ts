@@ -7,6 +7,7 @@ import { cardLook } from '../kit/data';
 import { avatarRing, backButton } from '../kit/kit';
 import { tocSays } from '../mascot';
 import { ROUTES, go } from '../nav';
+import { titreOf } from '../../app/shop';
 
 const sinceFmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' });
 /** Nom d'une carte pour la phrase « ta carte fétiche » */
@@ -29,6 +30,7 @@ export function playerScreen(id: string): { el: HTMLElement; cleanup: () => void
       avatarRing(p.char, p.color, 76, 'var(--coral)', 4, 3, null),
       h('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 } },
         h('span', { class: 'player-head__name' }, p.nick),
+        titreOf(p.look) && h('span', { class: 'player-head__titre' }, titreOf(p.look)),
         h('span', { class: 't-mini' }, `Niveau ${levelOf(p.xp ?? 0).level} · ${p.points ?? 0} points`)));
     if (!games) {
       body.replaceChildren(head, tocSays(mine ? 'Pas encore de partie comptée : tes chiffres apparaîtront après ta prochaine partie en ligne.'

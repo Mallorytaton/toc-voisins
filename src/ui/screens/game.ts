@@ -8,7 +8,8 @@ import { type Fx, playFx } from '../board/fx';
 import { armOf, geom, pawnXY, trackIndex } from '../board/geom';
 import { h } from '../dom';
 import { COL, EMOTES, SEAT_COLORS, TEAM_NAMES, cardLook } from '../kit/data';
-import { avatar, bille, button, cardBack, pauseButton, playingCard } from '../kit/kit';
+import { avatar, bille, billeSkin, button, cardBack, pauseButton, playingCard } from '../kit/kit';
+import { boomFx } from '../board/boom';
 import { openRulesSheet } from './rules';
 import { buzz, sfx, soundSettings } from '../sound';
 import { type MascotMood, mascot } from '../mascot';
@@ -315,11 +316,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
 
   // ---------- Billes ----------
+  /** Ce que porte un joueur (boutique) : soi-même d'après son profil, les autres d'après la salle. */
+  const lookOfSeat = (s: number) => (s === me && !watching ? draftProfile().look : src.players[s]?.look);
   const pawnEls = new Map<string, { outer: HTMLElement; inner: HTMLElement; y: number }>();
   const xy = (s: number, i: number, p: number) => pawnXY(g, me, s, i, p);
   for (let s = 0; s < N; s++)
     for (let i = 0; i < 4; i++) {
-      const inner = bille(SEAT_COLORS[N][s], { size: Z.ps });
+      const inner = billeSkin(bille(SEAT_COLORS[N][s], { size: Z.ps }), lookOfSeat(s)?.bille);
       const outer = h('div', { class: 'pawn', style: { width: Z.ps, height: Z.ps } }, inner);
       outer.addEventListener('click', () => onPawn({ s, i }));
       pawnEls.set(`${s}.${i}`, { outer, inner, y: 0 });
@@ -1296,7 +1299,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const isTarget = !!target && sameRef(target, r);
       const cand = pl.cands.some((c) => sameRef(c, r)) && (!pick || !!pl.sevenPawns.length);
       const tgt = pl.targets.some((t) => sameRef(t, r));
-      inner.className = 'bille' + (isPick || (split.get(k) ?? 0) > 0 ? ' bille--sel' : '') + (isTarget ? ' bille--target' : '');
+      inner.classList.toggle('bille--sel', isPick || (split.get(k) ?? 0) > 0);
+      inner.classList.toggle('bille--target', isTarget);
       outer.classList.toggle('pawn--pick', cand || tgt);
       outer.classList.toggle('pawn--cand', (cand && !isPick) || (tgt && !isTarget));
       outer.style.zIndex = String(Math.round(pawnEls.get(k)!.y) + (isPick ? 300 : 0));
@@ -1495,9 +1499,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (next.lastCaptures.length) {
       for (const v of next.lastCaptures) {
         const [x, y] = center2(v.s, v.i, prev.pawns[v.s][v.i].p);
-        fx('board', { kind: 'confetti', x, y, ms: 1100 });
-        fx('board', { kind: 'ring', x, y, c: '#fff', ms: 650 });
-        fx('board', { kind: 'sticker', x: Math.min(290, Math.max(70, x)), y: Math.max(50, y - 34), t: 'BOUM !', ms: 1300 });
+        // L'effet et le cri de celui qui renvoie la bille (boutique).
+        const by = next.lastMove ? next.lastMove.seat : prev.turn;
+        boomFx((it) => fx('board', it), lookOfSeat(by), x, y, tint(by).c, { x: Math.min(290, Math.max(70, x)), y: Math.max(50, y - 34) });
       }
       tocPeek();
       board.classList.remove('board--shake');

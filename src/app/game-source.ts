@@ -2,6 +2,7 @@
 // L'écran du plateau anime chaque changement d'état, puis appelle settled().
 import { applyMove, botGift, botMove, cloneState, cryptoRng, deal, DEFAULT_VARIANTS, type GameState, giveCard, type Move, newGame, type Rank, rankOf, rematch, type Variants } from '../engine';
 import type { CharId, ColorName } from '../ui/kit/data';
+import type { Look } from './shop';
 
 export interface SeatPlayer {
   name: string;
@@ -9,6 +10,8 @@ export interface SeatPlayer {
   color: ColorName;
   bot: boolean;
   online: boolean;
+  /** Boutique : billes, effet de BOUM, cri */
+  look?: Look;
 }
 
 export interface GameSource {
