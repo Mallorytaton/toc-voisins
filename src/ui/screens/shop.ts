@@ -9,7 +9,7 @@ import { COL } from '../kit/data';
 import { backButton, bille, billeSkin, segmented } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 
-type Tab = 'bille' | 'boom' | 'titre';
+type Tab = 'bille' | 'boom' | 'titre' | 'plateau';
 const fmt = (n: number) => n.toLocaleString('fr-FR');
 
 export function shopScreen(): { el: HTMLElement; cleanup: () => void } {
@@ -25,6 +25,7 @@ export function shopScreen(): { el: HTMLElement; cleanup: () => void } {
     if (it.kind === 'bille') return h('div', { class: 'shop__marbles' }, ...[0, 1, 2, 3].map(() => marble(it.id, 30)));
     if (it.kind === 'cri') return h('div', { class: 'shop__fxbox' }, h('span', { class: 'shop__cri' }, it.name));
     if (it.kind === 'titre') return h('div', { class: 'shop__fxbox' }, h('span', { class: 'shop__titre' }, it.id === 'aucun' ? '—' : it.name));
+    if (it.kind === 'plateau') return h('div', { class: 'shop__board shop__board--' + it.id, style: it.id === 'peint' ? { backgroundImage: `url(${import.meta.env.BASE_URL}plateaux/peint-mini.jpg)` } : {} });
     const layer = h('div', { class: 'shop__fx' });
     const box = h('button', { class: 'shop__fxbox', type: 'button', 'aria-label': `Voir l’effet ${it.name}` },
       marble(lookOf(draftProfile().look).bille, 26), layer);
@@ -57,10 +58,11 @@ export function shopScreen(): { el: HTMLElement; cleanup: () => void } {
     list.replaceChildren(
       ...(tab === 'bille' ? section('Tes billes sur le plateau, vues par toute la table', 'bille')
         : tab === 'boom' ? [...section('Quand tu renvoies une bille à sa réserve · touche pour voir', 'boom'), ...section('Le cri du BOUM', 'cri')]
-          : section('Sous ton nom, dans la salle et sur ta fiche', 'titre')),
+          : tab === 'titre' ? section('Sous ton nom, dans la salle et sur ta fiche', 'titre')
+            : section('Ton plateau de jeu, sur ton écran (parties à 4)', 'plateau')),
       h('p', { class: 'shop__foot' }, 'Une partie en ligne gagnée rapporte 100 pièces, une partie perdue 20.'));
   };
-  const tabs = segmented<Tab>([{ value: 'bille', label: 'Billes' }, { value: 'boom', label: 'BOUM' }, { value: 'titre', label: 'Titres' }], tab, (v) => { tab = v; draw(); });
+  const tabs = segmented<Tab>([{ value: 'bille', label: 'Billes' }, { value: 'boom', label: 'BOUM' }, { value: 'titre', label: 'Titres' }, { value: 'plateau', label: 'Plateaux' }], tab, (v) => { tab = v; draw(); });
   draw();
 
   const el = h('div', { class: 'screen shop', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 8px)' } },

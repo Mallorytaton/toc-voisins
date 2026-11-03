@@ -438,6 +438,8 @@ button.rank-row { width: 100%; border: none; cursor: pointer; text-align: left; 
 button.shop__fxbox { cursor: pointer; }
 .shop__fx { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
 .shop__cri { font: 800 20px/1 var(--display); color: #fff; padding: 7px 12px 4px; border-radius: 12px; background: var(--ink); box-shadow: 0 3px 0 #15141f; transform: rotate(-6deg); white-space: nowrap; }
+.shop__board { width: 100%; max-width: 132px; aspect-ratio: 1; border-radius: 10px; background: center / cover no-repeat; box-shadow: 0 4px 0 #a0703f, 0 8px 14px rgba(70, 40, 20, .2); }
+.shop__board--bois { background: radial-gradient(circle at 50% 50%, #2f5f8f 0 18%, transparent 19%), repeating-linear-gradient(0deg, rgba(120, 70, 30, .08) 0 6px, transparent 6px 13px), linear-gradient(180deg, #e9b880, #c88c52); }
 .shop__titre { font: 800 13px var(--text); padding: 5px 11px; border-radius: 999px; background: #fff; color: var(--coral-d); }
 .shop__name { font: 800 15px/1.1 var(--display); text-align: center; padding-top: 2px; }
 .shop__btn { width: 100%; min-height: 36px; border: none; border-radius: 12px; padding: 4px 8px 2px; display: flex; align-items: center; justify-content: center; gap: 5px; font: 800 13px/1.15 var(--display); background: var(--muted-bg); color: var(--ink); cursor: pointer; }

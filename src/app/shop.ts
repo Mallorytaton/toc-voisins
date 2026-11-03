@@ -3,7 +3,7 @@
 // les billes et les effets des autres (rangés dans sa fiche de joueur de la salle).
 import { draftProfile, getProfile, saveProfile } from './profile';
 
-export type ShopKind = 'bille' | 'boom' | 'cri' | 'titre';
+export type ShopKind = 'bille' | 'boom' | 'cri' | 'titre' | 'plateau';
 
 export interface ShopItem {
   id: string;
@@ -18,6 +18,8 @@ export interface Look {
   boom?: string;
   cri?: string;
   titre?: string;
+  /** Plateau de jeu affiché sur son écran (parties à 4) */
+  plateau?: string;
 }
 
 export const SHOP: ShopItem[] = [
@@ -42,9 +44,11 @@ export const SHOP: ShopItem[] = [
   { id: 'stratege', kind: 'titre', name: 'Stratège', price: 300 },
   { id: 'roi-boum', kind: 'titre', name: 'Roi du BOUM', price: 400 },
   { id: 'imbattable', kind: 'titre', name: 'Imbattable', price: 500 },
+  { id: 'bois', kind: 'plateau', name: 'Bois clair', price: 0 },
+  { id: 'peint', kind: 'plateau', name: 'Plateau peint', price: 5000 },
 ];
 
-const DEFAULTS: Required<Look> = { bille: 'classique', boom: 'confettis', cri: 'boum', titre: 'aucun' };
+const DEFAULTS: Required<Look> = { bille: 'classique', boom: 'confettis', cri: 'boum', titre: 'aucun', plateau: 'bois' };
 
 export const itemOf = (id: string | undefined) => SHOP.find((x) => x.id === id);
 /** Ce que porte un joueur, avec les objets offerts par défaut. */

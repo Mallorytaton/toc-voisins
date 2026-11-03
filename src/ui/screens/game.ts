@@ -6,6 +6,8 @@ import {
 } from '../../engine';
 import { type Fx, playFx } from '../board/fx';
 import { armOf, geom, pawnXY, trackIndex } from '../board/geom';
+import { paintedGeom } from '../board/painted';
+import { lookOf } from '../../app/shop';
 import { h } from '../dom';
 import { COL, EMOTES, SEAT_COLORS, TEAM_NAMES, cardLook } from '../kit/data';
 import { avatar, bille, billeSkin, button, cardBack, pauseButton, playingCard } from '../kit/kit';
@@ -31,10 +33,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // Écran de table (tablette, sans place) : le plateau seul, vu depuis la place 0, sans main ni « à toi ».
   const watching = src.mySeat < 0;
   const me = watching ? 0 : src.mySeat;
-  const g = geom(N);
+  // Plateau peint (boutique, à 4) : la photo du plateau, tournée pour que sa couleur soit en bas.
+  const pg = !watching && N === 4 && lookOf(draftProfile().look).plateau === 'peint' ? paintedGeom(SEAT_COLORS[4][me]) : null;
+  const g = pg ? pg.g : geom(N);
   const L = trackLen(N);
   const Z = N === 4
-    ? { hs: 13.5, ss: 16.5, rs: 13.5, ps: 17, av: 36, lift: 11 }
+    ? { hs: 13.5, ss: 16.5, rs: 13.5, ps: 17, av: pg ? 28 : 36, lift: 11 }
     : { hs: 10.5, ss: 13, rs: 10.5, ps: 13.5, av: 34, lift: 8 };
   const tint = (s: number) => COL[SEAT_COLORS[N][s]];
   const nick = draftProfile().nick || 'Toi';
@@ -240,6 +244,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     h('div', { class: 'board__wood' }),
     h('div', { class: 'board__center', style: { left: center.x, top: center.x, width: center.s, height: center.s } }),
   );
+  if (pg) {
+    // La photo porte déjà les trous, les maisons et les réserves : on ne dessine que les billes par-dessus.
+    board.classList.add('board--painted');
+    board.append(h('div', { class: 'board__photo', style: { backgroundImage: `url(${import.meta.env.BASE_URL}plateaux/peint.jpg)`, transform: `rotate(${pg.turn}deg)` } }));
+  }
   const rpads: HTMLElement[] = [];
   g.arms.forEach((am, arm) => {
     const s = (arm - armOf(N, me, 0) + N) % N; // place assise sur ce bras

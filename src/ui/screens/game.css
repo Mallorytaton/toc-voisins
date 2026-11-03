@@ -65,6 +65,11 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 
 /* Plateau 360 × 360, en bois : veinage dessiné par le navigateur (SVG), trous creusés, feutre au centre.
    Les couleurs des trous passent par des variables, pour pouvoir changer d'ambiance plus tard. */
+/* Plateau peint (boutique) : la photo remplace le bois, les trous et les fonds colorés */
+.board--painted { border-radius: 6px; box-shadow: 0 7px 0 #a0703f, 0 16px 28px rgba(70, 40, 20, .28); }
+.board--painted > .board__wood, .board--painted > .board__center, .board--painted > .pad, .board--painted > .hole { display: none; }
+.board__photo { position: absolute; inset: 0; border-radius: 6px; background: center / 100% 100% no-repeat; }
+.board--painted .pile { scale: .82; }
 .board {
   position: absolute; z-index: 1; left: 16px; top: 82px; width: 360px; height: 360px;
   --hole-bg: radial-gradient(circle at 50% 38%, #3f230e 0 30%, #5c3517 62%, #8e5e32 100%);
