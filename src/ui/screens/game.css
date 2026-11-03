@@ -219,6 +219,8 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
   font: 800 15px/1 var(--display); padding-top: 2px; cursor: pointer;
 }
 .pop--emotes > button:active { transform: scale(.95); background: var(--coral-l); }
+/* Une émote seule sur sa ligne (nombre impair) prend toute la largeur */
+.pop--emotes > button:last-child:nth-child(odd) { grid-column: 1 / -1; font-size: 22px; }
 /* Tiroir du chat (parties en ligne) : barre sous les cartes (un peu plus petites), chat ouvert à la place des cartes */
 .with-drawer .hand { transform: translateY(-40px) scale(.82); transform-origin: 50% 184px; }
 .chat-drawer { position: absolute; left: 0; top: 0; width: 393px; height: 0; z-index: 40; }
