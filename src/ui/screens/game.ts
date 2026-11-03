@@ -397,7 +397,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const emoteBtn = h('button', { class: 'btn-round btn-round--lg emote-btn', type: 'button', 'aria-label': 'Émotes', 'aria-expanded': 'false' },
     h('i', null, h('span'), h('span'), h('span')));
   const emotePop = h('div', { class: 'pop pop--emotes', hidden: true },
-    ...EMOTES.map((t) => h('button', { type: 'button', onclick: () => sendEmote(t) }, t)));
+    // Les émojis seuls (sans texte) s'affichent en plus grand.
+    ...EMOTES.map((t) => h('button', { type: 'button', class: /\p{L}/u.test(t) ? undefined : 'pop__emoji', onclick: () => sendEmote(t) }, t)));
   // Chat de table (en ligne) : toute la table voit la conversation ; les messages des autres passent aussi en bulle.
   const chatList = h('div', { class: 'table-chat__list', 'aria-live': 'polite' });
   const chatInput = h('input', { class: 'table-chat__input', type: 'text', maxlength: 140, placeholder: 'Écrire à la table…', 'aria-label': 'Message à la table', enterkeyhint: 'send', autocomplete: 'off' }) as HTMLInputElement;

@@ -118,4 +118,4 @@ export const SEAT_COLORS: Record<4 | 6, ColorName[]> = {
 };
 export const TEAM_NAMES = ['Soleil', 'Myrtilles', 'Framboises'];
 
-export const EMOTES =['Allez, vas-y !', 'Oh là là !', 'Bien joué !', 'Aïe…', 'Mais non !', 'GG l’équipe', '🖕🏻'];
+export const EMOTES =['Allez, vas-y !', 'Oh là là !', 'Bien joué !', 'Aïe…', 'Mais non !', 'GG l’équipe', '🖕🏻', '❤️'];
