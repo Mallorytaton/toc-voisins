@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_VARIANTS, GameState, Rng, Variants, applyMove, deal, giveCard, inHome, legalMoves, newGame,
+  DEFAULT_VARIANTS, GameState, Rng, Variants, applyMove, deal, giveCard, inHome, leavesHome, legalMoves, newGame,
   onTrack, randomMove, seededRng, squareOf,
 } from '../src/engine';
 
@@ -36,7 +36,11 @@ export function playRandomGame(n: number, rng: Rng, variants: Variants, maxMoves
     } else {
       const legal = legalMoves(st);
       expect(legal.length).toBeGreaterThan(0);
-      st = applyMove(st, randomMove(st, rng));
+      // Ressortir une bille de sa maison (le 4) reste joué, mais rarement : au hasard pur, les billes
+      // ressortiraient aussi souvent qu'elles rentrent et les parties ne finiraient plus.
+      const m = randomMove(st, rng);
+      const calm = legal.filter((x) => !leavesHome(st, x));
+      st = applyMove(st, leavesHome(st, m) && calm.length && rng() > 0.1 ? calm[Math.floor(rng() * calm.length)] : m);
       checkInvariants(st);
       if (++moves > maxMoves) throw new Error('partie bloquée');
     }

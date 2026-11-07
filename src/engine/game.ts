@@ -1,4 +1,4 @@
-import { allHome, clonePawns, controlledSeat, initialPawns, partner, teamCount, teamOf } from './board';
+import { allHome, clonePawns, controlledSeat, inHome, initialPawns, partner, teamCount, teamOf } from './board';
 import { RANKS, RANK_NAMES, Rng, buildDeck, rankOf, shuffle } from './cards';
 import { Ctx, doExit, doSeven, doStep, doSwap, hasPlayableCard } from './moves';
 import { DEFAULT_VARIANTS, GameState, Move, PawnRef, Rank, Variants } from './types';
@@ -165,11 +165,12 @@ export function applyMove(st0: GameState, move: Move): GameState {
         const other = move.as === '5' && st.variants.fiveOthers;
         if (exp === 0 || move.steps !== exp) throw new Error('Déplacement invalide');
         if (other ? move.pawn.s === seat : move.pawn.s !== cs) throw new Error('Pion non jouable');
+        const out = move.steps < 0 && inHome(st0.n, st0.pawns[move.pawn.s][move.pawn.i].p);
         res = doStep(ctx, move.pawn, move.steps, !!move.lap);
         const suffix = /^\d+$/.test(label) ? '' : ` (${label})`;
         text =
           move.steps < 0
-            ? `@${seat} recule ${own(move.pawn)} de ${-move.steps}${suffix}`
+            ? `@${seat} recule ${own(move.pawn)} de ${-move.steps}${suffix}${out ? ' et le fait ressortir de sa maison' : ''}`
             : `@${seat} avance ${own(move.pawn)} de ${move.steps}${suffix}${move.lap ? ' et refait un tour' : ''}`;
         break;
       }

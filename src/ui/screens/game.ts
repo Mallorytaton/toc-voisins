@@ -2,7 +2,7 @@
 import type { GameSource, RematchVote, TableMsg } from '../../app/game-source';
 import { draftProfile } from '../../app/profile';
 import {
-  type Card, type GameState, type Move, type PawnRef, type Rank, type SevenPart, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, homeIndex, inHome, isLap, legalMovesFor, occupant, partner, rankOf, sameRef, squareOf, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
+  type Card, type GameState, type Move, type PawnRef, type Rank, type SevenPart, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, homeIndex, inHome, isLap, leavesHome, legalMovesFor, occupant, partner, rankOf, sameRef, squareOf, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
 } from '../../engine';
 import { type Fx, playFx } from '../board/fx';
 import { armOf, geom, pawnXY, trackIndex } from '../board/geom';
@@ -696,8 +696,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let chain: SevenPart[] = [];
   /** Explication de l'astuce affichée tant que sa sélection est en place. */
   let tip: string | null = null;
-  /** Bille devant sa maison : la rentrer, refaire un tour, ou défausser (si refaire un tour est le seul coup). */
-  type Way = 'home' | 'lap' | 'discard';
+  /**
+   * Bille devant sa maison : la rentrer, refaire un tour, ou défausser (si refaire un tour est le seul coup).
+   * Bille dans sa maison, avec le 4 : la faire ressortir, ou défausser (si c'est le seul coup).
+   */
+  type Way = 'home' | 'lap' | 'out' | 'discard';
   let way: Way | null = null;
   const clearSel = () => { sel = null; jokerAs = null; pick = null; target = null; chain = []; tip = null; way = null; };
 
@@ -737,9 +740,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     ways?: Way[];
   }
   const decide = (opts: Move[], ms: Move[]): { chosen: Move | null; ways: Way[] } => {
-    const by: Partial<Record<Way, Move>> = { home: opts.find((m) => !isLap(m)), lap: opts.find((m) => isLap(m)) };
-    if (by.lap) by.discard = ms.find((m) => m.kind === 'discard');
-    const ways = (['home', 'lap', 'discard'] as const).filter((w) => by[w]);
+    const by: Partial<Record<Way, Move>> = {
+      home: opts.find((m) => !isLap(m) && !leavesHome(view, m)), lap: opts.find((m) => isLap(m)), out: opts.find((m) => leavesHome(view, m)),
+    };
+    // La défausse n'est permise que si tous les coups sont facultatifs (refaire un tour, ressortir de sa maison).
+    if (by.lap || by.out) by.discard = ms.find((m) => m.kind === 'discard');
+    const ways = (['home', 'lap', 'out', 'discard'] as const).filter((w) => by[w]);
     if (ways.length <= 1) return { chosen: ways.length ? by[ways[0]]! : null, ways: [] };
     return { chosen: way && by[way] ? by[way]! : null, ways };
   };
@@ -904,7 +910,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   /** Progressions successives d'un pion qui fait `steps` pas (négatif = recule). */
   const walk = (p: number, steps: number, lap = false) => {
     const out: number[] = [];
-    for (let k = 0; k < Math.abs(steps); k++) out.push((p = steps > 0 ? (lap && p === homeEntry(N) ? 0 : stepForward(N, p)) : (p - 1 + L) % L));
+    // À reculons, une bille en maison redescend vers son 1er trou puis ressort par le trou d'entrée.
+    const back = (q: number) => (inHome(N, q) ? (q === L + 1 ? homeEntry(N) : q - 1) : (q - 1 + L) % L);
+    for (let k = 0; k < Math.abs(steps); k++) out.push((p = steps > 0 ? (lap && p === homeEntry(N) ? 0 : stepForward(N, p)) : back(p)));
     return out;
   };
 
@@ -1104,7 +1112,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     let text = m.kind === 'exit' ? `Sors une bille avec ${cardName(m.card)}.`
       : m.kind === 'swap' ? `Échange ta bille avec celle de ${nameOf(m.target.s)}.`
         : m.kind === 'seven' ? (m.parts.length > 1 ? `Partage ton 7 : ${m.parts.map((p) => p.steps).join(' + ')}.` : 'Avance cette bille de 7.')
-          : m.steps < 0 ? 'Recule cette bille de 4 : elle se rapproche de sa maison.' : `Avance cette bille de ${m.steps} avec ${cardName(m.card)}.`;
+          : m.steps < 0 ? (leavesHome(view, m) ? 'Fais ressortir cette bille de ta maison avec le 4.' : 'Recule cette bille de 4 : elle se rapproche de sa maison.')
+            : `Avance cette bille de ${m.steps} avec ${cardName(m.card)}.`;
     if (home) text += ' Elle rentre à la maison !';
     if (victims.length) text += ` Ça renvoie ${victims.join(' et ')} dans sa réserve !`;
     tip = text;
@@ -1358,11 +1367,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }));
   };
 
-  const WAY_LABEL: Record<Way, string> = { home: 'Rentrer à la maison', lap: 'Refaire un tour', discard: 'Défausser' };
+  const WAY_LABEL: Record<Way, string> = { home: 'Rentrer à la maison', lap: 'Refaire un tour', out: 'Ressortir de la maison', discard: 'Défausser' };
   const renderChoice = (pl: Plan) => {
     if ((pl.ways?.length ?? 0) > 1) {
       choicePop.hidden = false;
-      choicePop.replaceChildren(h('span', { class: 'pop__title' }, 'Ta bille est devant sa maison'),
+      choicePop.replaceChildren(h('span', { class: 'pop__title' }, pl.ways!.includes('out') ? 'Ta bille est dans sa maison' : 'Ta bille est devant sa maison'),
         h('div', { class: 'chips' }, ...pl.ways!.map((w) =>
           h('button', { type: 'button', 'aria-pressed': String(way === w), onclick: () => { way = w; render(); } },
             w === 'discard' && !view.variants.discardOne ? 'Défausser ma main' : WAY_LABEL[w]))));
@@ -1548,8 +1557,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         sub = pl.chosen.card ? 'Défausse cette carte.' : 'Tu passes la donne.';
         label = 'Défausser';
       } else if (!pl.chosen && (pl.ways?.length ?? 0) > 1) {
-        t = 'Devant ta maison';
-        sub = pl.ways!.includes('home') ? 'Rentre ta bille ou refais un tour : choisis à droite.' : 'Elle ne peut pas rentrer : refais un tour, ou défausse.';
+        t = pl.ways!.includes('out') ? 'Dans ta maison' : 'Devant ta maison';
+        sub = pl.ways!.includes('out') ? 'Fais-la ressortir avec le 4, ou défausse : choisis à droite.'
+          : pl.ways!.includes('home') ? 'Rentre ta bille ou refais un tour : choisis à droite.' : 'Elle ne peut pas rentrer : refais un tour, ou défausse.';
       } else if (pl.seven) {
         // Le 7 : on touche la bille, puis la case où elle arrive.
         const sv = pl.seven;
@@ -1580,6 +1590,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
           : !pl.chosen && pl.cands.length > 1 && !pick ? 'Touche la bille à jouer.'
             : !pl.chosen && pl.targets.length > 1 ? 'Touche la bille à échanger.'
               : c.rule;
+        if (pl.chosen && leavesHome(view, pl.chosen)) sub = 'Ta bille ressort de sa maison à reculons.';
         if (pl.chosen) label = 'Jouer';
         // Carte injouable : on dit pourquoi pour le 7 (règle la plus souvent mal comprise).
         if (!pl.moves.length)

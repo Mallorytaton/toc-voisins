@@ -50,24 +50,32 @@ export function walkForward(ctx: Ctx, ref: PawnRef, k: number, lap = false): Wal
   return { p, passed, land: p < L ? squareOf(n, ref.s, p) : -1 };
 }
 
-/** Recule un pion de k pas (uniquement sur le parcours, jamais en maison). */
+/**
+ * Recule un pion de k pas. Sur le parcours, il n'entre jamais en maison ; un pion déjà en maison
+ * peut en ressortir à reculons par le trou d'entrée, sans sauter de bille de sa maison.
+ */
 export function walkBackward(ctx: Ctx, ref: PawnRef, k: number): Walk | null {
   const { n, pawns, v } = ctx;
   const L = trackLen(n);
   const pw = pawns[ref.s][ref.i];
-  if (!onTrack(n, pw.p)) return null;
+  if (!onTrack(n, pw.p) && !inHome(n, pw.p)) return null;
   let p = pw.p;
   const passed: number[] = [];
   for (let step = 1; step <= k; step++) {
-    let np = p - 1;
-    if (np < 0) np = L - 1;
-    const sq = squareOf(n, ref.s, np);
-    const occ = occupant(n, pawns, sq, ref);
-    if (occ && isBlocker(v, pawns[occ.s][occ.i])) return null;
-    if (step < k) passed.push(sq);
+    // En maison, on redescend vers le 1er trou, puis le trou d'entrée ; sur le parcours, on recule d'un trou.
+    const np = inHome(n, p) ? (p === L + 1 ? homeEntry(n) : p - 1) : p === 0 ? L - 1 : p - 1;
+    if (inHome(n, np)) {
+      const h = homeIndex(n, np);
+      if (pawns[ref.s].some((o, j) => j !== ref.i && inHome(n, o.p) && homeIndex(n, o.p) === h)) return null;
+    } else {
+      const sq = squareOf(n, ref.s, np);
+      const occ = occupant(n, pawns, sq, ref);
+      if (occ && isBlocker(v, pawns[occ.s][occ.i])) return null;
+      if (step < k) passed.push(sq);
+    }
     p = np;
   }
-  return { p, passed, land: squareOf(n, ref.s, p) };
+  return { p, passed, land: onTrack(n, p) ? squareOf(n, ref.s, p) : -1 };
 }
 
 function sendToBase(ctx: Ctx, ref: PawnRef, caps: PawnRef[]) {
@@ -101,6 +109,12 @@ export const crossesEntry = (n: number, p: number, k: number) => onTrack(n, p) &
 
 /** Coup où une bille refait un tour au lieu de rentrer dans sa maison. */
 export const isLap = (m: Move) => (m.kind === 'step' && !!m.lap) || (m.kind === 'seven' && m.parts.some((p) => p.lap));
+
+/** Coup du 4 qui fait ressortir une bille de sa maison. */
+export const leavesHome = (st: GameState, m: Move) => m.kind === 'step' && m.steps < 0 && inHome(st.n, st.pawns[m.pawn.s][m.pawn.i].p);
+
+/** Coup jamais obligatoire : refaire un tour, ou ressortir de sa maison. S'il n'y a rien d'autre, on peut défausser. */
+export const isOptional = (st: GameState, m: Move) => isLap(m) || leavesHome(st, m);
 
 /** Déplacement simple (steps < 0 : recul ; lap : refait un tour au lieu de rentrer). */
 export function doStep(ctx: Ctx, ref: PawnRef, steps: number, lap = false): PawnRef[] | null {
@@ -221,7 +235,8 @@ function ctxOf(st: GameState): Ctx {
 
 /**
  * Coups possibles pour une valeur de carte donnée (sans tenir compte de la carte physique).
- * laps : compter aussi les billes qui dépassent leur maison pour refaire un tour.
+ * laps : compter aussi les coups jamais obligatoires (dépasser sa maison pour refaire un tour,
+ * ressortir de sa maison avec le 4).
  */
 export function movesForRank(st: GameState, seat: number, rank: Rank, cap?: number, laps = true): MoveTpl[] {
   const ctx = ctxOf(st);
@@ -256,6 +271,8 @@ export function movesForRank(st: GameState, seat: number, rank: Rank, cap?: numb
   }
   if (rank === '4') {
     for (let i = 0; i < PAWNS_PER_SEAT; i++) {
+      // Une bille en maison peut aussi en ressortir à reculons.
+      if (!laps && inHome(n, st.pawns[cs][i].p)) continue;
       if (walkBackward(ctx, { s: cs, i }, 4)) out.push({ kind: 'step', pawn: { s: cs, i }, steps: -4 });
     }
   }
@@ -295,8 +312,8 @@ export function legalMoves(st: GameState): Move[] {
     const ranks = r === 'X' ? RANKS : [r];
     for (const as of ranks) for (const t of get(as)) out.push({ ...t, card, as } as Move);
   }
-  // Rien d'autre à jouer que refaire un tour : on peut aussi défausser (refaire un tour reste un choix).
-  if (hand.length > 0 && !out.some((m) => !isLap(m))) out.push(...discardMoves(st, hand));
+  // Rien d'autre à jouer que refaire un tour ou ressortir de sa maison : on peut aussi défausser (ces coups restent un choix).
+  if (hand.length > 0 && !out.some((m) => !isOptional(st, m))) out.push(...discardMoves(st, hand));
   return out;
 }
 
@@ -315,7 +332,7 @@ export function legalMovesFor(st: GameState, seat: number, card: Card): Move[] {
   return legalMoves(st).filter((m) => m.kind === 'discard' ? m.card === card || m.card === '' : m.card === card);
 }
 
-/** Version rapide : le joueur a-t-il au moins un coup jouable (refaire un tour ne compte pas : il peut défausser) ? */
+/** Version rapide : le joueur a-t-il au moins un coup jouable (refaire un tour ou ressortir de sa maison ne comptent pas : il peut défausser) ? */
 export function hasPlayableCard(st: GameState): boolean {
   const seat = st.turn;
   const seen = new Set<string>();

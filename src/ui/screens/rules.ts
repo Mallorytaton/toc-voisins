@@ -33,7 +33,7 @@ export function variantsSummary(v: Variants): string {
 }
 
 /** Rappel des règles de base, en tête de la feuille. */
-const BASE = 'As : sortir ou 1 · Roi : sortir · 4 : recule de 4 · 7 : un pion ou partagé entre deux, sans prendre les pions dépassés · Valet : échange avec un pion de ton équipe ou adverse · les autres cartes avancent de leur valeur.';
+const BASE = 'As : sortir ou 1 · Roi : sortir · 4 : recule de 4, même pour ressortir de sa maison · 7 : un pion ou partagé entre deux, sans prendre les pions dépassés · Valet : échange avec un pion de ton équipe ou adverse · les autres cartes avancent de leur valeur.';
 
 /** Feuille « Règles de la partie ». editable = false : simple lecture (invités, tournoi). */
 export function openVariantsSheet(current: Variants, editable: boolean, onSave: (v: Variants) => void) {

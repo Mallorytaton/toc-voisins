@@ -119,10 +119,55 @@ describe('cartes de déplacement', () => {
     expect(applyMove(st, find(st, '3S0', () => true)).pawns[0][0].p).toBe(L + 3);
   });
 
-  it('on ne recule pas en maison avec le 4', () => {
+  it("le 4 ne fait jamais entrer en maison : on recule sous l'entrée", () => {
     const st = mk(['4S0']);
-    put(st, 0, 0, L + 2);
-    expect(movesOf(st, '4S0')).toHaveLength(0);
+    put(st, 0, 0, 2);
+    // 2 → 1 → 0 (départ) → E → E - 1
+    expect(applyMove(st, find(st, '4S0', () => true)).pawns[0][0].p).toBe(E - 1);
+  });
+
+  it('avec le 4, une bille en maison en ressort à reculons par le trou d’entrée', () => {
+    const st = mk(['4S0']);
+    put(st, 0, 0, L + 2); // 2e trou de la maison
+    // 2e trou → 1er trou → entrée E → E - 1 → E - 2
+    const after = applyMove(st, find(st, '4S0', () => true));
+    expect(after.pawns[0][0]).toEqual({ p: E - 2, fresh: false });
+    expect(after.log[after.log.length - 1].text).toContain('ressortir de sa maison');
+    // Du fond, les 4 pas ramènent juste sur le trou d'entrée.
+    const st2 = mk(['4S0']);
+    put(st2, 0, 0, L + 4);
+    expect(applyMove(st2, find(st2, '4S0', () => true)).pawns[0][0].p).toBe(E);
+  });
+
+  it('en ressortant de sa maison, on ne saute pas une bille de sa maison', () => {
+    const st = mk(['4S0']);
+    put(st, 0, 0, L + 4); // fond
+    put(st, 0, 1, L + 2); // 2e trou
+    const ms = movesOf(st, '4S0');
+    expect(ms.map((m) => m.kind === 'step' && m.pawn.i)).toEqual([1]);
+  });
+
+  it('ressortir de sa maison prend la bille posée sur son arrivée', () => {
+    const st = mk(['4S0']);
+    put(st, 0, 0, L + 1); // 1er trou → E → E-1 → E-2 → E-3
+    putSq(st, 1, 0, (E - 3) % L); // la case absolue de la place 0 vaut sa progression
+    const after = applyMove(st, find(st, '4S0', () => true));
+    expect(after.pawns[0][0].p).toBe(E - 3);
+    expect(after.pawns[1][0].p).toBe(-1);
+  });
+
+  it("ressortir de sa maison n'est jamais obligatoire : si c'est le seul coup, on peut défausser", () => {
+    const st = mk(['4S0']);
+    put(st, 0, 0, L + 3);
+    const ms = legalMoves(st);
+    expect(ms.some((m) => m.kind === 'step')).toBe(true);
+    expect(ms.some((m) => m.kind === 'discard')).toBe(true);
+    expect(applyMove(st, { kind: 'discard', card: '' }).hands[0]).toEqual([]);
+    // Avec un autre coup possible (une bille sur le parcours), pas de défausse.
+    const st2 = mk(['4S0']);
+    put(st2, 0, 0, L + 3);
+    put(st2, 0, 1, 20);
+    expect(legalMoves(st2).some((m) => m.kind === 'discard')).toBe(false);
   });
 
   it('un pion en base ne bouge pas avec une carte de déplacement', () => {
