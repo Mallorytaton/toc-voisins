@@ -42,13 +42,17 @@ const myTurn = async () => {
   for (let k = 0; k < 60 && (await hint()) !== 'À ton tour !'; k++) await page.waitForTimeout(500);
   await page.waitForTimeout(1600);
 };
-/** Touche la carte de rang `r`, choisit une bille si besoin, capture l'aperçu puis joue. */
+/** Touche la carte de rang `r`, choisit une bille (et pour le 7, une arrivée) si besoin, capture l'aperçu puis joue. */
 const play = async (r, tag) => {
   await page.locator('.hand .pcard', { has: page.locator('.pcard__rank', { hasText: new RegExp(`^${r}$`) }) }).first().click();
   await page.waitForTimeout(350);
   if (!(await page.locator('.g-play:not([hidden])').count()) && (await page.locator('.pawn--pick').count())) {
     await page.locator('.pawn--pick').first().click();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(600);
+  }
+  if (!(await page.locator('.g-play:not([hidden])').count()) && (await page.locator('.dest-tag').count())) {
+    await page.locator('.dest-tag').last().click();
+    await page.waitForTimeout(600);
   }
   await page.waitForTimeout(500);
   await shot(`${tag}-apercu`);

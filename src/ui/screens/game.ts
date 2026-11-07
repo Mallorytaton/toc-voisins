@@ -2,7 +2,7 @@
 import type { GameSource, RematchVote, TableMsg } from '../../app/game-source';
 import { draftProfile } from '../../app/profile';
 import {
-  type Card, type GameState, type Move, type PawnRef, type Rank, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, inHome, isLap, legalMovesFor, partner, rankOf, sameRef, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
+  type Card, type GameState, type Move, type PawnRef, type Rank, type SevenPart, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, homeIndex, inHome, isLap, legalMovesFor, occupant, partner, rankOf, sameRef, squareOf, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
 } from '../../engine';
 import { type Fx, playFx } from '../board/fx';
 import { armOf, geom, pawnXY, trackIndex } from '../board/geom';
@@ -27,6 +27,14 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
 const key = (r: PawnRef) => `${r.s}.${r.i}`;
 const JOKER_ORDER: Rank[] = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const RANK_SHORT: Partial<Record<Rank, string>> = { K: 'R', Q: 'D', J: 'V' };
+/** Petits pictos du partage du 7 : maison, refaire un tour, bille prise. */
+const SV_ICONS = {
+  home: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.3 1 5.7h1.5v5h2.7V7.9h1.6v2.8h2.7v-5H11Z" fill="currentColor"/></svg>',
+  lap: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M9.7 6.5A3.8 3.8 0 1 1 8.6 3.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.5 1v2.8H6.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  cap: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 .4 7.3 3.9 11 3.4 8.6 6.2 10.6 9.4 7 8.6 6 12 5 8.6 1.4 9.4 3.4 6.2 1 3.4 4.7 3.9Z" fill="currentColor"/></svg>',
+};
+/** Trous de la maison, du bout du bras vers le centre */
+const HOME_HOLES = ['1er trou', '2e trou', '3e trou', 'fond'];
 
 export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HTMLElement; cleanup: () => void } {
   const N = src.state.n as 4 | 6;
@@ -276,7 +284,39 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   board.append(pathLayer,
     h('div', { class: 'pile', style: { transform: `scale(${N === 4 ? 1 : 0.72})` } }, cardBack(), deckCount, discard),
     ghostLayer, pawnLayer, avLayer, bubbleLayer, fxBoard);
+  // Tout le plateau passe dans une « caméra » : pendant le partage du 7, elle se rapproche des arrivées.
+  const cam = h('div', { class: 'board__cam' });
+  cam.append(...Array.from(board.childNodes));
+  board.append(cam);
   stage.append(board);
+  let zoomed = '';
+  let zoomTimer = 0;
+  /** Rapproche la caméra de la zone b du plateau (null : tout le plateau). */
+  const zoomTo = (b: { x: number; y: number; w: number } | null) => {
+    const sig = b ? `${r1(b.x)},${r1(b.y)},${r1(b.w)}` : '';
+    if (sig === zoomed) return;
+    const was = !!zoomed;
+    zoomed = sig;
+    clearTimeout(zoomTimer);
+    // Le plateau est découpé à sa taille pendant le zoom ; le découpage part de loin pour ne rien couper d'un coup.
+    if (b) {
+      const k = 360 / b.w;
+      if (!was) {
+        board.style.clipPath = 'inset(-160px round 44px)';
+        void board.offsetWidth;
+      }
+      board.classList.add('board--zoom');
+      board.style.clipPath = 'inset(0px round 28px)';
+      cam.style.transform = `translate(${r1(-b.x * k)}px, ${r1(-b.y * k)}px) scale(${k.toFixed(3)})`;
+    } else {
+      cam.style.transform = '';
+      board.style.clipPath = 'inset(-160px round 44px)';
+      zoomTimer = window.setTimeout(() => {
+        board.style.clipPath = '';
+        board.classList.remove('board--zoom');
+      }, 520);
+    }
+  };
   // Mode manette : une tablette sert de plateau ; à sa place, le téléphone montre les billes jouables, numérotées.
   const padPanel = h('div', { class: 'pad-panel', hidden: true });
   stage.append(padPanel);
@@ -615,7 +655,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const hintS = h('span');
   // « Une astuce ? » : propose un bon coup (le robot le choisit) sans le jouer à la place du joueur.
   const tipBtn = h('button', { class: 'g-tip', type: 'button', onclick: () => suggest() }, 'Une astuce ?');
-  const resetSeven = h('button', { class: 'g-tip', type: 'button', onclick: () => { split = new Map(); render(); } }, 'Recommencer le partage');
+  const resetSeven = h('button', { class: 'g-tip', type: 'button', onclick: () => { chain = []; pick = null; render(); } }, 'Recommencer le partage');
   const playBtn = button('Jouer', 'primary', () => commit());
   playBtn.classList.add('g-play');
   // Initiation : Toc, la mascotte, remplace la bulle d'émotes et réagit à chaque leçon.
@@ -652,26 +692,47 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let jokerAs: Rank | null = null;
   let pick: PawnRef | null = null;
   let target: PawnRef | null = null;
-  let split = new Map<string, number>();
+  /** Partage du 7 en cours : les mouvements déjà choisis, dans l'ordre où ils seront joués. */
+  let chain: SevenPart[] = [];
   /** Explication de l'astuce affichée tant que sa sélection est en place. */
   let tip: string | null = null;
   /** Bille devant sa maison : la rentrer, refaire un tour, ou défausser (si refaire un tour est le seul coup). */
   type Way = 'home' | 'lap' | 'discard';
   let way: Way | null = null;
-  const clearSel = () => { sel = null; jokerAs = null; pick = null; target = null; split = new Map(); tip = null; way = null; };
+  const clearSel = () => { sel = null; jokerAs = null; pick = null; target = null; chain = []; tip = null; way = null; };
 
   const myHand = () => (watching ? [] : view.hands[me] ?? []);
   const myTurn = () => !watching && !busy && view.phase === 'play' && view.turn === me;
   // L'échange se choisit même pendant l'animation de distribution.
   const giving = () => !watching && view.phase === 'exchange' && !view.exchange[me];
 
+  /** Une arrivée possible d'une bille pendant le partage du 7. */
+  interface SevenDest {
+    part: SevenPart;
+    /** Progression d'arrivée */
+    p: number;
+    kind: 'track' | 'home' | 'lap';
+    /** Place de la bille prise à l'arrivée, -1 si aucune */
+    victim: number;
+  }
+  interface SevenPlan {
+    /** Billes qui peuvent commencer le partage */
+    firsts: PawnRef[];
+    /** Billes qui peuvent prendre les pas restants */
+    next: PawnRef[];
+    /** Arrivées à toucher : celles de la bille choisie, ou l'autre façon de jouer la dernière bille */
+    dests: SevenDest[];
+    /** Pas encore à placer */
+    left: number;
+  }
   interface Plan {
     moves: Move[];
     chosen: Move | null;
     cands: PawnRef[];
     targets: PawnRef[];
     jokerValues: Rank[];
-    sevenPawns: PawnRef[];
+    /** Partage du 7 (null pour les autres cartes) */
+    seven: SevenPlan | null;
     /** Plusieurs façons de jouer la même bille (devant sa maison) : le joueur choisit */
     ways?: Way[];
   }
@@ -682,7 +743,92 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (ways.length <= 1) return { chosen: ways.length ? by[ways[0]]! : null, ways: [] };
     return { chosen: way && by[way] ? by[way]! : null, ways };
   };
-  const empty: Plan = { moves: [], chosen: null, cands: [], targets: [], jokerValues: [], sevenPawns: [] };
+  const empty: Plan = { moves: [], chosen: null, cands: [], targets: [], jokerValues: [], seven: null };
+
+  // ---------- Partage du 7 : on touche la bille, puis la case où elle arrive ----------
+  type SevenMove = Extract<Move, { kind: 'seven' }>;
+  const samePart = (a: SevenPart, b: SevenPart) => sameRef(a.pawn, b.pawn) && a.steps === b.steps && !!a.lap === !!b.lap;
+  const partOf = (o: SevenPart): SevenPart => (o.lap ? { pawn: o.pawn, steps: o.steps, lap: true } : { pawn: o.pawn, steps: o.steps });
+  const uniqRefs = (rs: PawnRef[]) => rs.filter((r, k) => rs.findIndex((x) => sameRef(x, r)) === k);
+  /** Où arrive une bille du 7, et ce qu'elle y fait. */
+  const sevenDest = (o: SevenPart): SevenDest => {
+    const ps = walk(view.pawns[o.pawn.s][o.pawn.i].p, o.steps, !!o.lap);
+    const p = ps[ps.length - 1];
+    const hit = p >= 0 && p < L ? occupant(N, view.pawns, squareOf(N, o.pawn.s, p), o.pawn) : null;
+    return { part: partOf(o), p, kind: inHome(N, p) ? 'home' : o.lap ? 'lap' : 'track', victim: hit ? hit.s : -1 };
+  };
+  const planSeven = (sevens: SevenMove[]): SevenPlan & { cands: PawnRef[] } => {
+    const withPre = (pre: SevenPart[]) => sevens.filter((m) => pre.every((q, k) => !!m.parts[k] && samePart(m.parts[k], q)));
+    /** Mouvements possibles juste après `pre` (sans doublon). */
+    const optsAt = (pre: SevenPart[]) => {
+      const out: SevenPart[] = [];
+      for (const m of withPre(pre)) {
+        const o = m.parts[pre.length];
+        if (o && !out.some((x) => samePart(x, o))) out.push(o);
+      }
+      return out;
+    };
+    if (chain.length && !withPre(chain).length) chain = [];
+    // Un seul partage possible : il est déjà prêt.
+    if (!chain.length && sevens.length === 1) {
+      chain = sevens[0].parts.map(partOf);
+      pick = null;
+    }
+    const left = 7 - chain.reduce((a, q) => a + q.steps, 0);
+    const firsts = uniqRefs(sevens.map((m) => m.parts[0].pawn));
+    const next = left > 0 && chain.length ? uniqRefs(optsAt(chain).map((o) => o.pawn)) : [];
+    let raw: SevenPart[] = [];
+    if (left > 0 && pick) raw = optsAt(chain).filter((o) => sameRef(o.pawn, pick!));
+    else if (!left && chain.length) {
+      // Partage complet : l'autre façon de jouer la dernière bille (rentrer ou refaire un tour) reste à toucher.
+      const last = chain[chain.length - 1];
+      raw = optsAt(chain.slice(0, -1)).filter((o) => sameRef(o.pawn, last.pawn) && o.steps === last.steps && !samePart(o, last));
+    }
+    return { firsts, next, left, dests: raw.map(sevenDest), cands: uniqRefs([...firsts, ...next, ...chain.map((q) => q.pawn)]) };
+  };
+  /** Complète le partage tant qu'il n'y a pas de vrai choix : une seule arrivée, ou la seule bille qui peut finir. */
+  const settleSeven = () => {
+    for (let guard = 0; guard < 8; guard++) {
+      const sv = plan().seven;
+      if (!sv || !sv.left) return;
+      if (!pick) {
+        if (!chain.length || sv.next.length !== 1) return;
+        pick = sv.next[0];
+        continue;
+      }
+      const ds = sv.dests;
+      if (ds.length === 1) {
+        chain = [...chain, ds[0].part];
+        pick = null;
+        continue;
+      }
+      // Les pas restants finissent le 7 de plusieurs façons (rentrer ou refaire un tour) : la maison d'abord,
+      // l'autre façon reste à toucher sur le plateau.
+      if (chain.length && ds.length && ds.every((d) => d.part.steps === sv.left)) {
+        chain = [...chain, (ds.find((d) => d.kind !== 'lap') ?? ds[0]).part];
+        pick = null;
+      }
+      return;
+    }
+  };
+  /** « rentre au 2e trou de la maison », « refait un tour, prend la bille de Coco »… */
+  const destText = (d: SevenDest) => {
+    const p0 = view.pawns[d.part.pawn.s][d.part.pawn.i].p;
+    const what = d.kind === 'home' ? `${inHome(N, p0) ? 'va' : 'rentre'} au ${HOME_HOLES[homeIndex(N, d.p)]} de la maison`
+      : d.kind === 'lap' ? 'refait un tour' : `avance de ${d.part.steps}`;
+    const whose = d.part.pawn.s === me ? '' : `(bille de ${nameOf(d.part.pawn.s)}) `;
+    return whose + what + (d.victim < 0 ? '' : `, prend ${d.victim === me ? 'ta bille' : 'la bille de ' + nameOf(d.victim)}`);
+  };
+  const svIcon = (k: keyof typeof SV_ICONS) => {
+    const el = h('span', { class: 'sv-ic' });
+    el.innerHTML = SV_ICONS[k];
+    return el;
+  };
+  const tintVars = (s: number) => ({ '--c': tint(s).c, '--d': tint(s).d, '--l': tint(s).l });
+  /** Étiquette d'un mouvement du 7 : son numéro d'ordre, maison ou tour, les pas, une étoile s'il prend une bille. */
+  const sevenChip = (d: SevenDest, n: number) =>
+    h('span', { class: `sv-chip sv-chip--${d.kind}`, style: tintVars(d.part.pawn.s) },
+      h('i', null, String(n)), d.kind === 'track' ? null : svIcon(d.kind), '+' + d.part.steps, d.victim >= 0 ? svIcon('cap') : null);
 
   const plan = (): Plan => {
     if (sel === null || !myTurn()) return empty;
@@ -704,90 +850,55 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     play.forEach((m) => (m.kind === 'seven' ? m.parts.forEach((p) => add(p.pawn)) : add(m.pawn)));
     if (!pick && cands.length === 1) pick = cands[0];
     if (play[0]?.kind === 'seven') {
-      if (pick && !split.size) {
-        const solo = play.find((m) => m.kind === 'seven' && m.parts.length === 1 && sameRef(m.parts[0].pawn, pick!));
-        const best = Math.max(0, ...play.flatMap((m) => (m.kind === 'seven' ? m.parts.filter((p) => sameRef(p.pawn, pick!)).map((p) => p.steps) : [])));
-        split.set(key(pick), solo ? 7 : best);
-      }
-      const want = [...split].filter(([, n]) => n > 0).sort().join(',');
-      const same = play.filter((m) => m.kind === 'seven' && m.parts.map((p) => [key(p.pawn), p.steps] as const).sort().map(([k, n]) => `${k},${n}`).join(',') === want);
-      const { chosen, ways } = decide(same, ms);
-      return { moves: ms, chosen, cands, targets: [], jokerValues, ways, sevenPawns: play.some((m) => m.kind === 'seven' && m.parts.length > 1) ? cands : [] };
+      const sv = planSeven(play.filter((m): m is SevenMove => m.kind === 'seven'));
+      const chosen = sv.left ? null
+        : play.find((m) => m.kind === 'seven' && m.parts.length === chain.length && m.parts.every((q, k) => samePart(q, chain[k]))) ?? null;
+      return { moves: ms, chosen, cands: sv.cands, targets: [], jokerValues, seven: sv };
     }
-    if (!pick) return { moves: ms, chosen: null, cands, targets: [], jokerValues, sevenPawns: [] };
+    if (!pick) return { moves: ms, chosen: null, cands, targets: [], jokerValues, seven: null };
     const mine = play.filter((m): m is Exclude<typeof m, { kind: 'seven' }> => m.kind !== 'seven' && sameRef(m.pawn, pick!));
     if (mine[0]?.kind === 'swap') {
       const targets = mine.map((m) => (m.kind === 'swap' ? m.target : m.pawn));
       if (!target && targets.length === 1) target = targets[0];
       const chosen = target ? mine.find((m) => m.kind === 'swap' && sameRef(m.target, target!)) ?? null : null;
-      return { moves: ms, chosen, cands, targets, jokerValues, sevenPawns: [] };
+      return { moves: ms, chosen, cands, targets, jokerValues, seven: null };
     }
     const { chosen, ways } = decide(mine, ms);
-    return { moves: ms, chosen, cands, targets: [], jokerValues, ways, sevenPawns: [] };
+    return { moves: ms, chosen, cands, targets: [], jokerValues, ways, seven: null };
   };
 
   const onPawn = (r: PawnRef) => {
     const pl = plan();
     tip = null; // le joueur choisit lui-même : l'explication de l'astuce ne vaut plus
     if (pl.targets.some((t) => sameRef(t, r))) target = r;
-    else if (pl.cands.some((c) => sameRef(c, r))) {
-      if (pl.sevenPawns.length && pick) giveStep(r, pl);
-      else {
+    else if (pl.seven) {
+      // Le 7 : s'il reste des pas, la bille touchée les prend ; sinon elle commence un nouveau partage.
+      // Dans les deux cas, on montre ensuite ses arrivées possibles.
+      const sv = pl.seven;
+      if (sv.left && chain.length && sv.next.some((c) => sameRef(c, r))) pick = r;
+      else if (sv.firsts.some((c) => sameRef(c, r))) {
+        chain = [];
         pick = r;
-        target = null;
-        split = new Map();
-        way = null;
-      }
+      } else return;
+      settleSeven();
+    } else if (pl.cands.some((c) => sameRef(c, r))) {
+      pick = r;
+      target = null;
+      way = null;
     } else return;
     render();
   };
 
-  /**
-   * Partage du 7. Une nouvelle bille touchée : on passe directement au partage jouable le plus proche
-   * (ex. ta dernière bille +2 et les 5 autres pas pour ton partenaire), au lieu d'ajouter les pas un à un.
-   * Une bille déjà dans le partage : elle gagne un pas, pris sur la bille qui en a le plus.
-   * Si on touche une nouvelle bille alors que le partage est au maximum de billes (deux, en règle de base),
-   * elle prend la place de celle qui a le moins de pas.
-   */
-  const giveStep = (r: PawnRef, pl: Plan) => {
-    const k = key(r);
-    const cur = new Map([...split].filter(([, n]) => n > 0));
-    if (!cur.has(k)) {
-      const near = pl.moves
-        .filter((m): m is Extract<Move, { kind: 'seven' }> => m.kind === 'seven' && m.parts.some((p) => sameRef(p.pawn, r)))
-        .map((m) => {
-          const parts = new Map(m.parts.map((p) => [key(p.pawn), p.steps] as const));
-          // Écart avec le partage en cours (une bille retirée compte tous ses pas).
-          const dist = [...cur].reduce((a, [kk, n]) => a + Math.abs((parts.get(kk) ?? 0) - n), 0);
-          return { parts, dist, mine: parts.get(k) ?? 0 };
-        })
-        .sort((a, b) => a.dist - b.dist || b.mine - a.mine)[0];
-      if (near) {
-        split = near.parts;
-        return;
-      }
-    }
-    const others = [...cur.entries()].filter(([kk]) => kk !== k).sort((a, b) => b[1] - a[1]);
-    const maxPawns = view.variants.sevenAnyPawns ? Infinity : 2;
-    const total = [...cur.values()].reduce((a, b) => a + b, 0);
-    // Il reste des pas à placer (la première bille était bloquée avant 7) : on les ajoute.
-    if (total < 7 && (cur.has(k) || cur.size < maxPawns)) {
-      cur.set(k, (cur.get(k) ?? 0) + 1);
-      split = cur;
-      return;
-    }
-    if (!others.length) return toast('Touche une autre bille pour partager le 7.');
-    if (!cur.has(k) && cur.size >= maxPawns) {
-      const [weakK, weakN] = others[others.length - 1];
-      cur.delete(weakK);
-      cur.set(k, weakN);
-    } else {
-      const [fromK, fromN] = others[0];
-      if (fromN - 1 > 0) cur.set(fromK, fromN - 1);
-      else cur.delete(fromK);
-      cur.set(k, (cur.get(k) ?? 0) + 1);
-    }
-    split = cur;
+  /** Une arrivée du 7 touchée : la bille y va, et les pas restants vont à l'autre bille quand il n'y a pas de doute. */
+  const onDest = (d: SevenDest) => {
+    const sv = plan().seven;
+    if (!sv) return;
+    tip = null;
+    // Partage déjà complet : c'est l'autre façon de jouer la dernière bille.
+    chain = sv.left ? [...chain, d.part] : [...chain.slice(0, -1), d.part];
+    pick = null;
+    settleSeven();
+    render();
   };
 
   /** Progressions successives d'un pion qui fait `steps` pas (négatif = recule). */
@@ -820,8 +931,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const preview = (pl: Plan) => {
     pathLayer.replaceChildren();
     ghostLayer.replaceChildren();
+    if (!watching && pl.seven) return previewChain(pl);
     const m = watching ? aimedMove() : pl.chosen;
-    const sevenSplit = watching ? aimedSplit() : [...split].filter(([, n]) => n > 0);
+    const sevenSplit = watching ? aimedSplit() : [];
     if (sevenSplit.length && (!m || m.kind === 'seven')) return previewSeven(sevenSplit, m);
     if (m?.kind === 'swap') {
       // Valet : une ligne animée relie les deux billes qui vont s'échanger, avant de confirmer.
@@ -864,7 +976,66 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     return cap;
   };
 
-  /** Aperçu du 7 : sur chaque bille et sur sa case d'arrivée, une étiquette « +n ». Gris si le partage ne joue pas. */
+  /**
+   * Partage du 7 sur son téléphone : chemin et arrivée de chaque bille déjà placée (numérotée dans l'ordre du coup),
+   * et les arrivées encore à toucher (pleine : maison, pointillés : refaire un tour).
+   */
+  const previewChain = (pl: Plan) => {
+    const sv = pl.seven!;
+    chain.forEach((q, n) => {
+      const d = sevenDest(q);
+      const ps = walk(view.pawns[q.pawn.s][q.pawn.i].p, q.steps, !!q.lap);
+      ps.slice(0, -1).forEach((p, j) => {
+        if (inHome(N, p)) return;
+        const [x, y] = g.track[trackIndex(g, me, q.pawn.s, p)], dz = Z.hs * 0.5;
+        pathLayer.append(h('div', { class: 'path-dot', style: { left: r1(x - dz / 2), top: r1(y - dz / 2), width: r1(dz), height: r1(dz), animation: `tocPath 1.1s ease-in-out ${((j + 1) * 0.07).toFixed(2)}s infinite` } }));
+      });
+      const [x, y] = xy(q.pawn.s, q.pawn.i, d.p), z = Z.ps + 8;
+      ghostLayer.append(
+        h('div', { class: 'ghost', style: { left: r1(x - z / 2), top: r1(y - z / 2), width: z, height: z, borderColor: d.victim >= 0 ? 'var(--ink)' : tint(q.pawn.s).c } }),
+        h('div', { class: `seven-pill seven-pill--${d.kind}`, style: { left: r1(x), top: r1(y - Z.ps / 2 - 13), ...tintVars(q.pawn.s) } },
+          h('i', null, String(n + 1)), d.kind === 'track' ? null : svIcon(d.kind), '+' + q.steps, d.victim >= 0 ? svIcon('cap') : null));
+    });
+    const dz = Z.hs + 6;
+    for (const d of sv.dests) {
+      const [x, y] = xy(d.part.pawn.s, d.part.pawn.i, d.p);
+      ghostLayer.append(h('button', {
+        class: `dest-tag dest-tag--${d.kind}${d.victim >= 0 ? ' dest-tag--cap' : ''}`, type: 'button',
+        style: { left: r1(x - dz / 2), top: r1(y - dz / 2), width: dz, height: dz, ...tintVars(d.part.pawn.s) },
+        'aria-label': `${d.part.steps} pas : ${destText(d)}`, onclick: () => onDest(d),
+      }, '+' + d.part.steps));
+    }
+    // Rentrer et refaire un tour se côtoient : on nomme la maison, au bout de son couloir.
+    const homeD = sv.dests.find((d) => d.kind === 'home');
+    if (homeD && sv.dests.some((d) => d.kind === 'lap')) {
+      const s = homeD.part.pawn.s, ln = g.lanes[armOf(N, me, s)];
+      const [ax, ay] = ln[0], [bx, by] = ln[HOME_SIZE - 1], len = Math.hypot(bx - ax, by - ay) || 1;
+      ghostLayer.append(h('div', { class: 'home-label', style: { left: r1(bx + ((bx - ax) / len) * 28), top: r1(by + ((by - ay) / len) * 28), ...tintVars(s) } }, svIcon('home'), 'Maison'));
+    }
+    return pl.chosen ? captures(pl.chosen) : false;
+  };
+  /** La zone du plateau à montrer de près pendant le partage du 7 (null : tout le plateau). */
+  const sevenFocus = (pl: Plan) => {
+    if (watching || !pl.seven || (!pick && !chain.length) || manette()) return null;
+    const pts: number[][] = [];
+    const at = (r: PawnRef, p: number) => pts.push(xy(r.s, r.i, p));
+    for (const q of chain) {
+      at(q.pawn, view.pawns[q.pawn.s][q.pawn.i].p);
+      at(q.pawn, sevenDest(q).p);
+    }
+    if (pick) at(pick, view.pawns[pick.s][pick.i].p);
+    for (const d of pl.seven.dests) at(d.part.pawn, d.p);
+    for (const r of pl.seven.next) at(r, view.pawns[r.s][r.i].p);
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    // Marge autour des billes, un peu plus en haut pour les étiquettes posées au-dessus des arrivées.
+    const x0 = Math.min(...xs) - 30, x1 = Math.max(...xs) + 30, y0 = Math.min(...ys) - 44, y1 = Math.max(...ys) + 30;
+    const size = Math.max(x1 - x0, y1 - y0, 200);
+    // Trop étalé : le plateau entier se lit aussi bien.
+    if (size > 320) return null;
+    const clamp = (v: number) => Math.max(0, Math.min(360 - size, v));
+    return { x: clamp((x0 + x1 - size) / 2), y: clamp((y0 + y1 - size) / 2), w: size };
+  };
+  /** Écran de table : sur chaque bille et sur sa case d'arrivée, une étiquette « +n ». Gris si le partage ne joue pas. */
   const previewSeven = (parts: [string, number][], m: Move | null) => {
     const ok = !!m;
     const cap = ok && captures(m!);
@@ -922,10 +1093,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
     sel = hand.indexOf(m.card);
     if (rankOf(m.card) === 'X') jokerAs = m.as;
-    if (m.kind === 'seven') {
-      pick = m.parts[0].pawn;
-      split = new Map(m.parts.map((p) => [key(p.pawn), p.steps]));
-    } else {
+    if (m.kind === 'seven') chain = m.parts.map(partOf);
+    else {
       pick = m.pawn;
       if (m.kind === 'swap') target = m.target;
     }
@@ -1020,7 +1189,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     },
     {
       id: 'sept', mood: 'concentre', title: 'Le 7 se partage', ranks: () => ['7'], when: () => myTurn() && has('7') && onTrack() >= 2,
-      text: () => 'Touche le 7, puis tes deux billes : chacune reçoit une part des 7 pas.',
+      text: () => 'Touche le 7, puis une bille et la case où elle arrive : les pas restants vont à ton autre bille.',
     },
     {
       id: 'quatre', mood: 'concentre', title: 'Le 4 recule', ranks: () => ['4'], when: () => myTurn() && has('4') && onTrack() >= 1,
@@ -1203,7 +1372,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       choicePop.hidden = false;
       choicePop.replaceChildren(h('span', { class: 'pop__title' }, 'Joue ton Joker comme'),
         h('div', { class: 'chips' }, ...pl.jokerValues.map((r) =>
-          h('button', { type: 'button', 'aria-pressed': String(jokerAs === r), onclick: () => { jokerAs = r; pick = null; target = null; split = new Map(); render(); } },
+          h('button', { type: 'button', 'aria-pressed': String(jokerAs === r), onclick: () => { jokerAs = r; pick = null; target = null; chain = []; render(); } },
             RANK_SHORT[r] ?? r))));
       return;
     }
@@ -1227,7 +1396,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     // Le téléphone dit à la tablette ce qu'il prépare (même s'il montre le plateau).
     if (src.setAim && src.tableOn && !watching) {
       const ready = pl.chosen && pl.chosen.kind !== 'discard' ? JSON.stringify(pl.chosen) : '';
-      const sp = [...split].filter(([, n]) => n > 0).map(([k, n]) => `${k}:${n}`).join(',');
+      const sp = chain.map((q) => `${key(q.pawn)}:${q.steps}`).join(',');
       const a = myTurn() && sel !== null ? { card: rankOf(myHand()[sel]), n: padList(pl).map(key).join(','), pick: pick ? key(pick) : '', m: ready, sp } : null;
       const sig = JSON.stringify(a);
       if (sig !== lastAim) {
@@ -1269,20 +1438,35 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         : best <= L ? 'entrée de la maison bloquée' : `à ${d} case${d > 1 ? 's' : ''} du fond de la maison`;
       return (r.s === me ? '' : `${nameOf(r.s)} · `) + spot;
     };
-    padPanel.replaceChildren(
-      h('div', { class: 'pad-panel__head' },
-        h('span', { class: 'pad-panel__title' }, src.tableOn ? 'Le plateau est sur la tablette' : 'Mode cartes')),
+    const head = h('div', { class: 'pad-panel__head' },
+      h('span', { class: 'pad-panel__title' }, src.tableOn ? 'Le plateau est sur la tablette' : 'Mode cartes'));
+    const foot = h('span', { class: 'pad-panel__turn' }, 'Tourne le téléphone en portrait pour revoir le plateau.');
+    const sv = pl.seven;
+    const destBtns = () => h('div', { class: 'pad-dests' }, ...sv!.dests.map((d) =>
+      h('button', { class: `pad-dest pad-dest--${d.kind}`, type: 'button', onclick: () => onDest(d) }, h('b', null, '+' + d.part.steps), h('span', null, destText(d)))));
+    // Le 7, bille choisie : sans plateau, ses arrivées deviennent des boutons.
+    if (sv && pick && sv.dests.length) {
+      padPanel.replaceChildren(head,
+        h('span', { class: 'pad-panel__hint' }, (chain.length ? `Encore ${sv.left} pas. ` : '') + 'Où va cette bille ?'),
+        destBtns(),
+        h('button', { class: 'pad-panel__link', type: 'button', onclick: () => { chain = []; pick = null; render(); } }, 'Changer de bille'),
+        foot);
+      return;
+    }
+    padPanel.replaceChildren(head,
       h('span', { class: 'pad-panel__hint' }, list.length
-        ? (pick && pl.targets.length ? 'Touche la bille à échanger' : 'Touche la bille à jouer') + (src.tableOn ? ' : même numéro sur la tablette.' : '.')
+        ? (pick && pl.targets.length ? 'Touche la bille à échanger' : sv?.left && chain.length ? `Encore ${sv.left} pas : touche la bille qui les prend` : 'Touche la bille à jouer') + (src.tableOn ? ' : même numéro sur la tablette.' : '.')
         : padHint()),
       h('div', { class: 'pad-pawns' }, ...list.map((r, k) => {
-        const steps = split.get(key(r)) ?? 0;
-        const chosen = (!!pick && sameRef(pick, r)) || steps > 0 || (!!target && sameRef(target, r));
+        const n = chain.findIndex((q) => sameRef(q.pawn, r));
+        const chosen = (!!pick && sameRef(pick, r)) || n >= 0 || (!!target && sameRef(target, r));
         return h('button', { class: 'pad-pawn' + (chosen ? ' pad-pawn--on' : ''), type: 'button', onclick: () => onPawn(r) },
           h('b', null, String(k + 1)), bille(SEAT_COLORS[N][r.s], { size: 30 }),
-          h('span', null, where(r) + (steps ? ` · +${steps}` : '')));
+          h('span', null, n >= 0 ? destText(sevenDest(chain[n])) : where(r)));
       })),
-      h('span', { class: 'pad-panel__turn' }, 'Tourne le téléphone en portrait pour revoir le plateau.'));
+      // Partage complet : l'autre façon de jouer la dernière bille (rentrer ou refaire un tour).
+      ...(sv?.dests.length ? [destBtns()] : []),
+      foot);
   };
   // Changement dans la salle (tablette qui arrive ou part, visée d'un joueur) : on redessine.
   const offRoom = src.onRoom?.(() => { if (!disposed) render(); });
@@ -1306,19 +1490,26 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const [s, i] = k.split('.').map(Number), r = { s, i };
       const isPick = !!pick && sameRef(pick, r) && pl.cands.length > 0;
       const isTarget = !!target && sameRef(target, r);
-      const cand = pl.cands.some((c) => sameRef(c, r)) && (!pick || !!pl.sevenPawns.length);
+      const cand = pl.cands.some((c) => sameRef(c, r)) && (!pick || !!pl.seven);
       const tgt = pl.targets.some((t) => sameRef(t, r));
-      inner.classList.toggle('bille--sel', isPick || (split.get(k) ?? 0) > 0);
+      // Le 7 : les billes déjà placées portent leur numéro d'ordre ; l'anneau ne pulse que quand on doit choisir une bille.
+      const n = pl.seven ? chain.findIndex((q) => sameRef(q.pawn, r)) : -1;
+      const ring = cand && !isPick && n < 0 && (!pl.seven || (!pick && pl.seven.left > 0));
+      inner.classList.toggle('bille--sel', isPick || n >= 0);
       inner.classList.toggle('bille--target', isTarget);
       outer.classList.toggle('pawn--pick', cand || tgt);
-      outer.classList.toggle('pawn--cand', (cand && !isPick) || (tgt && !isTarget));
-      outer.style.zIndex = String(Math.round(pawnEls.get(k)!.y) + (isPick ? 300 : 0));
+      outer.classList.toggle('pawn--cand', ring || (tgt && !isTarget));
+      if (!watching) outer.dataset.num = n >= 0 ? String(n + 1) : '';
+      outer.style.zIndex = String(Math.round(pawnEls.get(k)!.y) + (isPick || n >= 0 ? 300 : 0));
     });
     const cap = preview(pl);
+    zoomTo(sevenFocus(pl));
     renderChoice(pl);
     renderPad(pl);
     // Carte d'indice et bouton
     let t: string, sub: string, label = '';
+    /** Étiquettes du partage du 7, après le titre */
+    let tChips: HTMLElement[] = [];
     if (view.phase === 'over') { t = 'Partie terminée'; sub = 'Bien joué, tout le monde !'; }
     else if (view.phase === 'exchange') {
       if (!view.exchange[me] && sel === null && currentLesson()) {
@@ -1359,22 +1550,36 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       } else if (!pl.chosen && (pl.ways?.length ?? 0) > 1) {
         t = 'Devant ta maison';
         sub = pl.ways!.includes('home') ? 'Rentre ta bille ou refais un tour : choisis à droite.' : 'Elle ne peut pas rentrer : refais un tour, ou défausse.';
-      } else if (split.size && [...split.values()].some((n) => n > 0) && (pl.sevenPawns.length || pl.chosen?.kind === 'seven')) {
-        const parts = [...split.values()].filter((n) => n > 0);
-        t = `Le 7 · ${parts.map((n) => '+' + n).join(' et ')}`;
-        t += cap ? ' · capture !' : '';
-        const left = 7 - parts.reduce((a, b) => a + b, 0);
-        sub = left > 0 ? `Encore ${left} pas à placer : touche une bille.`
-          : !pl.chosen ? 'Ce partage n’est pas possible. Touche une autre bille ou recommence.'
-          : pl.sevenPawns.length ? 'Touche une bille pour lui donner un pas.' : c.rule;
-        if (pl.chosen) label = 'Jouer';
+      } else if (pl.seven) {
+        // Le 7 : on touche la bille, puis la case où elle arrive.
+        const sv = pl.seven;
+        const both = sv.dests.some((d) => d.kind === 'home') && sv.dests.some((d) => d.kind === 'lap');
+        t = 'Le 7';
+        tChips = chain.map((q, n) => sevenChip(sevenDest(q), n + 1));
+        if (pl.chosen) {
+          // Les étiquettes disent déjà les pas : la phrase ne garde que ce qui compte (rentrer, un tour, une bille prise).
+          const many = chain.length > 1;
+          const bits = chain.flatMap((q, n) => {
+            const d = sevenDest(q), p0 = view.pawns[q.pawn.s][q.pawn.i].p;
+            const act = d.kind === 'home' ? `${inHome(N, p0) ? 'va' : 'rentre'} au ${HOME_HOLES[homeIndex(N, d.p)]}` : d.kind === 'lap' ? 'refait un tour' : '';
+            const take = d.victim < 0 ? '' : `prend ${d.victim === me ? 'ta bille' : nameOf(d.victim)}`;
+            return act || take ? [`${many ? `la ${n + 1}` : 'ta bille'} ${[act, take].filter(Boolean).join(' et ')}`] : [];
+          }).join(', ');
+          const alt = sv.dests[0]?.kind;
+          sub = (bits ? bits[0].toUpperCase() + bits.slice(1) + '.' : many ? 'Touche une bille pour changer le partage.' : c.rule)
+            + (alt === 'lap' ? ' Pointillés : un tour.' : alt === 'home' ? ' Case pleine : rentrer.' : '');
+          label = 'Jouer';
+        } else if (pick && sv.dests.length) {
+          sub = (chain.length ? `Encore ${sv.left} pas. ` : '')
+            + (both ? 'Touche son arrivée : pleine pour rentrer, pointillés pour refaire un tour.' : 'Touche la case où elle arrive.');
+        } else if (chain.length) sub = `Encore ${sv.left} pas : touche la bille qui les prend.`;
+        else sub = 'Touche la bille à avancer, puis la case où elle arrive.';
       } else {
         t = c.t + (cap ? ' · capture !' : '');
         sub = pl.jokerValues.length > 1 && !jokerAs ? 'Choisis la carte que ton Joker remplace.'
-          : !pl.chosen && pl.sevenPawns.length ? 'Touche la bille à avancer de 7, puis une autre pour partager.'
-            : !pl.chosen && pl.cands.length > 1 && !pick ? 'Touche la bille à jouer.'
-              : !pl.chosen && pl.targets.length > 1 ? 'Touche la bille à échanger.'
-                : c.rule;
+          : !pl.chosen && pl.cands.length > 1 && !pick ? 'Touche la bille à jouer.'
+            : !pl.chosen && pl.targets.length > 1 ? 'Touche la bille à échanger.'
+              : c.rule;
         if (pl.chosen) label = 'Jouer';
         // Carte injouable : on dit pourquoi pour le 7 (règle la plus souvent mal comprise).
         if (!pl.moves.length)
@@ -1383,10 +1588,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
               : 'Le 7 se joue en entier, sur deux billes au plus : pas possible ici.';
       }
     }
-    hintT.textContent = t;
+    hintT.replaceChildren(t, ...tChips);
     hintS.textContent = sub;
     tipBtn.hidden = !(myTurn() && sel === null);
-    resetSeven.hidden = !(myTurn() && [...split.values()].filter((n) => n > 0).length > 1);
+    // Partage commencé mais pas fini (variante du 7 sur toutes les billes) ; sinon, toucher une bille suffit à recommencer.
+    resetSeven.hidden = !(myTurn() && !!pl.seven && chain.length > 0 && !pl.chosen);
     playBtn.hidden = !label;
     if (label && playBtn.textContent !== label) {
       playBtn.textContent = label;

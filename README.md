@@ -7,7 +7,7 @@ Le jeu de TOC en équipes, sur ton téléphone : crée ta salle, invite tes amis
 1. **Choisis ton perso** : un des 6 personnages, ta couleur et ton surnom (gardés sur le téléphone).
 2. **Crée une salle** depuis l'accueil (4 ou 6 joueurs), puis envoie le code `TOC-4821` ou le lien (« Copier », « Inviter »). Les autres le tapent dans « Code de salle » ou ouvrent le lien.
 3. **Places libres** : l'hôte peut « Compléter avec des robots ». Quand la salle est pleine, il lance la partie (compte à rebours 3-2-1-TOC !).
-4. **À ton tour** : touche une carte, puis la bille qui s'illumine si plusieurs sont possibles (le Valet demande aussi la bille à échanger, le 7 se répartit avec + et −, le Joker demande sa valeur), puis « Jouer ». Tu as 30 s, sinon un coup est joué pour toi.
+4. **À ton tour** : touche une carte, puis la bille qui s'illumine si plusieurs sont possibles (le Valet demande aussi la bille à échanger, pour le 7, on touche une bille puis la case où elle arrive, les pas restants vont à l'autre bille, le Joker demande sa valeur), puis « Jouer ». Tu as 30 s, sinon un coup est joué pour toi.
 
 Si un joueur ferme l'app ou perd le réseau, son tour est joué à sa place au bout de 30 s, et il retrouve sa place en rouvrant le lien. Depuis un autre téléphone, on peut « Prendre sa place ». Sans réseau, la salle reste sur le téléphone et on joue contre les robots.
 

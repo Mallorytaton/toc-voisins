@@ -67,7 +67,7 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
    Les couleurs des trous passent par des variables, pour pouvoir changer d'ambiance plus tard. */
 /* Plateau peint (boutique) : la photo remplace le bois, les trous et les fonds colorés */
 .board--painted { border-radius: 6px; box-shadow: 0 7px 0 #a0703f, 0 16px 28px rgba(70, 40, 20, .28); }
-.board--painted > .board__wood, .board--painted > .board__center, .board--painted > .pad, .board--painted > .hole { display: none; }
+.board--painted .board__wood, .board--painted .board__center, .board--painted .pad, .board--painted .hole { display: none; }
 .board__photo { position: absolute; inset: 0; border-radius: 6px; background: center / 100% 100% no-repeat; }
 .board--painted .pile { scale: .82; }
 .board {
@@ -79,6 +79,10 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
   --res-sh: inset 0 2px 3px rgba(0, 0, 0, .4), 0 1px 0 rgba(255, 228, 186, .4);
 }
 .board--shake { animation: tocShake .45s ease-out; }
+/* Caméra du plateau : pendant le partage du 7, elle se rapproche des arrivées (le plateau est alors découpé à sa taille). */
+.board { transition: clip-path .5s cubic-bezier(.3, .8, .3, 1); }
+.board__cam { position: absolute; inset: 0; transform-origin: 0 0; transition: transform .5s cubic-bezier(.3, .8, .3, 1); }
+@media (prefers-reduced-motion: reduce) { .board, .board__cam { transition: none; } }
 .board__wood {
   position: absolute; inset: 0; border-radius: 44px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360'%3E%3Cfilter id='g' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.011 .19' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .43 0 0 0 0 .25 0 0 0 0 .11 1.9 0 0 0 -.64'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E") center / 100% 100%, linear-gradient(160deg, #deae74, #cf965d 55%, #c08650);
@@ -286,6 +290,56 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
   border: 2px solid; box-shadow: 0 2px 6px rgba(70, 40, 20, .25);
 }
 .seven-tag--arrival { border-style: dashed; background: rgba(255, 255, 255, .92); font-size: 11px; }
+/* Partage du 7 sur son téléphone. --c, --d, --l : couleurs de la bille.
+   Arrivées à toucher : pleine pour la maison, en pointillés pour refaire un tour, étoile si une bille est prise. */
+.dest-tag {
+  position: absolute; z-index: 1060; display: grid; place-items: center; padding: 1px 0 0; border: 2px solid var(--c); border-radius: 50%;
+  background: #fff; color: var(--ink); font: 800 10px/1 var(--display); cursor: pointer; box-shadow: 0 2px 5px rgba(60, 30, 10, .35);
+  animation: tocPop .3s ease-out both;
+}
+.dest-tag::before { content: ''; position: absolute; inset: -5px; border-radius: 50%; }
+.dest-tag:active { scale: .9; }
+.dest-tag--home { background: var(--l); color: var(--d); }
+.dest-tag--lap { border-style: dashed; border-color: var(--ink-2); }
+.dest-tag--cap { border-color: var(--ink); }
+.dest-tag--cap::after {
+  content: ''; position: absolute; top: -6px; right: -6px; width: 10px; height: 10px; background: var(--ink);
+  clip-path: polygon(50% 0, 61% 33%, 96% 30%, 70% 54%, 85% 90%, 50% 70%, 15% 90%, 30% 54%, 4% 30%, 39% 33%);
+}
+.dest-tag:focus-visible { outline: 3px solid var(--blue); outline-offset: 1px; }
+/* Chaque bille placée : son numéro d'ordre, maison ou tour, les pas */
+.seven-pill {
+  position: absolute; z-index: 1050; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 2px; padding: 2px 6px 1px 2px;
+  border-radius: 999px; background: #fff; border: 1.5px solid var(--c); font: 800 11px/1 var(--display); color: var(--ink); white-space: nowrap;
+  pointer-events: none; box-shadow: 0 2px 6px rgba(70, 40, 20, .25);
+}
+.seven-pill > i, .sv-chip > i { display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); color: #fff; font: 800 9px/1 var(--display); font-style: normal; padding-top: 1px; }
+.seven-pill--home { background: var(--c); border-color: var(--d); color: #fff; }
+.seven-pill--lap { border-style: dashed; border-color: var(--ink-2); }
+.sv-ic { display: inline-flex; width: 10px; height: 10px; flex: none; }
+.sv-ic > svg { width: 100%; height: 100%; }
+.home-label {
+  position: absolute; z-index: 1040; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 3px; padding: 3px 7px 2px 5px;
+  border-radius: 999px; background: #fff; border: 1.5px solid var(--c); color: var(--d); font: 800 10px/1 var(--display); white-space: nowrap;
+  pointer-events: none; box-shadow: 0 2px 6px rgba(70, 40, 20, .25);
+}
+/* Dans la barre : « Le 7 » suivi des billes placées */
+.sv-chip {
+  display: inline-flex; align-items: center; gap: 2px; margin-left: 5px; padding: 2px 7px 1px 2px; border-radius: 999px; vertical-align: 1px;
+  background: var(--seg); box-shadow: inset 0 0 0 1.5px var(--c); font: 800 14px/1 var(--display); color: var(--ink); white-space: nowrap;
+}
+.sv-chip > i { width: 16px; height: 16px; font-size: 10px; }
+.sv-chip .sv-ic { width: 11px; height: 11px; }
+.sv-chip--home { background: var(--c); color: #fff; box-shadow: none; }
+.sv-chip--home > i { background: #fff; color: var(--d); }
+.sv-chip--lap { background: #fff; box-shadow: none; outline: 1.5px dashed var(--ink-2); outline-offset: -1.5px; }
+@media (prefers-reduced-motion: reduce) { .dest-tag { animation: none; } }
+/* Mode manette : les arrivées du 7 en boutons */
+.pad-dests { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-height: 0; overflow-y: auto; }
+.pad-dest { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: none; border-radius: 16px; background: var(--seg); color: var(--ink); font: 800 12px/1.2 var(--text); text-align: left; cursor: pointer; box-shadow: 0 4px 0 var(--clay); }
+.pad-dest > b { font: 800 20px/1 var(--display); padding-top: 2px; flex: none; }
+.pad-dest--home { background: var(--coral-l); }
+.pad-dest--lap { background: #fff; outline: 2px dashed var(--ink-3); outline-offset: -2px; box-shadow: none; }
 /* Initiation : la carte dont parle la leçon */
 .pcard--coach { outline: 3px solid var(--coral); outline-offset: 3px; animation: tocCoach 1.1s ease-in-out infinite; }
 @keyframes tocCoach { 50% { outline-color: rgba(255, 107, 74, .2); } }
