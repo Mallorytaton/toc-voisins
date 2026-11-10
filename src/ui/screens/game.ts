@@ -5,24 +5,35 @@ import {
   type Card, type GameState, type Move, type PawnRef, type Rank, type SevenPart, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, homeIndex, inHome, isLap, leavesHome, legalMovesFor, occupant, partner, rankOf, sameRef, squareOf, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
 } from '../../engine';
 import { type Fx, playFx } from '../board/fx';
-import { armOf, geom, pawnXY, trackIndex } from '../board/geom';
+import { FLAT, SEATED, type Tilt, armOf, geom, pawnXY, projector, seatedAvs, tilted, trackIndex } from '../board/geom';
 import { paintedGeom } from '../board/painted';
-import { lookOf } from '../../app/shop';
-import { h } from '../dom';
+import { criOf, lookOf } from '../../app/shop';
+import { deNom, h, toast as pageToast } from '../dom';
 import { COL, EMOTES, SEAT_COLORS, TEAM_NAMES, cardLook } from '../kit/data';
-import { avatar, bille, billeSkin, button, cardBack, pauseButton, playingCard } from '../kit/kit';
+import { ICONS, avatar, bille, billeSkin, button, cardBack, icon, pauseButton, playingCard, segmented, suitIcon } from '../kit/kit';
+import { type Humeur, setHumeur } from '../kit/perso';
 import { boomFx } from '../board/boom';
 import { openRulesSheet } from './rules';
 import { buzz, music, musicTension, sfx, soundSettings } from '../sound';
 import { type MascotMood, mascot } from '../mascot';
 import { openTableSheet } from '../table-invite';
 import { allowLandscape } from '../orientation';
-import { shareCard } from '../share-card';
+import { type Planche, type PlancheActor, type PlancheCase, burstEl, plancheEl, sharePlanche } from '../planche';
 
 const REPLIES = ['Aïe !', 'Tu vas voir…', 'Hahaha', 'Pas mal du tout', 'Sérieux ?'];
 const TURN_MS = 30_000;
 const STAGE_W = 393;
 const STAGE_H = 750;
+/** Le cadre du plateau (360 × 360) dans la scène */
+const BOARD_X = 16;
+const BOARD_Y = 66;
+/** Largeur d'une carte de la main */
+const CARD_W = 92;
+const VIEW_KEY = 'toc.vue';
+/** Réglage « Vue du plateau » : inclinée depuis sa place (par défaut), ou de dessus. */
+const viewPref = (): 'inclinee' | 'plat' => { try { return localStorage.getItem(VIEW_KEY) === 'plat' ? 'plat' : 'inclinee'; } catch { return 'inclinee'; } };
+/** Vue de dessus sur un téléphone : le plateau entier, dans la même place que la vue inclinée. */
+const FLAT_PHONE: Tilt = { deg: 0, dist: 1400, k: 0.84 };
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const key = (r: PawnRef) => `${r.s}.${r.i}`;
@@ -44,11 +55,28 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const me = watching ? 0 : src.mySeat;
   // Plateau peint (boutique, à 4) : la photo du plateau, tournée pour que sa couleur soit en bas.
   const pg = !watching && N === 4 && lookOf(draftProfile().look).plateau === 'peint' ? paintedGeom(SEAT_COLORS[4][me]) : null;
-  const g = pg ? pg.g : geom(N);
+  /** Le plateau dans son plan (trous, fonds teintés) ; `g`, plus bas, donne les mêmes positions vues à l'écran. */
+  const flat = pg ? pg.g : geom(N);
   const L = trackLen(N);
   const Z = N === 4
-    ? { hs: 13.5, ss: 16.5, rs: 13.5, ps: 17, av: pg ? 28 : 36, lift: 11 }
+    ? { hs: 12, ss: 15, rs: 12, ps: pg ? 17 : 16.5, av: pg ? 32 : 40, lift: 11 }
     : { hs: 10.5, ss: 13, rs: 10.5, ps: 13.5, av: 34, lift: 8 };
+  // Vue du plateau : inclinée, comme assis à sa place, ou de dessus (réglage dans la pause).
+  // L'écran de table, posé à plat au milieu des joueurs, reste vu de dessus.
+  const tiltFor = (): Tilt => (watching ? FLAT : viewPref() === 'plat' ? FLAT_PHONE : SEATED);
+  let proj = projector(tiltFor());
+  /**
+   * Les positions vues à l'écran. Vue inclinée : les persos passent au fond et dans le coin proche (seatedAvs).
+   * À 6, ton perso quitte le bout de son bras pour le coin proche, à gauche, comme à 4 : le milieu du bord reste
+   * libre pour les messages de la partie.
+   */
+  const seen = () => {
+    const t = tiltFor();
+    let avs = t.deg && !pg ? seatedAvs(flat) : flat.avs;
+    if (N === 6 && !watching) avs = avs.map((p, k): [number, number] => (k === N / 2 ? (t.deg ? [24, 360] : [17, 357]) : p));
+    return tilted({ ...flat, avs }, t);
+  };
+  let g = seen();
   const tint = (s: number) => COL[SEAT_COLORS[N][s]];
   const nick = draftProfile().nick || 'Toi';
   const nameOf = (s: number) => (s === me && !watching ? nick : src.players[s].name);
@@ -71,20 +99,20 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // Pliant à moitié plié : plateau en haut, main en bas, de part et d'autre de la pliure ;
   // pliant en livre, ou ouvert et plus large que haut : côte à côte.
   // Le bas est la même scène décalée : les coordonnées ne changent pas, rien n'est reconstruit.
-  const SPLIT_Y = 456;
+  const SPLIT_Y = 416;
   /** Journal de la partie, affiché en permanence sur l'écran de table. */
   const tableJournal = h('div', { class: 'table-journal', hidden: true });
   root.append(tableJournal);
   const LOW_H = 760 - SPLIT_Y;
   /** Grand écran plus haut que large : consigne et cartes côte à côte, sur une rangée (scène deux fois plus large). */
-  const ROW_Y = 446, ROW_H = 166, ROW_W = 2 * 393;
+  const ROW_Y = 414, ROW_H = 196, ROW_W = 2 * 393;
   /** Grand écran : la région du plateau descend jusqu'aux noms des persos du bas. */
-  const BOARD_H = 474;
+  const BOARD_H = 440;
   /** Le chat suit la mise en page (rangé plus bas, une fois le chat construit). */
   let layoutHook: (P: ReturnType<typeof panes>) => void = () => {};
   /** Écran de table : le plateau seul, des noms au-dessus des avatars du haut à ceux du bas (sans barre ni main). */
-  const TABLE_Y = 58;
-  const TABLE_H = 488;
+  const TABLE_Y = 26;
+  const TABLE_H = 470;
   const stage2 = h('div', { class: 'game__stage' });
   const frame2 = h('div', { class: 'game__frame', hidden: true }, stage2);
   root.append(frame2);
@@ -221,9 +249,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   posture?.addEventListener('change', fit);
   window.addEventListener('resize', fit);
 
+  // Décor : deux trames de points dans les coins, et la case de BD derrière le plateau (ses rayons partent du centre).
   stage.append(
-    h('div', { class: 'blob', style: { left: -140, top: 370, width: 300, height: 300, background: '#ffe9df', zIndex: 0 } }),
-    h('div', { class: 'blob', style: { right: -160, top: 10, width: 320, height: 320, background: '#e6ecff', zIndex: 0 } }),
+    h('div', { class: 'g-dots', style: { left: -150, top: 470 } }),
+    h('div', { class: 'g-dots', style: { right: -170, top: -150 } }),
+    h('div', { class: 'g-case', 'aria-hidden': 'true' }, h('i')),
   );
 
   // ---------- Barre du haut ----------
@@ -231,11 +261,21 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const turnEl = h('span', { class: 'g-top__turn' });
   const scoreEl = h('div', { class: 'g-score', 'aria-label': 'Billes rentrées par équipe' });
   const rulesBtn = h('button', { class: 'btn-round g-rules', type: 'button', 'aria-label': 'Règles', onclick: () => openRulesSheet(view.variants) }, '?');
+  /** Vue du plateau (inclinée ou de dessus) : rien n'est reconstruit, les billes et les persos se replacent. */
+  const retilt = () => {
+    proj = projector(tiltFor());
+    g = seen();
+    applyTilt();
+    placeAvatars();
+    syncPawns(view);
+    render();
+  };
   // Journal : les 4 derniers coups joués, pour savoir ce qui s'est passé (demandé par Mallory).
   const journal = h('div', { class: 'g-journal-pop', role: 'dialog', 'aria-label': 'Les 4 derniers coups', hidden: true });
   const journalBtn = h('button', { class: 'btn-round g-journal', type: 'button', 'aria-label': 'Derniers coups', 'aria-expanded': 'false', onclick: () => toggleJournal() });
-  journalBtn.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><circle cx="4.5" cy="6" r="1.8" fill="currentColor"/><circle cx="4.5" cy="12" r="1.8" fill="currentColor"/><circle cx="4.5" cy="18" r="1.8" fill="currentColor"/></svg>';
-  stage.append(h('div', { class: 'g-top' }, pauseButton(() => openPause()), rulesBtn, journalBtn, h('div', { class: 'g-top__mid' }, roundEl, turnEl), scoreEl), journal);
+  journalBtn.append(icon(ICONS.list, 22, 3));
+  // À 6, le score a trois cases : la barre se resserre pour que le tour reste lisible en entier.
+  stage.append(h('div', { class: 'g-top' + (N === 6 ? ' g-top--six' : '') }, pauseButton(() => openPause()), rulesBtn, journalBtn, h('div', { class: 'g-top__mid' }, roundEl, turnEl), scoreEl), journal);
 
   // ---------- Plateau ----------
   const board = h('div', { class: 'board' });
@@ -243,53 +283,56 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const ghostLayer = h('div');
   const pawnLayer = h('div');
   const avLayer = h('div');
-  const bubbleLayer = h('div');
+  // Les bulles vivent hors du plateau (au-dessus du panneau d'aide aussi), dans son repère : voir .g-bubbles.
+  const bubbleLayer = h('div', { class: 'g-bubbles' });
   const fxBoard = h('div', { class: 'fx-layer', style: { zIndex: 1100 } });
   const discard = h('div', { class: 'discard' });
   /** Nombre de cartes restant dans la pioche, sur le paquet du centre */
   const deckCount = h('span', { class: 'pile__count', 'aria-label': 'Cartes dans la pioche' });
-  const center = N === 4 ? { x: 95, s: 170 } : { x: 122, s: 116 };
-  board.append(
+  const center = N === 4 ? (pg ? { x: 95, s: 170 } : { x: 105, s: 150 }) : { x: 122, s: 116 };
+  // Le plan du plateau (bois, feutre, trous, pioche) est incliné d'un bloc par le navigateur ;
+  // les billes, les persos et les effets restent debout, posés aux positions vues à l'écran (g).
+  const plane = h('div', { class: 'board__plane' },
     h('div', { class: 'board__wood' }),
-    h('div', { class: 'board__center', style: { left: center.x, top: center.x, width: center.s, height: center.s } }),
-  );
+    h('div', { class: 'board__center', style: { left: center.x, top: center.x, width: center.s, height: center.s } }));
   if (pg) {
     // La photo porte déjà les trous, les maisons et les réserves : on ne dessine que les billes par-dessus.
     board.classList.add('board--painted');
-    board.append(h('div', { class: 'board__photo', style: { backgroundImage: `url(${import.meta.env.BASE_URL}plateaux/peint.jpg)`, transform: `rotate(${pg.turn}deg)` } }));
+    plane.append(h('div', { class: 'board__photo', style: { backgroundImage: `url(${import.meta.env.BASE_URL}plateaux/peint.jpg)`, transform: `rotate(${pg.turn}deg)` } }));
   }
   const rpads: HTMLElement[] = [];
-  g.arms.forEach((am, arm) => {
+  flat.arms.forEach((am, arm) => {
     const s = (arm - armOf(N, me, 0) + N) % N; // place assise sur ce bras
     const c = tint(s);
     const pad = (b: typeof am.rpad) =>
       h('div', { class: 'pad', style: { left: b.x, top: b.y, width: b.w, height: b.h, borderRadius: b.r, background: c.c, transform: `rotate(${b.rot}deg)` } });
     const rp = pad(am.rpad);
     rpads[s] = rp;
-    board.append(rp, pad(am.lpad));
+    plane.append(rp, pad(am.lpad));
   });
-  const hole = (x: number, y: number, z: number, bg: string, sh: string) =>
-    h('div', { class: 'hole', style: { left: r1(x - z / 2), top: r1(y - z / 2), width: z, height: z, background: bg, boxShadow: sh } });
-  g.track.forEach(([x, y], i) => {
-    const arm = Math.floor(i / 16), st = i % 16 === g.sj;
+  /** Un trou du plateau. kind : départ (blanc, cerclé de la couleur du joueur), maison ou réserve (à sa couleur). */
+  const hole = (x: number, y: number, z: number, kind = '', c?: { c: string; d: string; l: string }) =>
+    h('div', { class: 'hole' + (kind ? ' hole--' + kind : ''), style: { left: r1(x - z / 2), top: r1(y - z / 2), width: z, height: z, ...(c ? { '--c': c.c, '--d': c.d, '--l': c.l } : {}) } });
+  flat.track.forEach(([x, y], i) => {
+    const arm = Math.floor(i / 16), st = i % 16 === flat.sj;
     const c = tint((arm - armOf(N, me, 0) + N) % N);
-    board.append(st
-      ? hole(x, y, Z.ss, c.l, `inset 0 2px 3px rgba(0,0,0,.18),0 0 0 ${N === 4 ? 3 : 2}px ${c.c}`)
-      : hole(x, y, Z.hs, 'var(--hole-bg)', 'var(--hole-sh)'));
+    plane.append(st ? hole(x, y, Z.ss, 'start', c) : hole(x, y, Z.hs));
   });
-  g.lanes.forEach((ln, arm) => {
+  flat.lanes.forEach((ln, arm) => {
     const c = tint((arm - armOf(N, me, 0) + N) % N);
-    ln.forEach(([x, y]) => board.append(hole(x, y, Z.hs, c.c, 'var(--lane-sh)')));
-    g.res[arm].forEach(([x, y]) => board.append(hole(x, y, Z.rs, 'var(--res-bg)', 'var(--res-sh)')));
+    ln.forEach(([x, y]) => plane.append(hole(x, y, Z.hs, 'home', c)));
+    flat.res[arm].forEach(([x, y]) => plane.append(hole(x, y, Z.rs, 'res', c)));
   });
-  board.append(pathLayer,
-    h('div', { class: 'pile', style: { transform: `scale(${N === 4 ? 1 : 0.72})` } }, cardBack(), deckCount, discard),
-    ghostLayer, pawnLayer, avLayer, bubbleLayer, fxBoard);
+  plane.append(h('div', { class: 'pile', style: { transform: `scale(${N === 4 ? (pg ? 1 : 0.88) : 0.72})` } }, cardBack(), deckCount, discard));
   // Tout le plateau passe dans une « caméra » : pendant le partage du 7, elle se rapproche des arrivées.
-  const cam = h('div', { class: 'board__cam' });
-  cam.append(...Array.from(board.childNodes));
+  const cam = h('div', { class: 'board__cam' }, plane, pathLayer, ghostLayer, pawnLayer, avLayer, fxBoard);
   board.append(cam);
-  stage.append(board);
+  stage.append(board, bubbleLayer);
+  const applyTilt = () => {
+    plane.style.transform = proj.css;
+    board.classList.toggle('board--flat', !tiltFor().deg);
+  };
+  applyTilt();
   let zoomed = '';
   /** Mise en scène d'un BOUM en cours : la caméra lui appartient, le reste de l'écran n'y touche pas. */
   let staged = false;
@@ -309,7 +352,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         void board.offsetWidth;
       }
       board.classList.add('board--zoom');
-      board.style.clipPath = 'inset(0px round 28px)';
+      board.style.clipPath = 'inset(-4px -12px -8px -12px round 28px)';
       cam.style.transform = `translate(${r1(-b.x * k)}px, ${r1(-b.y * k)}px) scale(${k.toFixed(3)})`;
     } else {
       cam.style.transform = '';
@@ -329,7 +372,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // BOUM : Toc surgit au bas du plateau, l'air ébahi.
   const tocPeek = () => {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const el = h('div', { class: 'toc-peek', 'aria-hidden': 'true' }, mascot('surpris', 92));
+    const el = h('div', { class: 'toc-peek', 'aria-hidden': 'true' }, mascot('surpris', 84, 'buste'));
     stage.append(el);
     const a = el.animate?.([
       { translate: '0 60px', opacity: 0 }, { translate: '0 0', opacity: 1, offset: 0.18 },
@@ -349,7 +392,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const renderRematch = () => {
     if (!rematchUi || !src.rematchVotes) return;
     const votes: RematchVote[] = src.rematchVotes(), ok = votes.filter((x) => x.ok).length, mine = votes.find((x) => x.me)?.ok;
-    rematchUi.btn.textContent = mine ? `On attend les autres (${ok}/${votes.length})` : ok ? `Revanche (${ok}/${votes.length} d’accord)` : 'Revanche';
+    // Libellés courts : le bouton partage sa ligne avec « Partager ». Qui est d'accord est écrit juste dessous.
+    rematchUi.btn.textContent = mine ? `En attente… ${ok}/${votes.length}` : ok ? `Revanche (${ok}/${votes.length})` : 'Revanche';
     rematchUi.btn.disabled = !!mine;
     rematchUi.who.replaceChildren(...votes.map((x) =>
       h('span', { class: 'victory__vote' + (x.ok ? ' victory__vote--ok' : '') }, `${x.ok ? '✓' : '…'} ${x.me ? 'Toi' : x.name}`)));
@@ -386,46 +430,63 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const e = pawnEls.get(`${s}.${i}`)!;
     const [x, y] = xy(s, i, p);
     e.y = y;
-    e.outer.style.transition = dur ? `left ${dur}ms ease-out, top ${dur}ms ease-out, translate ${Math.round(dur / 2)}ms ease-out` : 'none';
+    e.outer.style.transition = dur ? `left ${dur}ms ease-out, top ${dur}ms ease-out, translate ${Math.round(dur / 2)}ms ease-out, scale ${dur}ms ease-out` : 'none';
     e.outer.style.left = r1(x - Z.ps / 2) + 'px';
     e.outer.style.top = r1(y - Z.ps * 0.62) + 'px';
+    // Plus une bille est loin, plus elle est petite (vue inclinée).
+    e.outer.style.scale = proj.scaleAtY(y).toFixed(3);
     e.outer.style.translate = lift ? `0 ${-lift}px` : '0 0';
     e.outer.style.zIndex = String(Math.round(y) + extraZ);
   };
   const unlift = (s: number, i: number) => { pawnEls.get(`${s}.${i}`)!.outer.style.translate = '0 0'; };
   const syncPawns = (st: GameState) => st.pawns.forEach((row, s) => row.forEach((pw, i) => place(s, i, pw.p)));
 
-  // ---------- Avatars ----------
-  const avEls: { root: HTMLElement; pulse: HTMLElement; spin: HTMLElement; cards: HTMLElement; chip: HTMLElement; meTag: HTMLElement | null }[] = [];
+  // ---------- Persos ----------
+  // Chaque joueur est une bille à visage, posée autour du plateau là où elle ne cache aucun trou.
+  // Son humeur suit la partie : elle réfléchit à son tour, panique quand on la vise, enrage quand on la renvoie.
+  type SeatEl = { root: HTMLElement; pulse: HTMLElement; spin: HTMLElement; cards: HTMLElement; chip: HTMLElement; meTag: HTMLElement | null; face: HTMLElement; char: typeof src.players[number]['char']; color: typeof src.players[number]['color']; flip: boolean };
+  const avEls: SeatEl[] = [];
   for (let s = 0; s < N; s++) {
-    const [x, y] = g.avs[armOf(N, me, s)];
-    const size = Z.av, ring = tint(s).c, isMe = s === me && !watching;
+    const size = Z.av, isMe = s === me && !watching;
     const pl = isMe ? { ...src.players[s], ...draftProfile() } : src.players[s];
-    const pulse = h('div', { class: 'seat-av__pulse', style: { background: ring } });
-    const spin = h('div', { class: 'seat-av__spin', style: { borderColor: ring } });
-    const vert = Math.abs(x - 180) < 20;
-    // Pastille du nombre de cartes : côté extérieur, à l'opposé du nom (au-dessus du plateau, pas sur ses trous).
-    const cards = h('span', { class: 'seat-av__cards', style: { ...(x > 200 && !vert ? { right: '-8px' } : { left: '-8px' }), ...(y < 180 && !vert ? { top: 'auto', bottom: '-6px' } : {}) } });
-    // Nom centré sous (ou sur) l'avatar ; aux coins, aligné sur le bord pour rester entier (avec « Commence », « Ensuite »).
-    const across = x < 120 ? { left: '-4px' } : x > 273 ? { right: '-4px' } : { left: '50%', transform: 'translateX(-50%)' };
-    const tag = vert && y < 180 ? { left: size + 8 + 'px', top: size / 2 - 9 + 'px' }
-      : y < 180 ? { ...across, bottom: size + 2 + 'px' }
-        : { ...across, top: size + 5 + 'px' };
-    // À 6, les persos des côtés sont près des billes : l'étiquette passe sous le nom (moins large).
-    const nameCls = 'seat-av__name' + (N === 6 && !vert ? ` seat-av__name--stack${x > 200 ? ' seat-av__name--end' : ''}` : '');
+    const pulse = h('div', { class: 'seat-av__pulse' });
+    const spin = h('div', { class: 'seat-av__spin' });
+    const cards = h('span', { class: 'seat-av__cards' });
     // Qui commence la donne (pendant la donne et l'échange), puis qui joue après le joueur actif.
     const chip = h('i', { class: 'seat-av__chip', hidden: true });
-    const meTag = isMe ? h('span', { class: nameCls, style: tag, hidden: true }, 'Toi', chip) : null;
-    const rootAv = h('div', { class: 'seat-av', style: { left: r1(x - size / 2), top: r1(y - size / 2), width: size, height: size } },
-      pulse,
-      spin,
-      h('div', { class: 'seat-av__disc', style: { boxShadow: `0 0 0 3px ${ring},0 6px 12px rgba(70,40,20,.25)` } }),
-      h('div', { style: { position: 'absolute', inset: 0 } }, avatar(pl.char, pl.color, size)),
-      cards,
-      isMe ? meTag : h('span', { class: nameCls, style: tag }, pl.name, chip));
-    avEls[s] = { root: rootAv, pulse, spin, cards, chip, meTag };
+    const name = h('span', { class: 'seat-av__name', hidden: isMe }, isMe ? 'Toi' : pl.name, chip);
+    const face = avatar(pl.char, pl.color, size);
+    const rootAv = h('div', { class: 'seat-av', style: { width: size, height: size, '--c': tint(s).c, '--d': tint(s).d } }, pulse, spin, face, cards, name);
+    avEls[s] = { root: rootAv, pulse, spin, cards, chip, meTag: isMe ? name : null, face, char: pl.char, color: pl.color, flip: false };
     avLayer.append(rootAv);
   }
+  /** Le haut et le bas des trous à l'écran (repère du plateau) : les noms et les bulles restent au-dessus ou en dessous. */
+  const holesSpan = (): [number, number] => {
+    const ys = [...g.track, ...g.lanes.flat(), ...g.res.flat()].map((p) => p[1]);
+    return [Math.min(...ys) - 8, Math.max(...ys) + 8];
+  };
+  /** Pose les persos autour du plateau ; leur nom va du côté où il ne couvre aucun trou. */
+  const placeAvatars = () => {
+    const [, bot] = holesSpan();
+    for (let s = 0; s < N; s++) {
+      const [x, y] = g.avs[armOf(N, me, s)], e = avEls[s], size = Z.av;
+      e.root.style.left = r1(x - size / 2) + 'px';
+      e.root.style.top = r1(y - size / 2) + 'px';
+      const isMe = s === me && !watching;
+      // Au fond : le nom au-dessus du perso, dans la bande libre au-dessus du plateau. Sur les côtés proches :
+      // à côté, vers le milieu (à 6, dessous : les persos des côtés sont au bout d'un bras).
+      const side = y < 150 ? (x < 110 ? 'over-start' : x > 250 ? 'over-end' : 'right')
+        : N === 6 && !isMe ? (x < 110 ? 'under-start' : x > 250 ? 'under-end' : 'under') : x < 110 ? 'right' : x > 250 ? 'left' : 'under';
+      // Dans les coins proches (toi compris), l'étiquette part sur le côté, descendue sous la dernière rangée de trous.
+      const low = y >= 150 && (side === 'right' || side === 'left');
+      e.root.dataset.side = low ? side + '-low' : side;
+      if (low) e.root.style.setProperty('--tag-top', r1(Math.max(size / 2 - 11, bot + 3 - (y - size / 2))) + 'px');
+      // Les persos de droite regardent vers le plateau.
+      const flip = x > 200;
+      if (flip !== e.flip) { e.flip = flip; e.face.dataset.humeur = ''; }
+    }
+  };
+  placeAvatars();
 
   // ---------- Toast, émotes, choix ----------
   const toastBox = h('div');
@@ -435,23 +496,48 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     toastBox.replaceChildren(h('div', { class: 'g-toast', role: 'status' }, t));
     toastTimer = window.setTimeout(() => toastBox.replaceChildren(), ms);
   };
+  /** Ponctuation française : pas de « ! », « ? » ou « : » seul en début de ligne dans un message. */
+  const typo = (t: string) => t.replace(/ (?=[!?:;»])/g, ' ').replace(/« /g, '« ');
+  /**
+   * Bulle d'un joueur. Elle ne couvre jamais les trous : pour les persos du fond, elle part sur le côté, dans la bande
+   * au-dessus du plateau ; pour les autres (toi compris), elle se pose sous le plateau, sur une seule ligne.
+   * Un message du chat tient sur deux lignes au fond ; le texte entier reste dans la barre du chat.
+   */
   const bubble = (s: number, t: string, ms = 2200, long = false) => {
     if (s < 0) return;
-    const [x, y] = g.avs[armOf(N, me, s)];
-    const b = h('div', { class: 'emote-bubble', style: { left: r1(Math.min(290, Math.max(70, x))), top: r1(y < 60 ? y + Z.av / 2 + 18 : y - Z.av / 2 - 44) } }, t);
+    const [x, y] = g.avs[armOf(N, me, s)], half = Z.av / 2;
+    const mine = s === me && !watching;
+    const far = y < 180 && !mine;
+    const b = h('div', { class: 'emote-bubble' + (long ? ' emote-bubble--chat' + (far ? '' : ' emote-bubble--line') : ''), 'data-seat': String(s), style: { '--c': tint(s).c } }, typo(t));
     bubbleLayer.querySelectorAll(`[data-seat="${s}"]`).forEach((n) => n.remove());
-    b.dataset.seat = String(s);
     bubbleLayer.append(b);
-    if (long) b.classList.add('emote-bubble--chat');
-    // Une bulle longue (message du chat) reste entière : on la recale dans la largeur de l'écran,
-    // et au-dessus d'un perso elle grandit vers le haut.
-    const half = b.offsetWidth / 2;
-    if (half) b.style.left = `${r1(Math.min(393 - 8 - half, Math.max(8 + half, x)))}px`;
-    if (long && y >= 60) b.style.top = `${r1(y - Z.av / 2 - 10 - b.offsetHeight)}px`;
+    const w = b.offsetWidth || 120, ht = b.offsetHeight || 34;
+    const [top, bot] = holesSpan();
+    // Repère du cadre du plateau : l'écran va de -BOARD_X + 6 à 360 + BOARD_X - 6.
+    const lo = 6 - BOARD_X, hi = 360 + BOARD_X - 6 - w;
+    let left: number, y0: number, tail: string;
+    if (far) {
+      // Dans les coins du fond, la bulle se cale contre le bord de l'écran, par-dessus le nom de celui qui parle :
+      // elle ne masque ni les trous, ni le perso d'à côté. Au milieu du fond, elle part à droite du perso.
+      left = x < 150 ? lo : x > 210 ? hi : x + half + 9;
+      y0 = Math.max(60 - BOARD_Y, Math.min(y - ht / 2, top - 4 - ht));
+      tail = x < 150 ? 'down' : x > 210 ? 'down-end' : 'left';
+    } else {
+      // Ton perso occupe déjà le coin sous le plateau : sa bulle part à sa droite, et celles des voisins s'écartent de lui.
+      const own = y + half > bot;
+      const meAv = watching ? null : g.avs[armOf(N, me, me)];
+      const corner = !mine && meAv && meAv[1] + half > bot ? meAv[0] + half + 9 : lo;
+      left = x < 180 ? Math.max(own ? x + half + 9 : x - half, corner) : x + half - w;
+      y0 = own ? Math.max(bot + 2, y - ht / 2) : bot + 4;
+      tail = own ? 'left' : x < 180 ? 'up' : 'up-end';
+    }
+    b.style.left = `${r1(Math.min(hi, Math.max(lo, left)))}px`;
+    b.style.top = `${r1(y0)}px`;
+    b.dataset.tail = tail;
     setTimeout(() => b.remove(), ms);
   };
   const emoteBtn = h('button', { class: 'btn-round btn-round--lg emote-btn', type: 'button', 'aria-label': 'Émotes', 'aria-expanded': 'false' },
-    h('i', null, h('span'), h('span'), h('span')));
+    icon(ICONS.chat, 24, 2.8));
   const emotePop = h('div', { class: 'pop pop--emotes', hidden: true },
     // Les émojis seuls (sans texte) s'affichent en plus grand.
     ...EMOTES.map((t) => h('button', { type: 'button', class: /\p{L}/u.test(t) ? undefined : 'pop__emoji', onclick: () => sendEmote(t) }, t)));
@@ -470,7 +556,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // Fermer : la croix, le bouton bulle, ou un toucher ailleurs sur l'écran.
   const chatClose = h('button', { class: 'table-chat__close', type: 'button', 'aria-label': 'Fermer le chat' }, '×');
   /** Message du chat en bulle sur le plateau : jusqu'à 90 caractères, sur plusieurs lignes, le temps de le lire. */
-  const chatBubble = (s: number, t: string) => bubble(s, t.length > 90 ? t.slice(0, 89) + '…' : t, Math.min(9000, 3000 + t.length * 70), true);
+  const chatBubble = (s: number, t: string) => bubble(s, t.length > 44 ? t.slice(0, 43) + '…' : t, Math.min(7000, 2600 + t.length * 60), true);
   const chatPop = h('div', { class: 'pop pop--chat', hidden: true, role: 'dialog', 'aria-label': 'Chat de la table' },
     h('div', { class: 'table-chat__head' }, h('span', { class: 'pop__title' }, 'Chat de la table'), chatClose), chatList, !watching && chatForm);
   const chatBadge = h('span', { class: 'emote-btn__badge', hidden: true });
@@ -596,12 +682,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let unread = 0;
   const renderChat = (lines: TableMsg[]) => {
     chatList.replaceChildren(...(lines.length ? lines.slice(-40).map((m) => h('div', { class: 'table-chat__line' + (m.mine ? ' table-chat__line--me' : '') },
-      h('b', { style: { color: m.seat >= 0 ? COL[SEAT_COLORS[N][m.seat]].c : 'var(--ink-2)' } }, m.mine ? 'Toi' : m.name), h('span', null, m.t)))
+      h('b', { style: { color: m.seat >= 0 ? COL[SEAT_COLORS[N][m.seat]].c : 'var(--ink-2)' } }, m.mine ? 'Toi' : m.name), h('span', null, typo(m.t))))
       : [h('span', { class: 'table-chat__empty' }, 'Personne n’a encore écrit. Lance la discussion !')]));
     chatList.scrollTop = chatList.scrollHeight;
     const last = lines[lines.length - 1];
     lastLine.classList.toggle('chat-drawer__last--empty', !last);
-    lastLine.replaceChildren(...(last ? [h('b', { style: { color: last.seat >= 0 ? COL[SEAT_COLORS[N][last.seat]].d : 'var(--ink-2)' } }, last.mine ? 'Toi' : last.name), h('span', null, last.t)]
+    lastLine.replaceChildren(...(last ? [h('b', { style: { color: last.seat >= 0 ? COL[SEAT_COLORS[N][last.seat]].d : 'var(--ink-2)' } }, last.mine ? 'Toi' : last.name), h('span', null, typo(last.t))]
       : ['Chat de la table : écris aux autres']));
   };
   const setEmotes = (open: boolean) => {
@@ -675,9 +761,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   if (src.initiation) setCoach('content');
   const actions = h('div', { class: 'g-actions' }, src.initiation ? coach : emoteBtn, h('div', { class: 'g-hint', 'aria-live': 'polite' }, hintT, hintS, tipBtn, resetSeven), playBtn);
-  const timerBar = h('div');
-  const timerEl = h('div', { class: 'g-timer', 'aria-hidden': 'true' }, timerBar);
+  // Minuteur : une mèche qui brûle vers la bombe ; l'étincelle suit le bout de la mèche.
+  const timerBar = h('div', null, h('i', { class: 'g-timer__spark' }));
+  const timerEl = h('div', { class: 'g-timer', 'aria-hidden': 'true', hidden: true }, timerBar);
   const hand = h('div', { class: 'hand' });
+  /** Étoile jaune derrière la carte choisie */
+  const handHalo = h('div', { class: 'hand__halo', 'aria-hidden': 'true', hidden: true });
   stage.append(actions, timerEl, hand);
   lowEls.push(actions, timerEl, hand, drawer);
   root.classList.toggle('with-drawer', drawerOn);
@@ -826,8 +915,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const p0 = view.pawns[d.part.pawn.s][d.part.pawn.i].p;
     const what = d.kind === 'home' ? `${inHome(N, p0) ? 'va' : 'rentre'} au ${HOME_HOLES[homeIndex(N, d.p)]} de la maison`
       : d.kind === 'lap' ? 'refait un tour' : `avance de ${d.part.steps}`;
-    const whose = d.part.pawn.s === me ? '' : `(bille de ${nameOf(d.part.pawn.s)}) `;
-    return whose + what + (d.victim < 0 ? '' : `, prend ${d.victim === me ? 'ta bille' : 'la bille de ' + nameOf(d.victim)}`);
+    const whose = d.part.pawn.s === me ? '' : `(bille ${deNom(nameOf(d.part.pawn.s))}) `;
+    return whose + what + (d.victim < 0 ? '' : `, prend ${d.victim === me ? 'ta bille' : 'la bille ' + deNom(nameOf(d.victim))}`);
   };
   const svIcon = (k: keyof typeof SV_ICONS) => {
     const el = h('span', { class: 'sv-ic' });
@@ -932,13 +1021,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     return (raw ? raw.split(',') : []).map((x) => x.split(':')).filter((x) => x.length === 2 && Number(x[1]) > 0)
       .map(([k, n]) => [k, Number(n)] as [string, number]);
   };
-  /** Le coup prend-il une bille ? Sur la tablette, la main du joueur n'est pas connue : on y met la carte jouée. */
-  const captures = (m: Move) => {
+  /** Places dont le coup renverrait une bille. Sur la tablette, la main du joueur n'est pas connue : on y met la carte jouée. */
+  const victimsOf = (m: Move): number[] => {
     try {
       const st = watching ? { ...view, hands: view.hands.map((hd, k) => (k === view.turn ? [m.card] : hd ?? [])) } : view;
-      return applyMove(st, m).lastCaptures.length > 0;
-    } catch { return false; }
+      return applyMove(st, m).lastCaptures.map((c) => c.s);
+    } catch { return []; }
   };
+  const captures = (m: Move) => victimsOf(m).length > 0;
 
   const preview = (pl: Plan) => {
     pathLayer.replaceChildren();
@@ -1114,7 +1204,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const victims = [...new Set(after.lastCaptures.filter((c) => teamOf(N, c.s) !== teamOf(N, me)).map((c) => nameOf(c.s)))];
     const home = m.kind !== 'seven' && inHome(N, after.pawns[m.pawn.s][m.pawn.i].p) && !inHome(N, view.pawns[m.pawn.s][m.pawn.i].p);
     let text = m.kind === 'exit' ? `Sors une bille avec ${cardName(m.card)}.`
-      : m.kind === 'swap' ? `Échange ta bille avec celle de ${nameOf(m.target.s)}.`
+      : m.kind === 'swap' ? `Échange ta bille avec celle ${deNom(nameOf(m.target.s))}.`
         : m.kind === 'seven' ? (m.parts.length > 1 ? `Partage ton 7 : ${m.parts.map((p) => p.steps).join(' + ')}.` : 'Avance cette bille de 7.')
           : m.steps < 0 ? (leavesHome(view, m) ? 'Fais ressortir cette bille de ta maison avec le 4.' : 'Recule cette bille de 4 : elle se rapproche de sa maison.')
             : `Avance cette bille de ${m.steps} avec ${cardName(m.card)}.`;
@@ -1248,7 +1338,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // ---------- Minuteur de tour ----------
   let turnTimer = 0;
   let timerFor = '';
-  const stopTimer = () => { clearTimeout(turnTimer); timerFor = ''; timerBar.style.animation = 'none'; timerBar.style.visibility = 'hidden'; };
+  const stopTimer = () => { clearTimeout(turnTimer); timerFor = ''; timerBar.style.animation = 'none'; timerEl.hidden = true; };
   /** Un autre humain attend à la table ? Contre des robots seulement, personne n'attend : pas de minuteur. */
   // À ton rythme, jamais de minuteur : chacun joue quand il revient.
   const othersWaiting = () => !src.slow && src.players.some((p, k) => k !== me && !p.bot);
@@ -1260,10 +1350,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (timerFor === id) return;
     timerFor = id;
     clearTimeout(turnTimer);
-    timerBar.style.visibility = 'visible';
+    timerEl.hidden = false;
     timerBar.style.animation = 'none';
     void timerBar.offsetWidth;
-    timerBar.style.animation = `tocShrink ${TURN_MS / 1000}s linear both`;
+    timerBar.style.animation = `tocBurn ${TURN_MS / 1000}s linear both`;
     turnTimer = window.setTimeout(() => {
       if (disposed) return;
       clearSel();
@@ -1278,15 +1368,16 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     deckCount.textContent = String(deckLeft().left);
     turnEl.textContent = view.phase === 'over' ? 'Partie terminée'
       : view.phase === 'deal' ? 'On distribue…'
-        : view.phase === 'exchange' ? (watching ? 'Échange des cartes…' : view.exchange[me] ? 'On attend les autres…' : `Une carte pour ${nameOf(partner(N, me))}`)
-          : view.turn === me && !watching ? `À toi de jouer, ${nick}` : `Tour de ${nameOf(view.turn)}`;
+        // Titre court : la consigne complète (« Elle part chez Mimi ») est dans le panneau sous le plateau.
+        : view.phase === 'exchange' ? (watching ? 'Échange des cartes…' : view.exchange[me] ? 'On attend…' : 'L’échange')
+          : view.turn === me && !watching ? 'À toi de jouer' : `Tour ${deNom(nameOf(view.turn))}`;
     const myTeam = teamOf(N, me);
     const teams = [myTeam, ...Array.from({ length: N / 2 }, (_, t) => t).filter((t) => t !== myTeam)];
+    // Une case par équipe, à ses couleurs : billes rentrées (la tienne d'abord).
     scoreEl.replaceChildren(...teams.map((t) => {
       const n = [t, t + N / 2].reduce((a, s) => a + view.pawns[s].filter((pw) => inHome(N, pw.p)).length, 0);
-      return h('div', null,
-        h('span', { style: { width: 10, height: 10, borderRadius: '50%', background: tint(t).c } }),
-        h('span', { style: { width: 10, height: 10, borderRadius: '50%', background: tint(t + N / 2).c, marginLeft: -6, boxShadow: '0 0 0 1.5px #fff' } }),
+      return h('div', { style: { background: tint(t + N / 2).c }, 'aria-label': `Équipe ${TEAM_NAMES[t]} : ${n}` },
+        h('span', { style: { background: tint(t).c } }),
         h('b', null, n));
     }));
   };
@@ -1298,6 +1389,27 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       if (view.hands[s]?.length) return s;
     }
     return -1;
+  };
+
+  // ---------- Humeurs des persos ----------
+  /** Humeurs passagères (après un BOUM) : place → humeur, jusqu'à une heure donnée. */
+  const flash = new Map<number, { mood: Humeur; until: number }>();
+  const setFlash = (s: number, mood: Humeur, ms = 3000) => {
+    flash.set(s, { mood, until: Date.now() + ms });
+    renderMoods();
+    setTimeout(() => { if (!disposed) renderMoods(); }, ms + 40);
+  };
+  /** Places dont une bille est visée par le coup que tu prépares (ou que la table voit préparer). */
+  let threatened = new Set<number>();
+  const moodOf = (s: number): Humeur => {
+    const f = flash.get(s);
+    if (f && f.until > Date.now()) return f.mood;
+    if (view.phase === 'over') return teamOf(N, s) === view.winner ? 'joie' : 'ko';
+    if (threatened.has(s)) return 'panique';
+    return view.phase === 'play' && view.turn === s ? 'concentre' : 'content';
+  };
+  const renderMoods = () => {
+    for (let s = 0; s < N; s++) setHumeur(avEls[s].face, avEls[s].char, avEls[s].color, moodOf(s), { flip: avEls[s].flip });
   };
 
   const renderAvatars = () => {
@@ -1322,6 +1434,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       e.root.classList.toggle('seat-av--off', !src.players[s].online && !src.players[s].bot && (watching || s !== me));
       rpads[s].classList.toggle('pad--glow', active);
     }
+    renderMoods();
   };
 
   const renderDiscard = (thump = false) => {
@@ -1331,9 +1444,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       return;
     }
     const c = cardLook(shown);
-    const col = shown.startsWith('X') ? 'var(--violet)' : c.red ? 'var(--card-red)' : 'var(--ink)';
+    const col = c.k === 'X' ? 'var(--violet-d)' : c.red ? 'var(--card-red)' : 'var(--ink)';
     discard.className = 'discard' + (thump ? ' discard--thump' : '');
-    discard.replaceChildren(h('b', { style: { color: col } }, c.r), h('span', { style: { color: col } }, c.s));
+    const suit = suitIcon(c.k);
+    suit.style.color = col;
+    discard.replaceChildren(...(c.k === 'X' ? [suit] : [h('b', { style: { color: col } }, c.r), suit]));
   };
 
   const renderHand = () => {
@@ -1342,7 +1457,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const active = myTurn() || giving();
     // Cartes injouables : elles pâlissent, sauf si aucune carte ne se joue (il faut alors défausser).
     const playable = new Set(myTurn() ? myMoves().filter((m) => m.kind !== 'discard').map((m) => m.card) : []);
-    hand.replaceChildren(...cards.map((card, i) => {
+    // Éventail : les cartes se serrent quand la main est pleine, la carte choisie sort du rang.
+    const step = n > 1 ? Math.min(62, (STAGE_W - 28 - CARD_W) / (n - 1)) : 0;
+    const mid = sel ?? (n - 1) / 2;
+    handHalo.hidden = sel === null || !active;
+    if (sel !== null) handHalo.style.left = r1(STAGE_W / 2 - CARD_W / 2 + (sel - (n - 1) / 2) * step - 24) + 'px';
+    hand.replaceChildren(handHalo, ...cards.map((card, i) => {
       const dead = playable.size > 0 && !playable.has(card);
       const m = i - (n - 1) / 2, on = sel === i;
       const el = playingCard(card, {
@@ -1355,11 +1475,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
           render();
         },
       });
-      el.style.left = r1(STAGE_W / 2 - 40 + m * 60) + 'px';
-      el.style.top = (on ? 0 : r1(34 + m * m * 6)) + 'px';
-      el.style.transform = `rotate(${on ? 0 : r1(m * 7)}deg)`;
-      el.style.zIndex = String(on ? 20 : i + 1);
-      el.style.opacity = !active ? '.6' : dead && !on ? '.55' : '1';
+      el.style.left = r1(STAGE_W / 2 - CARD_W / 2 + m * step) + 'px';
+      el.style.top = (on ? 0 : r1(30 + m * m * 5)) + 'px';
+      el.style.transform = `rotate(${on ? 0 : r1(m * 6)}deg)`;
+      // Les cartes se recouvrent vers l'extérieur : le rang reste lisible dans un coin de chacune.
+      el.style.zIndex = String(on ? 20 : 12 - Math.round(Math.abs(i - mid) * 2));
+      el.classList.toggle('pcard--wait', !active);
       el.classList.toggle('pcard--dead', active && dead && !on);
       const ls = sel === null ? currentLesson() : null;
       if (ls && ls.ranks().includes(rankOf(card))) el.classList.add('pcard--coach');
@@ -1402,7 +1523,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const padHint = () => giving() ? `Choisis en bas la carte à passer à ${nameOf(partner(N, me))}.`
     : view.phase === 'exchange' ? 'On attend les autres…'
       : view.phase !== 'play' ? 'Distribution des cartes…'
-        : !myTurn() ? `Tour de ${nameOf(view.turn)}…`
+        : !myTurn() ? `Tour ${deNom(nameOf(view.turn))}…`
           : sel === null ? 'À toi de jouer : choisis une carte en bas.' : 'Pas de bille à choisir avec cette carte : touche le bouton en bas.';
   let lastAim = 'null';
   const renderPad = (pl: Plan) => {
@@ -1426,7 +1547,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         outer.dataset.num = i >= 0 ? String(i + 1) : '';
         outer.classList.toggle('pawn--aim', !!aim?.pick && aim.pick === k);
       });
-      if (aim?.card) turnEl.textContent = `Tour de ${nameOf(view.turn)} · ${rankName(aim.card)}`;
+      if (aim?.card) turnEl.textContent = `Tour ${deNom(nameOf(view.turn))} · ${rankName(aim.card)}`;
       // La barre du haut est cachée sur la tablette : la manche et le score passent en tête du journal.
       tableJournal.replaceChildren(
         h('div', { class: 'table-journal__top' }, h('span', { class: 't-label' }, roundEl.textContent ?? ''), scoreEl.cloneNode(true) as HTMLElement),
@@ -1485,7 +1606,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const offRoom = src.onRoom?.(() => { if (!disposed) render(); });
 
   const rematchBox = () => {
-    const btn = button('Revanche', 'white', () => src.voteRematch?.(), { size: 'md', block: true }) as HTMLButtonElement;
+    const btn = button('Revanche', 'yellow', () => src.voteRematch?.(), { size: 'md', block: true }) as HTMLButtonElement;
     const who = h('div', { class: 'victory__votes', 'aria-live': 'polite' });
     rematchUi = { btn, who };
     return h('div', { class: 'victory__rematch' }, btn, who);
@@ -1498,6 +1619,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     renderAvatars();
     renderHand();
     const pl = plan();
+    // Les persos dont une bille est visée par le coup préparé paniquent.
+    const aim = watching ? aimedMove() : pl.chosen;
+    threatened = new Set(aim && aim.kind !== 'discard' ? victimsOf(aim) : []);
+    renderMoods();
     // Billes jouables, bille choisie, cibles du Valet
     pawnEls.forEach(({ outer, inner }, k) => {
       const [s, i] = k.split('.').map(Number), r = { s, i };
@@ -1624,14 +1749,47 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   /** Rancunes de la partie : qui a renvoyé une bille de qui en dernier (pour « VENGEANCE ! »). */
   const grudge = new Map<number, number>();
   /** Le film de la partie : les coups marquants (prises, moments annoncés, coup de la victoire), rejouables à la fin. */
-  const highlights: { n: number; prev: GameState; next: GameState; tag: string; score: number }[] = [];
-  /** Moments annoncés pendant la partie, pour la carte à partager (« VENGEANCE ! » : 2). */
-  const tagCount = new Map<string, number>();
-  /** Un moment fort, annoncé en grand à toute la table. */
-  const moment = async (t: string) => {
+  const highlights: { n: number; prev: GameState; next: GameState; tag: string; home: string; score: number }[] = [];
+  /** Le perso d'une place, tel qu'on le dessine (le sien suit son profil). */
+  const actor = (s: number, humeur: Humeur): PlancheActor => ({ char: avEls[s].char, color: avEls[s].color, humeur });
+  const isMe = (s: number) => s === me && !watching;
+  /** Le récitatif d'un moment fort. by : celui qui joue le coup ; hit : ceux dont une bille est renvoyée. */
+  const momentText = (tag: string, by: number, hit: number[]) => {
+    const others = hit.filter((s) => s !== by);
+    const list = others.map((s) => (isMe(s) ? 'toi' : nameOf(s))).join(' et ');
+    if (tag.startsWith('VENGEANCE') && others.length)
+      return isMe(by) ? `${nameOf(others[0])} t’avait renvoyé juste avant.`
+        : isMe(others[0]) ? `Tu avais renvoyé ${nameOf(by)} juste avant.` : `${nameOf(others[0])} avait renvoyé ${nameOf(by)} juste avant.`;
+    if (tag.startsWith('DOUBLÉ') || tag.startsWith('TRIPLÉ')) return isMe(by) ? `Tu renvoies ${list} d’un seul coup.` : `${nameOf(by)} renvoie ${list} d’un seul coup.`;
+    if (tag.startsWith('OUPS')) return isMe(by) ? 'Tu renvoies une bille de ton propre camp.' : `${nameOf(by)} renvoie une bille de son propre camp.`;
+    return '';
+  };
+  /**
+   * Un moment fort : une case de BD claque sous le plateau, jamais dessus, avec ses acteurs et son mot.
+   * by : celui qui joue le coup ; hit : ceux qui le subissent ; text : le récitatif.
+   */
+  const moment = async (t: string, by = -1, hit: number[] = [], text = '') => {
     sfx('moment');
-    fx('screen', { kind: 'banner', y: 262, t, ms: 1500 });
-    await sleep(1150);
+    const oops = t.startsWith('OUPS');
+    const el = h('div', { class: 'g-moment', 'aria-hidden': 'true' },
+      h('div', { class: 'g-moment__case', style: { '--mc': by >= 0 && avEls[by].color === 'blue' ? 'var(--rouge)' : 'var(--bleu)' } },
+        h('i'),
+        h('div', { class: 'g-moment__burst' }, ...burstEl(by >= 0 && avEls[by].color === 'yellow' ? '#fff' : '#ffcf1f', 13, 36)),
+        by >= 0 ? h('span', { class: 'g-moment__who g-moment__who--by' }, avatar(avEls[by].char, avEls[by].color, 104, oops ? 'panique' : hit.length ? 'malin' : 'joie')) : null,
+        hit.length ? h('span', { class: 'g-moment__who g-moment__who--hit' }, avatar(avEls[hit[0]].char, avEls[hit[0]].color, 84, 'ko', { flip: true })) : null,
+        h('span', { class: 'g-moment__word' + (t.length > 10 ? ' g-moment__word--long' : '') }, t)),
+      text ? h('div', { class: 'g-moment__text' }, text) : null);
+    stage.append(el);
+    // La case claque (elle dépasse un peu, puis se pose), tient le temps d'être lue, puis retombe.
+    if (!calm()) el.animate?.([
+      { transform: 'translateY(60px) scale(.6) rotate(4deg)', opacity: 0, easing: 'cubic-bezier(.2,.9,.3,1)' },
+      { transform: 'translateY(-6px) scale(1.05) rotate(-1deg)', opacity: 1, offset: 0.12, easing: 'ease-out' },
+      { transform: 'none', opacity: 1, offset: 0.2 },
+      { transform: 'none', opacity: 1, offset: 0.88, easing: 'ease-in' },
+      { transform: 'translateY(40px) scale(.9)', opacity: 0 },
+    ], { duration: 1750, easing: 'linear' });
+    await sleep(1700);
+    el.remove();
   };
   /** La musique et l'ambiance suivent la partie : de 0 (début) à 3 (une équipe n'a plus qu'une bille à rentrer). */
   const syncTension = (st: GameState) => {
@@ -1709,17 +1867,19 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     return p;
   };
   const flyCard = (seat: number, card: Card, prev: GameState) => {
-    const c = cardLook(card), ds = N === 4 ? 1 : 0.72;
+    const c = cardLook(card), ds = N === 4 ? (pg ? 1 : 0.88) : 0.72;
     let x0: number, y0: number, r0: number, s0: number;
     if (seat === me && !watching) {
       const hd = prev.hands[me], idx = Math.max(0, hd.indexOf(card)), m = idx - (hd.length - 1) / 2;
-      [x0, y0, r0, s0] = [STAGE_W / 2 + m * 60, 616, 0, 1];
+      [x0, y0, r0, s0] = [STAGE_W / 2 + m * 56, 592, 0, 1];
     } else {
       const [ax, ay] = g.avs[armOf(N, me, seat)];
-      [x0, y0, r0, s0] = [ax + 16, ay + 82, -20, 0.35];
+      [x0, y0, r0, s0] = [BOARD_X + ax, BOARD_Y + ay, -20, 0.3];
     }
-    const col = card.startsWith('X') ? '#9b7bff' : c.red ? '#e5482a' : '#2b2a3d';
-    fx('screen', { kind: 'card', x0, y0, x1: 16 + 180 + 34 * ds, y1: 262, r0, r1: 6, s0, s1: 0.68 * ds, r: c.r, su: c.s, col, ms: 460 });
+    // La carte atterrit sur la défausse, au centre du plateau (vue à l'écran).
+    const [dx, dy, dsc] = proj.at(180 + 34 * ds, 180);
+    const col = c.k === 'X' ? '#7646e0' : c.red ? '#e0331b' : '#16131f';
+    fx('screen', { kind: 'card', x0, y0, x1: BOARD_X + dx, y1: BOARD_Y + dy, r0, r1: 6, s0, s1: 0.59 * ds * dsc, r: c.k === 'X' ? '' : c.r, k: c.k, col, ms: 460 });
     sfx('carte');
     setTimeout(() => { shown = card; renderDiscard(true); }, 450);
   };
@@ -1743,7 +1903,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     flyCard(seat, move.card, prev);
     if (mine) {
       const victim = next.lastCaptures.find((c) => teamOf(N, c.s) !== teamOf(N, me));
-      toast(move.kind === 'exit' ? 'Un pion de sorti. En avant !'
+      toast(move.kind === 'exit' ? 'Une bille de sortie. En avant !'
         : move.kind === 'swap' ? (move.target.s === me ? 'Échange !' : `Échange ! Désolé, ${nameOf(move.target.s)}.`)
           : move.kind === 'step' && move.steps < 0 ? 'Recule pour mieux sauter !'
             : victim ? 'BOUM ! Bien visé.' : move.kind === 'step' && move.steps >= 10 ? 'Grosse avance !' : 'Beau coup !');
@@ -1798,6 +1958,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       void board.offsetWidth;
       board.classList.add('board--shake');
       sfx('boum');
+      // Les persos réagissent : ceux qu'on renvoie sont sonnés, puis enragent ; celui qui frappe jubile.
+      const hitSeats = [...new Set(caps.map((v) => v.s))];
+      hitSeats.forEach((s) => { if (s !== seat) setFlash(s, 'ko', 1500); });
       // Une de tes billes renvoyée dans ta réserve : le téléphone vibre.
       if (!watching && caps.some((v) => v.s === me)) buzz([40, 30, 220]);
       // Arrêt sur image, puis la caméra recule pour suivre la bille jusqu'à sa réserve.
@@ -1817,29 +1980,31 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         if (revenge) grudge.delete(seat);
         tag = foes.length >= 3 ? 'TRIPLÉ !' : foes.length === 2 ? 'DOUBLÉ !' : revenge ? 'VENGEANCE !' : !foes.length ? 'OUPS !' : '';
       }
-      if (tag) await moment(tag);
+      setFlash(seat, foes.length ? 'joie' : 'panique', 3400);
+      hitSeats.forEach((s) => { if (s !== seat) setFlash(s, 'furieux', 3400); });
+      if (tag) await moment(tag, seat, hitSeats.filter((s) => s !== seat), momentText(tag, seat, hitSeats));
     }
     // Maison : la bille qui file droit au fond, ou un joueur qui vient de rentrer sa dernière bille.
+    let home = '';
     if (next.phase !== 'over') {
-      let done = false, exact = false;
+      let done = false, exact = false, who = seat;
       next.pawns.forEach((row, s) => row.forEach((pw, i) => {
         const was = prev.pawns[s][i].p;
         if (!inHome(N, pw.p) || inHome(N, was)) return;
-        if (row.every((q) => inHome(N, q.p))) done = true;
-        else if (row.filter((q) => q.p > pw.p).length === HOME_SIZE - 1 - homeIndex(N, pw.p)) exact = true;
+        if (row.every((q) => inHome(N, q.p))) { done = true; who = s; }
+        else if (row.filter((q) => q.p > pw.p).length === HOME_SIZE - 1 - homeIndex(N, pw.p)) { exact = true; if (!done) who = s; }
       }));
-      const home = done ? 'TOUT RENTRÉ !' : exact ? 'AU MILLIMÈTRE !' : '';
+      home = done ? 'TOUT RENTRÉ !' : exact ? 'AU MILLIMÈTRE !' : '';
       if (home) {
-        await moment(home);
+        setFlash(who, 'joie', 3200);
+        await moment(home, who, [], !done ? 'Du parcours, droit au fond de la maison.'
+          : isMe(who) ? `Tes 4 billes sont rentrées : tu joues maintenant celles ${deNom(nameOf(partner(N, who)))}.`
+            : `${nameOf(who)} a rentré ses 4 billes et joue maintenant celles ${deNom(nameOf(partner(N, who)))}.`);
         score += done ? 3 : 2;
-        if (replay === undefined) tagCount.set(home, (tagCount.get(home) ?? 0) + 1);
       }
     } else score += 5;
     // Le film de la partie garde ce coup s'il a marqué la table.
-    if (replay === undefined) {
-      if (tag) tagCount.set(tag, (tagCount.get(tag) ?? 0) + 1);
-      if (score + (tag ? 3 : 0) > 0) highlights.push({ n: highlights.length, prev, next, tag, score: score + (tag ? 3 : 0) });
-    }
+    if (replay === undefined && score + (tag ? 3 : 0) > 0) highlights.push({ n: highlights.length, prev, next, tag, home, score: score + (tag ? 3 : 0) });
     await sleep(mine ? 500 : 350);
   };
 
@@ -1876,7 +2041,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       dealing = false;
       const size = next.hands[me].length;
       sfx('donne');
-      if (next.dealNo === 0) fx('screen', { kind: 'banner', y: 262, t: 'C’EST PARTI !', ms: 1500 });
+      if (next.dealNo === 0) fx('screen', { kind: 'banner', y: 452, t: 'C’EST PARTI !', ms: 1500 });
       else toast(!watching && next.dealer === me ? `Tu distribues ${size} cartes` : `${nameOf(next.dealer)} distribue ${size} cartes`);
       await sleep(1300);
     } else if (prev.phase === 'exchange' && next.phase === 'play') {
@@ -1888,13 +2053,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       // Qui ouvre la donne, en grand pour toute la table.
       const first = nameOf(next.turn);
       const mine = !watching && next.turn === me;
-      fx('screen', { kind: 'banner', y: 262, t: mine ? 'TU COMMENCES !' : `${(first.length > 9 ? first.slice(0, 8) + '…' : first).toUpperCase()} COMMENCE !`, ms: 1700 });
+      fx('screen', { kind: 'banner', y: 452, t: mine ? 'TU COMMENCES !' : `${(first.length > 9 ? first.slice(0, 8) + '…' : first).toUpperCase()} COMMENCE !`, ms: 1700 });
       opened = true;
       if (!mine) await sleep(500);
     }
     if (!watching && next.phase === 'play' && next.turn === me && (!wasMyTurn || moved)) {
       if (drawerOpen && document.activeElement !== chatInput) setDrawer(false);
-      if (!opened) fx('screen', { kind: 'banner', y: 262, t: 'À TOI DE JOUER !', ms: 1500 });
+      if (!opened) fx('screen', { kind: 'banner', y: 452, t: 'À TOI DE JOUER !', ms: 1500 });
       sfx('tour');
       buzz([60, 40, 60]);
     }
@@ -1949,6 +2114,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     h('span', { class: 'sheet__text' }, watching ? 'Écran de table : la partie continue sur les téléphones des joueurs.'
       : src.slow ? 'Partie à ton rythme : elle t’attend sur l’accueil, reviens quand tu veux.' : 'Les autres t’attendent, fais vite !'),
     soundSettings(),
+    // Vue du plateau : chacun la sienne (l'écran de table reste vu de dessus).
+    watching ? h('span') : h('div', { class: 'push-row view-row' },
+      h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('b', null, 'Vue du plateau'), h('span', { class: 'push-row__text' }, 'Comme assis à ta place, ou vu de dessus.')),
+      segmented([{ value: 'inclinee' as const, label: 'Inclinée' }, { value: 'plat' as const, label: 'Dessus' }], viewPref(), (v) => {
+        try { localStorage.setItem(VIEW_KEY, v); } catch { /* sans stockage : pour cette partie seulement */ }
+        retilt();
+      })),
     button('Reprendre', 'primary', closeSheet, { size: 'md', block: true }),
     src.local ? button('Recommencer la donne', 'white', () => { closeSheet(); src.restartDeal(); }, { size: 'md', block: true }) : h('span'),
     !src.local && !watching ? button('Afficher le plateau sur une tablette', 'white', () => { closeSheet(); openTableSheet(src.code); }, { size: 'md', block: true }) : h('span'),
@@ -1972,7 +2144,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const show = (x: GameState) => { view = x; syncPawns(x); shown = x.lastCard; clearSel(); renderDiscard(); render(); };
     for (let k = 0; k < best.length && !skip && !disposed; k++) {
       show(best[k].prev);
-      fx('screen', { kind: 'banner', y: 262, t: best.length > 1 ? `MOMENT FORT ${k + 1}/${best.length}` : 'LE MOMENT FORT', ms: 1200 });
+      fx('screen', { kind: 'banner', y: 452, t: best.length > 1 ? `MOMENT FORT ${k + 1}/${best.length}` : 'LE MOMENT FORT', ms: 1200 });
       await sleep(1250);
       await animateMove(best[k].prev, best[k].next, best[k].tag);
       if (disposed) return;
@@ -1989,76 +2161,94 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     show(st);
     showVictory(st, won);
   };
-  /** Fin de partie : l'image de la partie, à envoyer aux copains. */
-  const shareEnd = async (st: GameState, won: boolean, btn: HTMLButtonElement) => {
-    const t = st.winner, c = tint(t);
-    const caps = st.stats.captures, top = caps.reduce((b, v, k) => (v > (caps[b] ?? 0) ? k : b), 0);
-    const all = caps.reduce((a, v) => a + (v ?? 0), 0);
-    const rounds = Math.floor(st.dealNo / 3) + 1;
-    const tags = [...tagCount].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, v]) => (v > 1 ? `${k.replace(' !', '')} ×${v}` : k.replace(' !', '')));
-    btn.disabled = true;
-    const res = await shareCard({
-      won, color: c.c, dark: c.d,
-      kicker: `Équipe ${TEAM_NAMES[t]}`,
-      title: won ? 'Victoire !' : 'Bien joué !',
-      names: [nameOf(t), nameOf(t + N / 2)],
-      chips: [`${all} BOUM`, `${rounds} manche${rounds > 1 ? 's' : ''}`, `${N} joueurs`],
-      lines: [
-        ...((caps[top] ?? 0) > 0 ? [`Roi du BOUM : ${nameOf(top)} (${caps[top]})`] : []),
-        ...(tags.length ? [`Moments forts : ${tags.join(', ')}`] : []),
-      ],
-      text: won ? 'On a gagné au TOC !' : 'Belle partie de TOC !',
+  /**
+   * La planche de la partie : ses trois coups les plus marquants racontés en cases de BD, puis la case « Fin ».
+   * Elle s'affiche sur l'écran de fin et se partage en image.
+   */
+  const plancheOf = (st: GameState, won: boolean): Planche => {
+    const t = st.winner;
+    const mover = (x: { next: GameState }) => (x.next.lastMove ? x.next.lastMove.seat : 0);
+    const best = highlights.filter((x) => x.next.phase !== 'over').sort((a, b) => b.score - a.score || b.n - a.n).slice(0, 3).sort((a, b) => a.n - b.n);
+    const cases: PlancheCase[] = best.map((x) => {
+      const by = mover(x);
+      const hit = [...new Set(x.next.lastCaptures.map((v) => v.s))].filter((s) => s !== by);
+      const cap = x.tag.startsWith('VENGEANCE') && hit.length ? `${nameOf(by)} se venge ${deNom(nameOf(hit[0]))}.`
+        : x.tag.startsWith('DOUBLÉ') ? `${nameOf(by)} en renvoie deux d’un coup.`
+          : x.tag.startsWith('TRIPLÉ') ? `${nameOf(by)} en renvoie trois d’un coup !`
+            : x.tag.startsWith('OUPS') ? `${nameOf(by)} renvoie son propre camp…`
+              : hit.length ? `${nameOf(by)} renvoie ${hit.map(nameOf).join(' et ')}.`
+                : x.home.startsWith('TOUT') ? `${nameOf(by)} rentre ses 4 billes.` : `${nameOf(by)} file droit au fond.`;
+      return {
+        cap, fx: x.tag || x.home || (hit.length ? criOf(lookOfSeat(by)) : 'TOC !'),
+        by: actor(by, x.tag.startsWith('OUPS') ? 'panique' : hit.length ? 'malin' : 'joie'), hits: hit.map((s) => actor(s, 'ko')),
+      };
     });
+    // Le titre de l'histoire : un exploit des gagnants s'il y en a eu (revanche, coup multiple), sinon leur plus gros frappeur.
+    const ours = best.filter((x) => teamOf(N, mover(x)) === t);
+    const rev = ours.find((x) => x.tag.startsWith('VENGEANCE')), multi = ours.find((x) => x.tag.startsWith('DOUBLÉ') || x.tag.startsWith('TRIPLÉ'));
+    const caps = st.stats.captures, top = (caps[t] ?? 0) >= (caps[t + N / 2] ?? 0) ? t : t + N / 2;
+    const story = rev ? `La vengeance ${deNom(nameOf(mover(rev)))}` : multi ? `Le ${multi.tag.startsWith('TRIPLÉ') ? 'triplé' : 'doublé'} ${deNom(nameOf(mover(multi)))}`
+      : (caps[top] ?? 0) >= 3 ? `${nameOf(top)}, roi du BOUM` : `L’équipe ${TEAM_NAMES[t]} s’impose`;
+    const last = st.lastMove ? st.lastMove.seat : t;
+    const homes = Array.from({ length: N / 2 }, (_, k) => `${TEAM_NAMES[k]} ${[k, k + N / 2].reduce((a, s) => a + st.pawns[s].filter((pw) => inHome(N, pw.p)).length, 0)}`);
+    const boums = caps.reduce((a, v) => a + (v ?? 0), 0);
+    return {
+      won: won || watching, color: won || watching ? tint(t + N / 2).c : '#55517a',
+      title: won || watching ? 'Victoire !' : 'Défaite…',
+      duo: [actor(t, 'joie'), actor(t + N / 2, 'joie')],
+      kicker: `Équipe ${TEAM_NAMES[t]} · ${nameOf(t)} et ${nameOf(t + N / 2)}`,
+      story, cases,
+      fin: { cap: `…et ${nameOf(last)} rentre la dernière bille.`, color: SEAT_COLORS[N][last], toc: won || watching ? 'vainqueur' : 'surpris' },
+      foot: `${homes.join(' · ')} · ${boums} BOUM`,
+      // Gains : seulement pour les parties en ligne (comme awardGame).
+      reward: src.local || watching ? undefined : { n: won ? '+100' : '+20', label: 'pièces' },
+      text: won ? 'On a gagné au TOC !' : 'Belle partie de TOC !',
+    };
+  };
+  /** Fin de partie : la planche en image, à envoyer aux copains. */
+  const shareEnd = async (p: Planche, btn: HTMLButtonElement) => {
+    btn.disabled = true;
+    const res = await sharePlanche(p);
     btn.disabled = false;
-    if (res === 'enregistree') toast('Image enregistrée.');
-    else if (res === 'impossible') toast('Impossible de créer l’image sur ce téléphone.');
+    if (res === 'enregistree') pageToast('Planche enregistrée dans tes images.', 2400);
+    else if (res === 'impossible') pageToast('Impossible de créer l’image sur ce téléphone.', 2400);
   };
   const showVictory = (st: GameState, won: boolean) => {
     closeVictory();
-    const t = st.winner, c = tint(t);
-    const plOf = (k: number) => (k === me ? { ...src.players[k], ...draftProfile() } : src.players[k]);
-    // Gains : seulement pour les parties en ligne (comme awardGame).
-    const reward = src.local || watching ? '' : won ? '+150 XP · +100 pièces' : '+60 XP · +20 pièces';
-    // Chiffres : les siens, ou ceux de l'équipe gagnante sur l'écran de table.
-    const who = watching ? [t, t + N / 2] : [me];
-    const total = (a: number[]) => who.reduce((x, k) => x + (a[k] ?? 0), 0);
-    const boums = total(st.stats.captures), outs = total(st.stats.exits);
+    const p = plancheOf(st, won);
     const confetti = Array.from({ length: 18 }, (_, i) => h('i', { style: {
-      left: `${(i * 37) % 100}%`, background: ['#ffc93c', '#fff', '#2ec4a0', '#4a7dff', '#ff6fae'][i % 5],
+      left: `${(i * 37) % 100}%`, background: ['#ffcf1f', '#fff', '#19c6a4', '#3b5bff', '#ff7ab8'][i % 5],
       animationDelay: `-${((i * 0.37) % 2.6).toFixed(2)}s`, animationDuration: `${(2.2 + (i % 4) * 0.3).toFixed(1)}s`,
     } }));
+    const shareBtn = h('button', { class: 'btn btn--white btn--md victory__share', type: 'button', 'aria-label': 'Partager la planche', onclick: () => shareEnd(p, shareBtn) },
+      icon(ICONS.share, 22, 2.8), 'Partager') as HTMLButtonElement;
     // Le fond (couleur, rayons, confettis) couvre tout l'écran, encoche et bas compris ;
     // le contenu suit l'échelle de la scène, comme le plateau.
     victoryInner = h('div', { class: 'victory__inner' },
-      h('span', { class: 'victory__kicker' }, won ? `Équipe ${TEAM_NAMES[t]}` : `L’équipe ${TEAM_NAMES[t]} gagne`),
-      h('span', { class: 'victory__title' }, won ? 'Victoire !' : 'Partie perdue'),
-      h('div', { class: 'victory__toc' }, mascot(won ? 'vainqueur' : 'surpris', 150)),
-      h('div', { class: 'victory__team' }, ...[t, t + N / 2].flatMap((k, i) => [
-        i ? h('span', { style: { opacity: 0.75 } }, '&') : null, avatar(plOf(k).char, plOf(k).color, 32), h('span', null, nameOf(k))])),
-      h('div', { class: 'victory__card' },
-        reward ? h('div', { class: 'victory__reward' }, h('span', null, won ? 'Bravo l’équipe !' : 'Revanche ?'), h('b', null, reward)) : null,
-        h('div', { class: 'victory__chips' },
-          h('span', null, `${boums} BOUM`),
-          h('span', null, `${outs} bille${outs > 1 ? 's' : ''} sortie${outs > 1 ? 's' : ''}`),
-          h('span', null, `${Math.floor(st.dealNo / 3) + 1} manche${st.dealNo >= 3 ? 's' : ''}`))),
-      h('div', { style: { flex: 1 } }),
-      watching ? null : h('div', { class: 'victory__duo' },
-        highlights.length ? h('button', { class: 'victory__chat', type: 'button', onclick: () => replayHighlights(st, won) }, 'Moments forts') : null,
-        h('button', { class: 'victory__chat', type: 'button', onclick: (e: Event) => shareEnd(st, won, e.currentTarget as HTMLButtonElement) }, 'Partager')),
-      watching ? button('Fermer', 'white', closeVictory, { size: 'md', block: true })
-        // En ligne, la revanche part quand tout le monde a dit oui.
-        : src.voteRematch ? rematchBox()
-          : button('Revanche', 'white', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
-      !watching && src.chat ? h('button', { class: 'victory__chat', type: 'button', onclick: openEndChat }, 'Discuter avec la table', endBadge) : null,
-      watching ? null : button('Retour à l’accueil', 'text', () => { closeVictory(); o.onQuit(); }));
-    victoryEl = h('div', { class: 'victory' + (won ? '' : ' victory--lost'), role: 'dialog', 'aria-label': won ? 'Victoire' : 'Partie perdue', style: { '--vc': c.c, '--vd': c.d } },
-      won && h('span', { class: 'victory__rays' }),
-      won && h('span', { class: 'victory__confetti' }, ...confetti),
+      h('div', { class: 'victory__head' },
+        h('span', { class: 'victory__title' + (p.title.length > 10 ? ' victory__title--long' : '') }, p.title),
+        h('div', { class: 'victory__duo' }, ...p.duo.map((a) => avatar(a.char, a.color, 58, a.humeur)))),
+      plancheEl(p),
+      h('div', { style: { flex: 1, minHeight: 6 } }),
+      h('div', { class: 'victory__actions' },
+        watching ? button('Fermer', 'white', closeVictory, { size: 'md', block: true })
+          // En ligne, la revanche part quand tout le monde a dit oui.
+          : src.voteRematch ? rematchBox()
+            : button('Revanche', 'yellow', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
+        watching ? null : shareBtn),
+      watching ? null : h('div', { class: 'victory__links' },
+        highlights.length ? h('button', { class: 'victory__link', type: 'button', onclick: () => replayHighlights(st, won) }, 'Moments forts') : null,
+        // Après la partie, on continue de discuter avec la table.
+        src.chat ? h('button', { class: 'victory__link', type: 'button', onclick: openEndChat }, 'Discuter avec la table', endBadge) : null,
+        h('button', { class: 'victory__link', type: 'button', onclick: () => { closeVictory(); o.onQuit(); } }, 'Retour à la une')));
+    victoryEl = h('div', { class: 'victory' + (p.won ? '' : ' victory--lost'), role: 'dialog', 'aria-label': p.won ? 'Victoire' : 'Partie perdue', style: { '--vc': p.color } },
+      h('span', { class: 'victory__rays' }),
+      p.won && h('span', { class: 'victory__confetti' }, ...confetti),
       h('div', { class: 'victory__frame' }, victoryInner));
     root.append(victoryEl);
     renderRematch();
     fit();
-    setTheme(won ? c.c : '#4a4862');
+    setTheme(p.color);
   };
   const showEnd = (st: GameState) => {
     const won = watching || teamOf(N, me) === st.winner;
@@ -2068,6 +2258,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     for (let k = 0; k < 3; k++) setTimeout(() => fx('board', { kind: 'confetti', x: 120 + k * 60, y: 160 + (k % 2) * 40, ms: 1200 }), k * 250);
     setTimeout(() => showVictory(st, won), 900);
   };
+
+  // Accès de test automatisé (?debug) : réafficher la partie après avoir modifié son état à la main.
+  if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __tocSync: () => { view = src.state; syncPawns(view); syncTension(view); render(); } });
 
   // ---------- Démarrage ----------
   syncPawns(view);

@@ -40,6 +40,10 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props?: Props, 
 }
 
 /** Petit message flottant au milieu de l'écran. */
+/** « de Mimi », « d’Albert », « du Boss » : la préposition accordée au prénom ou au surnom du joueur. */
+export const deNom = (name: string) => (/^le /i.test(name) ? 'du ' + name.slice(3) : /^les /i.test(name) ? 'des ' + name.slice(4)
+  : /^[aeiouhéèêëàâîïôû]/i.test(name) ? 'd’' + name : 'de ' + name);
+
 export function toast(msg: string, ms = 1700) {
   document.querySelectorAll('.toast').forEach((t) => t.remove());
   const t = h('div', { class: 'toast', role: 'status' }, msg);

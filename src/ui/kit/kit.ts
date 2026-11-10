@@ -54,6 +54,9 @@ const SUITS: Record<string, string> = {
   X: 'M12 1.5 L14.9 8.6 L22.5 9.2 L16.7 14.2 L18.5 21.6 L12 17.6 L5.5 21.6 L7.3 14.2 L1.5 9.2 L9.1 8.6 Z',
 };
 
+/** Le tracé d'une couleur de carte (repère 24 × 24). */
+export const suitPath = (k: string) => SUITS[k] ?? SUITS.X;
+
 /** Le symbole d'une couleur de carte, à la couleur du texte courant. */
 export function suitIcon(k: string): HTMLElement {
   const el = h('span', { 'aria-hidden': 'true', style: { display: 'inline-block', lineHeight: 0 } });

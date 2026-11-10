@@ -8,7 +8,7 @@ import { openAccountSheet } from './account';
 import { soireeLabel } from './league';
 import { DEMO, DEMO_FRIENDS, type Friend } from '../demo';
 import { SEAT_COLORS, TEAM_NAMES } from '../kit/data';
-import { h, toast } from '../dom';
+import { deNom, h, toast } from '../dom';
 import { avatar, avatarRing, bille, button, duo, segmented, tabbar } from '../kit/kit';
 import { go } from '../nav';
 import { confirmSheet } from '../confirm';
@@ -189,7 +189,7 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
         h('span', { class: 'slow-row__title' }, g.title),
         h('span', { class: 'slow-row__status' },
           g.status === 'mine' ? 'À toi de jouer' : g.status === 'waiting' ? 'En attente des joueurs'
-            : g.status === 'over' ? 'Terminée' : g.who ? `Tour de ${g.who} · ${ago(g.at)}` : `On attend les autres · ${ago(g.at)}`)),
+            : g.status === 'over' ? 'Terminée' : g.who ? `Tour ${deNom(g.who)} · ${ago(g.at)}` : `On attend les autres · ${ago(g.at)}`)),
       // La partie attend quelqu'un depuis plus d'une heure : on peut le secouer (une fois toutes les 12 h).
       canNudge(g) && h('button', { class: 'slow-row__nudge', type: 'button', onclick: () => nudge(g) }, g.waiting.length === 1 ? `Secouer ${g.waiting[0].name}` : 'Secouer'),
       // L'hôte supprime la partie pour tous ; une partie terminée se retire simplement de la liste.
