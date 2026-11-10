@@ -233,8 +233,8 @@ button.tokens { cursor: pointer; color: var(--ink); }
 
 .aff-team__name { position: absolute; right: 12px; top: 9px; font: 400 21px/1 var(--fx); letter-spacing: .03em; rotate: -4deg; white-space: nowrap; }
 /* À deux équipes, le nom de la seconde passe en bas à gauche : les deux noms se répondent en diagonale */
-.aff-poster--n4 .aff-team:nth-child(even) .aff-team__name { right: auto; left: 12px; top: auto; bottom: 7px; color: #fff; text-shadow: var(--stroke-2), 2px 3px 0 var(--ink); }
-.aff-poster--n4 .aff-team:nth-child(even) { padding: 8px 8px 22px; }
+.aff-poster--n4 .aff-team:nth-child(even) .aff-team__name { right: auto; left: 12px; top: auto; bottom: 5px; color: #fff; text-shadow: var(--stroke-2), 2px 3px 0 var(--ink); }
+.aff-poster--n4 .aff-team:nth-child(even) { padding: 2px 8px 32px; }
 /* À trois équipes, chaque nom reste en haut à droite de sa bande (la bande monte de ce côté : il y a la place) */
 .aff-poster--n6 .aff-team__name { font-size: 16px; top: 3px; right: 10px; color: #fff; text-shadow: var(--stroke-2), 2px 2px 0 var(--ink); }
 .aff-poster--n6 .aff-team + .aff-team .aff-team__name { top: -7px; }

@@ -474,7 +474,7 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .case--fin { height: 86px; }
 /* Partie sans coup marquant (ou un seul) : la planche est plus courte, on la centre et on agrandit ses cases */
 .planche--courte .case { height: 150px; }
-.planche--courte .case__fx { margin-top: 24px; }
+.planche--courte .case__fx { margin-top: 38px; }
 .planche--courte .case--fin { height: 104px; }
 .case > i { position: absolute; inset: -60px; background: repeating-conic-gradient(from 0deg at 50% 54%, rgba(255, 255, 255, .18) 0deg 5deg, rgba(255, 255, 255, 0) 5deg 13deg); }
 /* Le récitatif puis le mot se suivent de haut en bas ; les personnages sont posés en bas de la case */

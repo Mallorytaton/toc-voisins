@@ -469,7 +469,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const placeAvatars = () => {
     const [, bot] = holesSpan();
     for (let s = 0; s < N; s++) {
-      const [x, y] = g.avs[armOf(N, me, s)], e = avEls[s], size = Z.av;
+      const [x0, y] = g.avs[armOf(N, me, s)], e = avEls[s], size = Z.av;
+      // Jamais hors de l'écran : un perso posé dans un coin reste entier (plateau peint, vue inclinée).
+      const x = watching ? x0 : Math.min(360 + BOARD_X - size / 2 - 12, Math.max(size / 2 + 12 - BOARD_X, x0));
       e.root.style.left = r1(x - size / 2) + 'px';
       e.root.style.top = r1(y - size / 2) + 'px';
       const isMe = s === me && !watching;
