@@ -6,7 +6,7 @@ import {
 } from '../demo';
 import { h, toast } from '../dom';
 import { COL } from '../kit/data';
-import { avatar, avatarRing, button, segmented, tabbar, type Tab } from '../kit/kit';
+import { avatar, avatarRing, button, segmented, tabbar } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { savedMode } from './home';
 import { tocSays } from '../mascot';
@@ -14,7 +14,6 @@ import { cameraIcon, friendCodeFrom, openScanner, qrCard } from '../qr';
 
 type View = { el: HTMLElement; cleanup: () => void };
 const fmt = (n: number) => n.toLocaleString('fr-FR');
-const goTab = (t: Tab) => go(t === 'home' ? ROUTES.home : t === 'friends' ? ROUTES.friends : ROUTES.ranking);
 
 function friendRow(f: Omit<FriendView, 'uid'> & { uid?: string }, invited: Set<string>): HTMLElement {
   const off = f.presence === 'off';
@@ -237,7 +236,7 @@ export function friendsScreen(addCode: string | null = null): View {
     h('span', { class: 't-screen' }, 'Tes amis'),
     segmented([{ value: 'amis' as const, label: 'Amis' }, { value: 'chat' as const, label: 'Chat d’équipe' }], 'amis', show),
     content,
-    tabbar('friends', goTab));
+    tabbar('friends'));
   return { el, cleanup: () => stop() };
 }
 
@@ -309,6 +308,6 @@ export function rankingScreen(): View {
     segmented<RankScope>([{ value: 'amis', label: 'Amis' }, { value: 'monde', label: 'Monde' }], 'monde', show),
     body,
     me,
-    tabbar('ranking', goTab));
+    tabbar('ranking'));
   return { el, cleanup: () => {} };
 }

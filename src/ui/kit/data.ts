@@ -12,25 +12,26 @@ export interface Tint {
   l: string;
 }
 
+/** Couleurs franches de la direction BD : aplat, ombre du même ton, teinte claire. */
 export const COL: Record<ColorName, Tint> = {
-  coral: { c: '#ff6b4a', d: '#d9482a', l: '#ffe3da' },
-  blue: { c: '#4a7dff', d: '#2f5bd6', l: '#dfe7ff' },
-  yellow: { c: '#ffc93c', d: '#d9a116', l: '#fff1c9' },
-  teal: { c: '#2ec4a0', d: '#1d9c7e', l: '#d4f4eb' },
-  violet: { c: '#9b7bff', d: '#7656e0', l: '#ece6ff' },
-  rose: { c: '#ff6fae', d: '#d94b8a', l: '#ffe2ef' },
+  coral: { c: '#ff5433', d: '#d4381b', l: '#ffe0d6' },
+  blue: { c: '#3b5bff', d: '#2440d6', l: '#dfe5ff' },
+  yellow: { c: '#ffcf1f', d: '#e3a700', l: '#fff3c4' },
+  teal: { c: '#19c6a4', d: '#0e9a7f', l: '#d2f6ec' },
+  violet: { c: '#9b6bff', d: '#7646e0', l: '#ebe2ff' },
+  rose: { c: '#ff7ab8', d: '#e0508f', l: '#ffe1ef' },
 };
 
 export const COLOR_NAMES: ColorName[] = ['coral', 'blue', 'yellow', 'teal', 'violet', 'rose'];
 
-/** Les avatars utilisent des nuances un peu plus claires que les billes. */
+/** Les personnages ont exactement la couleur de leurs billes. */
 export const AV_COL: Record<ColorName, [string, string]> = {
-  coral: ['#ff7a5c', '#e0532f'],
-  blue: ['#5b8aff', '#3b64dc'],
-  yellow: ['#ffcd4a', '#e0a51b'],
-  teal: ['#3ccdaa', '#21a283'],
-  violet: ['#a68aff', '#7f62e6'],
-  rose: ['#ff7db6', '#de5592'],
+  coral: [COL.coral.c, COL.coral.d],
+  blue: [COL.blue.c, COL.blue.d],
+  yellow: [COL.yellow.c, COL.yellow.d],
+  teal: [COL.teal.c, COL.teal.d],
+  violet: [COL.violet.c, COL.violet.d],
+  rose: [COL.rose.c, COL.rose.d],
 };
 
 export const CHARS: { id: CharId; name: string }[] = [
@@ -47,6 +48,8 @@ export interface CardLook {
   r: string;
   /** Symbole de la couleur */
   s: string;
+  /** Couleur de la carte (S pique, H cœur, D carreau, C trèfle, X joker), pour la dessiner */
+  k: string;
   red: boolean;
   /** Titre court pour la carte d'indice */
   t: string;
@@ -58,13 +61,14 @@ export interface CardLook {
 }
 
 const SUIT: Record<string, string> = { S: '♠', H: '♥', D: '♦', C: '♣' };
-const OUT = { bg: '#d4f4eb', bc: '#16705a' };
-const BACK = { bg: '#dfe7ff', bc: '#2f5bd6' };
-const SPLIT = { bg: '#fff1c9', bc: '#8a5f00' };
-const SWAP = { bg: '#ece6ff', bc: '#6a4bd8' };
-const BIG = { bg: '#ffe3da', bc: '#c9401f' };
-const SMALL = { bg: '#ecebf3', bc: '#4a4860' };
-const JOKER = { bg: '#ffe2ef', bc: '#d94b8a' };
+// Bandeau de pouvoir au bas de la carte : un aplat par famille, toujours écrit à l'encre.
+const OUT = { bg: '#19c6a4', bc: '#16131f' };
+const BACK = { bg: '#b9c6ff', bc: '#16131f' };
+const SPLIT = { bg: '#ffcf1f', bc: '#16131f' };
+const SWAP = { bg: '#c9b0ff', bc: '#16131f' };
+const BIG = { bg: '#ffa58f', bc: '#16131f' };
+const SMALL = { bg: '#f0eadc', bc: '#16131f' };
+const JOKER = { bg: '#ff7ab8', bc: '#16131f' };
 
 export interface CardOptions {
   /** Variante « Valet = 11 » */
@@ -82,29 +86,30 @@ export function cardLook(card: string, o: CardOptions = {}): CardLook {
   const rank = card.slice(0, -2);
   const suitKey = card[card.length - 2];
   const s = SUIT[suitKey] ?? '★';
+  const k = SUIT[suitKey] ? suitKey : 'X';
   const red = suitKey === 'H' || suitKey === 'D';
   const n = Number(rank);
   switch (rank) {
     case 'A':
-      return { r: 'A', s, red, t: 'As', badge: 'Sortir', ...OUT, rule: 'Sors un pion de ta réserve, ou avance de 1.' };
+      return { r: 'A', s, k, red, t: 'As', badge: 'Sortir', ...OUT, rule: 'Sors une bille de ta réserve, ou avance de 1.' };
     case 'K':
-      return { r: 'R', s, red, t: 'Roi', badge: 'Sortir', ...OUT, rule: o.kingThirteen ? 'Sors un pion de ta réserve, ou avance de 13.' : 'Sors un pion de ta réserve.' };
+      return { r: 'R', s, k, red, t: 'Roi', badge: 'Sortir', ...OUT, rule: o.kingThirteen ? 'Sors une bille de ta réserve, ou avance de 13.' : 'Sors une bille de ta réserve.' };
     case 'Q':
-      return { r: 'D', s, red, t: 'Dame', badge: '+12', ...BIG, rule: 'Avance de 12 cases.' };
+      return { r: 'D', s, k, red, t: 'Dame', badge: '+12', ...BIG, rule: 'Avance de 12 trous.' };
     case 'J':
       return o.jackEleven
-        ? { r: 'V', s, red, t: 'Valet', badge: '+11', ...BIG, rule: 'Avance de 11 cases.' }
-        : { r: 'V', s, red, t: 'Valet', badge: 'Échange', ...SWAP, rule: 'Échange un de tes pions avec un autre pion, de ton équipe ou adverse.' };
+        ? { r: 'V', s, k, red, t: 'Valet', badge: '+11', ...BIG, rule: 'Avance de 11 trous.' }
+        : { r: 'V', s, k, red, t: 'Valet', badge: 'Échange', ...SWAP, rule: 'Échange une de tes billes avec une autre, de ton équipe ou adverse.' };
     case '4':
-      return { r: '4', s, red, t: 'Le 4', badge: 'Recule 4', ...BACK, rule: 'Recule de 4 cases. Le raccourci des pros.' };
+      return { r: '4', s, k, red, t: 'Le 4', badge: 'Recule 4', ...BACK, rule: 'Recule de 4 trous. Le raccourci des pros.' };
     case '7':
-      return { r: '7', s, red, t: 'Le 7', badge: 'Divise', ...SPLIT, rule: o.sevenAnyPawns ? 'Avance de 7, ou partage les 7 entre tes pions.' : 'Avance de 7, ou partage les 7 entre deux pions.' };
+      return { r: '7', s, k, red, t: 'Le 7', badge: 'Partage', ...SPLIT, rule: o.sevenAnyPawns ? 'Avance de 7, ou partage les 7 entre tes billes.' : 'Avance de 7, ou partage les 7 entre deux billes.' };
     case 'X':
-      return { r: '★', s: '★', red: false, t: 'Joker', badge: 'Joker', ...JOKER, rule: 'Joue-la comme n’importe quelle carte.' };
+      return { r: '★', s: '★', k: 'X', red: false, t: 'Joker', badge: 'Joker', ...JOKER, rule: 'Joue-la comme n’importe quelle carte.' };
     case '5':
-      if (o.fiveOthers) return { r: '5', s, red, t: 'Le 5', badge: 'Pousse 5', ...BACK, rule: 'Fais avancer de 5 le pion d’un autre joueur.' };
+      if (o.fiveOthers) return { r: '5', s, k, red, t: 'Le 5', badge: 'Pousse 5', ...BACK, rule: 'Fais avancer de 5 la bille d’un autre joueur.' };
   }
-  return { r: rank, s, red, t: 'Le ' + rank, badge: '+' + rank, ...(n >= 10 ? BIG : SMALL), rule: `Avance de ${rank} cases.` };
+  return { r: rank, s, k, red, t: 'Le ' + rank, badge: '+' + rank, ...(n >= 10 ? BIG : SMALL), rule: `Avance de ${rank} trous.` };
 }
 
 /**

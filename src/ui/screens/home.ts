@@ -10,7 +10,7 @@ import { DEMO, DEMO_FRIENDS, type Friend } from '../demo';
 import { SEAT_COLORS, TEAM_NAMES } from '../kit/data';
 import { h, toast } from '../dom';
 import { avatar, avatarRing, bille, button, duo, segmented, tabbar } from '../kit/kit';
-import { ROUTES, go } from '../nav';
+import { go } from '../nav';
 import { confirmSheet } from '../confirm';
 import { nudgePlayers } from '../../net/push';
 
@@ -224,6 +224,6 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
       h('div', { style: { display: 'flex', gap: 10 } }, code, button('Rejoindre', 'dark', join, { size: 'md' })),
       leagues,
       !fresh && learn),
-    tabbar('home', (t) => go(t === 'home' ? ROUTES.home : t === 'friends' ? ROUTES.friends : ROUTES.ranking)));
+    tabbar('home'));
   return { el, cleanup: () => { stopFriends(); stopLeagues(); stopSlow(); } };
 }

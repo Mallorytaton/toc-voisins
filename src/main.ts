@@ -1,6 +1,7 @@
 import { registerSW } from 'virtual:pwa-register';
-import '@fontsource-variable/baloo-2';
-import '@fontsource-variable/nunito';
+import '@fontsource/bangers';
+import '@fontsource-variable/rubik';
+import '@fontsource-variable/rubik/wght-italic.css';
 import './ui/kit/tokens.css';
 import './ui/kit/kit.css';
 import './ui/screens/screens.css';

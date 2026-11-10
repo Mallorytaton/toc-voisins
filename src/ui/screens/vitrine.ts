@@ -27,7 +27,7 @@ export function vitrineScreen(): HTMLElement {
       h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4 } },
         h('span', { class: 't-mini' }, 'Étape 1 · design system'),
         h('span', { class: 't-screen' }, 'Vitrine TOC')),
-      h('span', { class: 'pill' }, 'Baloo 2 + Nunito')),
+      h('span', { class: 'pill' }, 'Bangers + Rubik')),
 
     section('Couleurs des joueurs',
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 } },
@@ -95,6 +95,6 @@ export function vitrineScreen(): HTMLElement {
       row(cardBack(), h('span', { class: 't-body' }, 'Touche une carte pour la sélectionner.')),
       handRow),
 
-    tabbar('home', (t) => toast(t === 'home' ? 'Jouer' : t === 'friends' ? 'Amis' : 'Classement')),
+    tabbar('home'),
   );
 }

@@ -1,75 +1,26 @@
-// Composants de base de la maquette, en DOM natif.
+// Composants de base de l'app (direction BD), en DOM natif.
 import { h } from '../dom';
-import { AV_COL, COL, cardLook, type CardOptions, type CharId, type ColorName } from './data';
+import { ROUTES, go } from '../nav';
+import { COL, cardLook, type CardOptions, type CharId, type ColorName } from './data';
+import { type Humeur, perso } from './perso';
 
 type Css = Record<string, string | number>;
-const d = (style: string, ...kids: HTMLElement[]) => {
-  const el = h('div', null, ...kids);
-  el.style.cssText = style;
-  return el;
-};
 
-/** Personnage en formes simples (Avatar.dc.html). Tout est en em : 10em = la taille. */
-export function avatar(char: CharId, color: ColorName, size = 64): HTMLElement {
-  const [c, dk] = AV_COL[color] ?? AV_COL.coral;
-  const eye = (left: number) =>
-    d(`left:${left}em;top:4.75em;width:.95em;height:1.15em;border-radius:50%;background:#2b2a3d`,
-      d('left:.2em;top:.2em;width:.35em;height:.35em;border-radius:50%;background:#fff;position:absolute'));
-  const parts: HTMLElement[] = [];
-  if (char === 'chignon')
-    parts.push(d(`left:3.3em;top:-.1em;width:3.4em;height:3.4em;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.5) 0,rgba(255,255,255,0) 45%),${c};box-shadow:inset -.3em -.4em 0 ${dk}`));
-  parts.push(
-    d(`left:.6em;top:1.1em;width:8.8em;height:8.6em;border-radius:50%;background:radial-gradient(circle at 34% 26%,rgba(255,255,255,.65) 0,rgba(255,255,255,0) 40%),${c};box-shadow:inset -.45em -.65em 0 ${dk},0 .45em .8em rgba(70,40,20,.22)`),
-    d('left:2.05em;top:6.15em;width:1.3em;height:.8em;border-radius:50%;background:rgba(255,80,80,.3)'),
-    d('left:6.65em;top:6.15em;width:1.3em;height:.8em;border-radius:50%;background:rgba(255,80,80,.3)'),
-    eye(3.05), eye(5.95),
-    d('left:4.4em;top:6.35em;width:1.2em;height:.6em;border-radius:0 0 .7em .7em;background:#2b2a3d'),
-  );
-  if (char === 'tuque')
-    parts.push(
-      d('left:1.05em;top:.5em;width:7.9em;height:3.4em;border-radius:4em 4em .8em .8em;background:#fff8ef;box-shadow:inset -.3em -.4em 0 #eadccb'),
-      d(`left:1.35em;top:2.1em;width:7.3em;height:.6em;background:${dk};opacity:.85`),
-      d('left:.75em;top:3.3em;width:8.5em;height:1.2em;border-radius:.7em;background:#f3e6d6;box-shadow:inset 0 -.25em 0 #e2d2be'),
-      d('left:4.1em;top:-.4em;width:1.8em;height:1.8em;border-radius:50%;background:#fff8ef;box-shadow:inset -.2em -.25em 0 #eadccb'),
-    );
-  else if (char === 'casquette')
-    parts.push(
-      d('left:1.4em;top:.7em;width:7.2em;height:3.4em;border-radius:3.6em 3.6em .4em .4em;background:#2b2a3d;box-shadow:inset -.3em -.35em 0 #1b1a28'),
-      d('left:4.5em;top:.45em;width:1em;height:.7em;border-radius:.5em;background:#2b2a3d'),
-      d('left:4.9em;top:3.3em;width:4.6em;height:1.05em;border-radius:.2em 1em 1em .2em;background:#3b3a52'),
-    );
-  else if (char === 'couronne') {
-    const crown = 'clip-path:polygon(0 100%,0 15%,22% 55%,50% 0,78% 55%,100% 15%,100% 100%)';
-    parts.push(
-      d(`left:2.9em;top:.15em;width:4.2em;height:2.4em;background:#d9a116;${crown}`),
-      d(`left:2.9em;top:-.1em;width:4.2em;height:2.4em;background:#ffd34d;${crown}`),
-      d('left:4.6em;top:1.2em;width:.8em;height:.8em;border-radius:50%;background:#ff6b4a'),
-    );
-  } else if (char === 'lunettes') {
-    const lens = 'width:1.95em;height:1.95em;border-radius:50%;border:.32em solid #2b2a3d;background:rgba(255,255,255,.18);top:4.25em';
-    parts.push(
-      d(`left:2.55em;${lens}`), d(`left:5.5em;${lens}`),
-      d('left:4.45em;top:4.95em;width:1.1em;height:.3em;background:#2b2a3d'),
-    );
-  } else if (char === 'bandeau')
-    parts.push(
-      d('left:.7em;top:2.75em;width:8.6em;height:1.25em;border-radius:.6em;background:#fff8ef;box-shadow:inset 0 -.25em 0 #eadccb;transform:rotate(-7deg)'),
-      d('left:8.2em;top:1.7em;width:1.1em;height:1.1em;border-radius:50%;background:#fff8ef;box-shadow:inset -.2em -.2em 0 #eadccb'),
-      d('left:8.9em;top:2.4em;width:.9em;height:.9em;border-radius:50%;background:#fff8ef;box-shadow:inset -.2em -.2em 0 #eadccb'),
-    );
-  const el = h('div', { class: 'avatar', 'aria-hidden': 'true' }, ...parts);
-  el.style.cssText = `width:${size}px;height:${size}px;font-size:${size / 10}px`;
+/** Personnage d'un joueur : une bille avec un visage et son accessoire (src/ui/kit/perso.ts). */
+export function avatar(char: CharId, color: ColorName, size = 64, humeur: Humeur = 'content', o: { flip?: boolean; ombre?: boolean } = {}): HTMLElement {
+  const el = perso(char, color, size, humeur, o);
+  el.classList.add('avatar');
   return el;
 }
 
-/** Avatar posé sur un disque blanc cerclé de couleur (accueil, salle, classement). */
+/**
+ * Personnage dans une liste (accueil, salle, classement). Le trait d'encre du perso suffit à le détacher :
+ * les anciens réglages d'anneau (couleur, marge, ombre) sont acceptés mais ne dessinent plus rien.
+ */
 export function avatarRing(
-  char: CharId, color: ColorName, size: number, ring: string, pad = 4, ringW = 3, drop: string | null = '0 6px 12px rgba(70,40,20,.15)',
+  char: CharId, color: ColorName, size: number, _ring?: string, _pad = 4, _ringW = 3, _drop: string | null = null,
 ): HTMLElement {
-  return h('div', {
-    class: 'avatar-ring',
-    style: { padding: pad, boxShadow: `0 0 0 ${ringW}px ${ring}` + (drop ? ',' + drop : '') },
-  }, avatar(char, color, size));
+  return h('div', { class: 'avatar-ring' }, avatar(char, color, size));
 }
 
 export interface BilleOpts {
@@ -79,7 +30,7 @@ export interface BilleOpts {
   style?: Css;
 }
 
-/** Bille (pion) brillante avec relief. */
+/** Bille (pion) : reflet franc, ombre en croissant, trait d'encre. */
 export function bille(color: ColorName, o: BilleOpts = {}): HTMLElement {
   const t = COL[color];
   return h('div', {
@@ -88,9 +39,25 @@ export function bille(color: ColorName, o: BilleOpts = {}): HTMLElement {
   });
 }
 
-/** Bille de la boutique (motif sur la couleur du joueur) ; « classique » : la bille de base. */
+/** Bille du kiosque (motif sur la couleur du joueur) ; « classique » : la bille de base. */
 export function billeSkin(el: HTMLElement, skin: string | undefined): HTMLElement {
   if (skin && skin !== 'classique') el.classList.add('bille--' + skin);
+  return el;
+}
+
+/** Les quatre couleurs d'un jeu de cartes et l'étoile du joker, dessinées (repère 24 × 24). */
+const SUITS: Record<string, string> = {
+  H: 'M12 21 C5 15 2 11.5 2 8 A5 5 0 0 1 12 6.5 A5 5 0 0 1 22 8 C22 11.5 19 15 12 21 Z',
+  D: 'M12 2 L21 12 L12 22 L3 12 Z',
+  S: 'M12 2 C17 8 22 11 22 15 A4.5 4.5 0 0 1 13.5 17 L15 22 H9 L10.5 17 A4.5 4.5 0 0 1 2 15 C2 11 7 8 12 2 Z',
+  C: 'M12 2 A4.6 4.6 0 0 1 15.6 9.4 A4.6 4.6 0 1 1 13.4 16.6 L15 22 H9 L10.6 16.6 A4.6 4.6 0 1 1 8.4 9.4 A4.6 4.6 0 0 1 12 2 Z',
+  X: 'M12 1.5 L14.9 8.6 L22.5 9.2 L16.7 14.2 L18.5 21.6 L12 17.6 L5.5 21.6 L7.3 14.2 L1.5 9.2 L9.1 8.6 Z',
+};
+
+/** Le symbole d'une couleur de carte, à la couleur du texte courant. */
+export function suitIcon(k: string): HTMLElement {
+  const el = h('span', { 'aria-hidden': 'true', style: { display: 'inline-block', lineHeight: 0 } });
+  el.innerHTML = `<svg viewBox="0 0 24 24"><path d="${SUITS[k] ?? SUITS.X}" fill="currentColor"/></svg>`;
   return el;
 }
 
@@ -99,25 +66,29 @@ export interface CardViewOpts extends CardOptions {
   onclick?: () => void;
 }
 
-/** Carte à jouer 80 × 116 avec son badge de pouvoir. */
+/** Carte à jouer 92 × 132 : rang et couleur dans les deux coins du haut, bandeau de pouvoir en bas. */
 export function playingCard(card: string, o: CardViewOpts = {}): HTMLElement {
   const c = cardLook(card, o);
-  const col = card.startsWith('X') ? '#9b7bff' : c.red ? 'var(--card-red)' : 'var(--ink)';
+  const col = c.k === 'X' ? 'var(--violet-d)' : c.red ? 'var(--card-red)' : 'var(--ink)';
+  const corner = (end = false) => {
+    const suit = suitIcon(c.k);
+    suit.className = 'pcard__suit';
+    // Le joker n'a pas de rang : son étoile suffit.
+    return h('div', { class: 'pcard__corner' + (end ? ' pcard__corner--end' : '') }, c.k === 'X' ? null : h('span', { class: 'pcard__rank' + (c.r.length > 1 ? ' pcard__rank--wide' : '') }, c.r), suit);
+  };
+  const pip = suitIcon(c.k);
+  pip.className = 'pcard__pip';
   return h(o.onclick ? 'button' : 'div', {
     class: 'pcard',
     type: o.onclick ? 'button' : undefined,
     'aria-pressed': o.onclick ? String(!!o.selected) : undefined,
     'aria-label': `${c.t}, ${c.badge}`,
     onclick: o.onclick,
-    style: { '--col': col, '--bbg': c.bg, '--bc': c.bc, border: 'none', cursor: o.onclick ? 'pointer' : 'default' },
-  },
-    h('div', { class: 'pcard__corner' }, h('span', { class: 'pcard__rank' }, c.r), h('span', { class: 'pcard__suit' }, c.s)),
-    h('div', { class: 'pcard__pip' }, c.s),
-    h('span', { class: 'pcard__badge' }, c.badge),
-  );
+    style: { '--col': col, '--bbg': c.bg, '--bc': c.bc, cursor: o.onclick ? 'pointer' : 'default' },
+  }, corner(), corner(true), pip, h('span', { class: 'pcard__badge' }, c.badge));
 }
 
-/** Dos de carte bleu « TOC » (pioche). */
+/** Dos de carte rouge « TOC » (pioche). */
 export function cardBack(): HTMLElement {
   return h('div', { class: 'pback', 'aria-hidden': 'true' }, h('span', null, 'TOC'));
 }
@@ -125,7 +96,7 @@ export function cardBack(): HTMLElement {
 /** Deux pastilles qui se chevauchent : les couleurs d'une équipe. */
 export function duo(a: ColorName, b: ColorName, size = 14): HTMLElement {
   const dot = (c: ColorName, extra: Css = {}) => h('span', { style: { width: size, height: size, background: COL[c].c, ...extra } });
-  return h('span', { class: 'duo' }, dot(a), dot(b, { marginLeft: -Math.round(size * 0.57) }));
+  return h('span', { class: 'duo' }, dot(a), dot(b, { marginLeft: -Math.round(size * 0.36) }));
 }
 
 export type BtnVariant = 'primary' | 'white' | 'danger' | 'dark' | 'on-blue' | 'yellow' | 'ok' | 'off' | 'text';
@@ -136,8 +107,28 @@ export function button(label: string, variant: BtnVariant, onclick?: () => void,
   return h('button', { class: cls, type: 'button', onclick, disabled: o.disabled }, label);
 }
 
+/** Petit dessin au trait (repère 24 × 24), à la couleur du texte courant. */
+export function icon(d: string, size = 20, width = 3): HTMLElement {
+  const el = h('span', { 'aria-hidden': 'true', style: { display: 'inline-block', width: size, height: size, lineHeight: 0, flex: 'none' } });
+  el.innerHTML = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+  return el;
+}
+export const ICONS = {
+  back: 'M14.5 5 L7.5 12 l7 7',
+  close: 'M6 6 l12 12 M18 6 L6 18',
+  share: 'M12 15V4 M7.5 8.5 L12 4l4.5 4.5 M5 13v5.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5V13',
+  play: 'M8 5.5v13l10.5-6.500z',
+  chat: 'M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-6.500l-4.500 4v-4H5a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 5 4.5z',
+  plus: 'M12 4v16 M4 12h16',
+  arrow: 'M5 12h13 M12 5l7 7-7 7',
+  invite: 'M13 8 a3.600 3.600 0 1 1 -7.200 0 a3.600 3.600 0 1 1 7.200 0 M3 20 c0 -4 3 -6.500 6.500 -6.500 s6.500 2.500 6.500 6.500 M19 7 v6 M16 10 h6',
+  list: 'M9 6h11 M9 12h11 M9 18h11 M4.500 6h.01 M4.500 12h.01 M4.500 18h.01',
+  edit: 'M4 20 l1 -4.500 L15.500 5 l3.500 3.500 L8.500 19 Z M13.500 7 l3.500 3.500',
+  check: 'M5 12.500 l4.500 4.500 l9.500 -10.500',
+};
+
 export function backButton(onclick: () => void) {
-  return h('button', { class: 'btn-round', type: 'button', 'aria-label': 'Retour', onclick }, '‹');
+  return h('button', { class: 'btn-round', type: 'button', 'aria-label': 'Retour', onclick }, icon(ICONS.back, 20, 3.6));
 }
 
 export function pauseButton(onclick: () => void) {
@@ -151,7 +142,7 @@ export interface SegOption<T> {
   sub?: string;
 }
 
-/** Sélecteur segmenté. Les options avec sous-titre prennent la version haute (56 px). */
+/** Sélecteur segmenté. Les options avec sous-titre prennent la version haute. */
 export function segmented<T>(options: SegOption<T>[], value: T, onChange: (v: T) => void): HTMLElement {
   const tall = options.some((o) => o.sub);
   const root = h('div', { class: 'seg' + (tall ? ' seg--tall' : ''), role: 'group' });
@@ -168,40 +159,27 @@ export function segmented<T>(options: SegOption<T>[], value: T, onChange: (v: T)
   return root;
 }
 
-export type Tab = 'home' | 'friends' | 'ranking';
+/** Les cinq rubriques de l'app : La une, Ta bande, Albums (tournois), Classement, Kiosque (boutique). */
+export type Tab = 'home' | 'friends' | 'albums' | 'ranking' | 'shop';
 
-/** Icônes maison de la barre d'onglets, dans le verre des billes : une bille, deux billes qui sourient, une coupe. */
-const mg = (id: string, c: string, d: string) => `<radialGradient id="${id}" cx="36%" cy="30%" r="72%"><stop offset="0" stop-color="#fff"/><stop offset=".22" stop-color="${c}"/><stop offset=".82" stop-color="${c}"/><stop offset="1" stop-color="${d}"/></radialGradient>`;
-const TAB_ICONS: Record<Tab, string> = {
-  home: `<svg viewBox="0 0 32 32" aria-hidden="true"><defs>${mg('tbj', '#ff6b4a', '#d9482a')}</defs><ellipse cx="16" cy="28.5" rx="8" ry="2.2" fill="#000" opacity=".15"/><circle cx="16" cy="15" r="11" fill="url(#tbj)"/><path d="M13.6 10.4v9.2l7.2-4.6z" fill="#fff"/></svg>`,
-  friends: `<svg viewBox="0 0 32 32" aria-hidden="true"><defs>${mg('tba', '#4a7dff', '#2f5bd6')}${mg('tbb', '#ffc93c', '#d9a116')}</defs><ellipse cx="16" cy="29" rx="12" ry="2" fill="#000" opacity=".14"/><circle cx="11" cy="15.5" r="8.6" fill="url(#tba)"/><circle cx="21.4" cy="18" r="8.6" fill="url(#tbb)"/>`
-    + '<circle cx="8.6" cy="15" r="1.3" fill="#2b2a3d"/><circle cx="13" cy="15" r="1.3" fill="#2b2a3d"/><circle cx="19.2" cy="17.4" r="1.3" fill="#2b2a3d"/><circle cx="23.8" cy="17.4" r="1.3" fill="#2b2a3d"/><path d="M19.4 20.8q2.3 1.9 4.6 0" stroke="#2b2a3d" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>',
-  ranking: '<svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="tbc" x1="0" x2="1"><stop offset="0" stop-color="#ffe07a"/><stop offset=".55" stop-color="#ffc93c"/><stop offset="1" stop-color="#d9a116"/></linearGradient></defs><ellipse cx="16" cy="29.2" rx="8" ry="1.9" fill="#000" opacity=".14"/>'
-    + '<path d="M8.5 8H5a4 4 0 0 0 4.6 6.2M23.5 8H27a4 4 0 0 1-4.6 6.2" stroke="#d9a116" stroke-width="2" fill="none"/><path d="M8 5.5h16v6a8 8 0 0 1-16 0z" fill="url(#tbc)"/><rect x="14" y="18.5" width="4" height="4.5" fill="#d9a116"/><rect x="10" y="23" width="12" height="4.2" rx="1.6" fill="#2b2a3d"/>'
-    + '<path d="M16 7.6l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z" fill="#fff"/></svg>',
-};
-/** Dernier onglet affiché : la pastille glisse depuis lui vers le nouvel onglet. */
-let lastTab: Tab | null = null;
+const TABS: { id: Tab; label: string; path: string; d: string }[] = [
+  { id: 'home', label: 'La une', path: ROUTES.home, d: 'M13.5 2 L4.5 13.5 h6 l-1 8.5 L19.5 10 h-6 Z' },
+  { id: 'friends', label: 'Ta bande', path: ROUTES.friends, d: 'M12.600 8 a3.600 3.600 0 1 1 -7.200 0 a3.600 3.600 0 1 1 7.200 0 M2.500 20 c0 -4 3 -6.500 6.500 -6.500 s6.500 2.500 6.500 6.500 M20.300 9.500 a2.800 2.800 0 1 1 -5.600 0 a2.800 2.800 0 1 1 5.600 0 M17 13.800 c2.800 0 4.800 2 4.800 5.700' },
+  { id: 'albums', label: 'Albums', path: ROUTES.albums, d: 'M5 5.5 A2 2 0 0 1 7 3.5 h12 v14 H7 a2 2 0 0 0 -2 2 Z M5 19.5 a2 2 0 0 0 2 2 h12 v-4 M9.5 8 h5.500' },
+  { id: 'ranking', label: 'Classement', path: ROUTES.ranking, d: 'M7 4h10v5a5 5 0 0 1-10 0z M7 6H4a3 3 0 0 0 3 4 M17 6h3a3 3 0 0 1-3 4 M12 14v4.500 M8.500 20.500h7' },
+  { id: 'shop', label: 'Kiosque', path: ROUTES.shop, d: 'M5 8.5 h14 l-1 12 H6 Z M9 8.5 V7 a3 3 0 0 1 6 0 v1.500' },
+];
 
-/** Barre d'onglets flottante : Jouer · Amis · Classement. */
-export function tabbar(current: Tab, go: (t: Tab) => void): HTMLElement {
-  const labels: Record<Tab, string> = { home: 'Jouer', friends: 'Amis', ranking: 'Classement' };
-  const tabs = Object.keys(labels) as Tab[];
-  const to = tabs.indexOf(current), from = lastTab ? tabs.indexOf(lastTab) : to;
-  lastTab = current;
-  const pill = h('span', { class: 'tabbar__pill', style: { '--i': String(from) } });
-  if (from !== to) requestAnimationFrame(() => requestAnimationFrame(() => pill.style.setProperty('--i', String(to))));
-  const icon = (t: Tab) => {
-    const el = h('span', { class: 'tabbar__icon' });
-    el.innerHTML = TAB_ICONS[t];
-    return el;
-  };
+/** Barre d'onglets flottante. `dots` : pastille de nouveautés sur une rubrique (ex. une partie qui t'attend). */
+export function tabbar(current: Tab, dots: Partial<Record<Tab, number>> = {}): HTMLElement {
   return h('nav', { class: 'tabbar', 'aria-label': 'Navigation' },
-    pill,
-    tabs.map((t) =>
-      h('button', {
-        class: 'tabbar__btn', type: 'button', 'aria-current': t === current ? 'page' : undefined,
-        onclick: () => go(t),
-      }, icon(t), labels[t])),
+    TABS.map((t) => {
+      const ic = icon(t.d, 23, 2.4);
+      ic.className = 'tabbar__icon';
+      return h('button', {
+        class: 'tabbar__btn', type: 'button', 'aria-current': t.id === current ? 'page' : undefined,
+        onclick: () => go(t.path),
+      }, ic, t.label, dots[t.id] ? h('span', { class: 'tabbar__dot' }, String(dots[t.id])) : null);
+    }),
   );
 }

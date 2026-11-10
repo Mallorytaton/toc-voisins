@@ -29,4 +29,6 @@ export const ROUTES = {
   home: '/accueil',
   friends: '/amis',
   ranking: '/classement',
+  albums: '/albums',
+  shop: '/boutique',
 } as const;

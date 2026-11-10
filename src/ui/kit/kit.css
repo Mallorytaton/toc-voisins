@@ -1,264 +1,265 @@
-/* ==== TOC Mobile : composants de base (style argile) ==== */
+/* ==== TOC : composants de base (direction BD) ====
+   Tout objet est cerné d'un trait d'encre de 3 px et pose une ombre dure, sans flou. */
 
-/* ---- Textes ---- */
-.t-screen { font: 800 34px/1 var(--display); }
-.t-title { font: 800 26px/1.1 var(--display); }
-.t-card { font: 800 30px/1 var(--display); }
-.t-body { font: 600 15px/1.4 var(--text); color: var(--ink-2); text-wrap: pretty; }
-.t-label { font: 800 13px var(--text); color: var(--ink-2); letter-spacing: .08em; text-transform: uppercase; }
-.t-mini { font: 800 11px var(--text); color: var(--ink-2); letter-spacing: .12em; text-transform: uppercase; }
+/* ---- Textes ----
+   Posés sur le fond de l'écran, ils prennent sa couleur de texte (--on-app) ; dans une case blanche, l'encre. */
+.t-screen {
+  width: fit-content; max-width: 100%; font: 400 42px/.95 var(--fx); letter-spacing: .02em; color: #fff; padding: 4px 8px 6px 2px;
+  text-shadow: var(--stroke-3), 5px 6px 0 var(--ink); rotate: -2.5deg; transform-origin: 0 60%;
+}
+.t-title { font: 400 31px/1 var(--fx); letter-spacing: .02em; color: #fff; text-shadow: var(--stroke-2), 3px 4px 0 var(--ink); padding-right: 4px; }
+.t-card { font: 400 32px/1 var(--fx); letter-spacing: .02em; }
+.t-body { font: 500 15px/1.4 var(--text); text-wrap: pretty; }
+.t-label { font: 900 12px/1.2 var(--text); letter-spacing: .08em; text-transform: uppercase; }
+.t-mini { font: 900 10.5px/1.2 var(--text); letter-spacing: .1em; text-transform: uppercase; }
+/* Dans une case, une feuille ou une bulle : titres à l'encre, sans contour */
+.card .t-title, .sheet .t-title, .hero .t-title, .split__empty .t-title { color: var(--ink); text-shadow: none; }
 
-/* ---- Boutons argile ----
-   Baloo 2 est décalée vers le bas : padding-top de 2 à 3 px pour la centrer. */
+/* ---- Boutons ----
+   Gros boutons : lettrage Bangers ; petits boutons : Rubik gras. Ils s'enfoncent quand on appuie. */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  height: 60px; padding: 3px 30px 0; border: none; border-radius: 22px;
-  font: 800 20px/1 var(--display); cursor: pointer; white-space: nowrap;
-  transition: transform .12s, box-shadow .12s, background .2s, color .2s;
+  height: 60px; padding: 4px 28px 0; border: 3px solid var(--ink); border-radius: 18px;
+  font: 400 27px/1 var(--fx); letter-spacing: .04em; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 6px 0 var(--ink); transition: transform .1s, box-shadow .1s, background .2s, color .2s;
 }
+.btn:active:not(:disabled) { transform: translateY(5px); box-shadow: 0 1px 0 var(--ink); }
 .btn:disabled { cursor: default; }
 .btn--block { display: flex; width: 100%; }
-.btn--lg { height: 62px; font-size: 21px; }
-.btn--md { height: 56px; padding: 3px 20px 0; border-radius: 20px; font-size: 19px; }
-.btn--sm { height: 46px; padding: 2px 18px 0; border-radius: 16px; font-size: 16px; }
-.btn--xs { height: 40px; padding: 2px 14px 0; border-radius: 14px; font-size: 15px; }
+.btn--lg { height: 64px; font-size: 30px; }
+.btn--md { height: 56px; padding: 4px 20px 0; border-radius: 17px; font-size: 25px; }
+.btn--sm { height: 46px; padding: 1px 16px 0; border-radius: 14px; font: 900 15px/1 var(--text); letter-spacing: 0; box-shadow: 0 4px 0 var(--ink); }
+.btn--xs { height: 44px; padding: 1px 14px 0; border-radius: 13px; font: 900 13.5px/1 var(--text); letter-spacing: 0; box-shadow: 0 4px 0 var(--ink); }
+.btn--sm:active:not(:disabled), .btn--xs:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
 
-.btn--primary {
-  background: linear-gradient(180deg, var(--primary-top) 0%, var(--primary-bottom) 100%); color: #fff;
-  box-shadow: 0 6px 0 var(--primary-edge), 0 16px 26px rgba(242, 90, 56, .32), inset 0 2px 0 rgba(255, 255, 255, .4);
-}
-.btn--primary:active:not(:disabled) {
-  transform: translateY(4px);
-  box-shadow: 0 2px 0 var(--primary-edge), 0 6px 12px rgba(242, 90, 56, .3);
-}
-.btn--white { background: #fff; color: var(--ink); box-shadow: 0 5px 0 var(--clay-2); }
-.btn--white:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--clay-2); }
-.btn--danger { background: #fff; color: var(--coral-d); box-shadow: 0 5px 0 var(--clay-2); }
-.btn--danger:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--clay-2); }
-.btn--dark { background: var(--ink); color: #fff; box-shadow: 0 5px 0 var(--dark-edge); }
-.btn--dark:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--dark-edge); }
-.btn--on-blue { background: #fff; color: var(--private-edge); box-shadow: 0 5px 0 #c9d6ff, inset 0 2px 0 #fff; }
-.btn--on-blue:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 #c9d6ff; }
-.btn--yellow { background: var(--yellow); color: var(--ink); box-shadow: 0 4px 0 var(--yellow-d); }
-.btn--yellow:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--yellow-d); }
-.btn--ok { background: var(--teal-l); color: var(--ok-ink); box-shadow: 0 4px 0 var(--ok-edge); }
-.btn--off { background: var(--disabled); color: #fff; box-shadow: 0 6px 0 var(--disabled-edge); }
+.btn--primary { background: var(--rouge); color: #fff; text-shadow: var(--stroke-2), 3px 4px 0 var(--ink); }
+/* Petit bouton principal : texte à l'encre (le blanc serait trop peu lisible à cette taille) */
+.btn--primary.btn--sm, .btn--primary.btn--xs { color: var(--ink); text-shadow: none; }
+.btn--white { background: #fff; color: var(--ink); }
+.btn--danger { background: #fff; color: var(--rouge-txt); }
+.btn--dark { background: var(--ink); color: #fff; box-shadow: 0 6px 0 rgba(0, 0, 0, .45); }
+.btn--dark.btn--sm, .btn--dark.btn--xs { box-shadow: 0 4px 0 rgba(0, 0, 0, .45); }
+.btn--on-blue { background: #fff; color: var(--ink); }
+.btn--yellow { background: var(--jaune); color: var(--ink); }
+.btn--ok { background: var(--turq-l); color: var(--ok-ink); }
+.btn--off { background: var(--disabled); color: var(--ink-3); border-color: var(--disabled-edge); box-shadow: 0 6px 0 var(--disabled-edge); }
 .btn--text {
-  height: auto; padding: 6px; background: none; color: var(--ink-2);
-  font: 800 15px var(--text); box-shadow: none;
+  height: auto; min-height: 44px; padding: 6px 10px; border: none; border-radius: 12px; background: none; color: inherit;
+  font: 800 15px/1.2 var(--text); letter-spacing: 0; box-shadow: none; text-decoration: underline; text-underline-offset: 3px;
 }
+.btn--text:active:not(:disabled) { transform: none; box-shadow: none; opacity: .7; }
 
-/* Bouton rond (retour, pause) */
+/* Bouton rond (retour, pause, règles) */
 .btn-round {
-  width: 44px; height: 44px; flex: none; border: none; border-radius: 50%;
+  width: 46px; height: 46px; flex: none; border: 3px solid var(--ink); border-radius: 50%;
   background: #fff; color: var(--ink); cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 4px;
-  font: 800 26px/1 var(--display); padding: 0 0 2px;
-  box-shadow: 0 4px 0 var(--clay-2), 0 10px 16px rgba(110, 80, 50, .1);
-  transition: transform .12s, box-shadow .12s, background .2s;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  font: 400 26px/1 var(--fx); padding: 3px 0 0;
+  box-shadow: 0 4px 0 var(--ink); transition: transform .1s, box-shadow .1s, background .2s;
 }
-.btn-round:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--clay-2); }
-.btn-round--lg { width: 54px; height: 54px; box-shadow: 0 4px 0 var(--clay-2), 0 8px 14px rgba(110, 80, 50, .1); }
-.pause-bar { width: 4px; height: 14px; border-radius: 2px; background: var(--ink); }
+.btn-round:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.btn-round--lg { width: 54px; height: 54px; }
+.btn-round > svg { display: block; }
+.pause-bar { width: 5px; height: 16px; border-radius: 3px; background: var(--ink); margin-top: -3px; }
 
-/* ---- Interrupteur (variantes) ---- */
+/* ---- Interrupteur ---- */
 .switch {
-  appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 50px; height: 30px; margin: 0;
-  border-radius: 15px; background: var(--seg); box-shadow: inset 0 2px 4px rgba(110, 80, 50, .15); cursor: pointer; transition: background .2s;
+  appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 54px; height: 32px; margin: 0;
+  border: 3px solid var(--ink); border-radius: 16px; background: #fff; cursor: pointer; transition: background .2s;
 }
 .switch::after {
-  content: ''; position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%;
-  background: #fff; box-shadow: 0 2px 0 var(--clay-2), 0 3px 6px rgba(70, 40, 20, .2); transition: transform .2s cubic-bezier(.3, 1.4, .5, 1);
+  content: ''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--ink); transition: transform .2s cubic-bezier(.3, 1.4, .5, 1);
 }
-.switch:checked { background: var(--teal); }
-.switch:checked::after { transform: translateX(20px); }
-.switch:disabled { cursor: default; opacity: .8; }
+.switch:checked { background: var(--turq); }
+.switch:checked::after { transform: translateX(22px); }
+.switch:disabled { cursor: default; opacity: .6; }
 
-/* ---- Surfaces ---- */
+/* ---- Cases ---- */
 .card {
-  background: #fff; border-radius: 24px;
-  box-shadow: 0 6px 0 var(--clay), 0 14px 24px var(--drop);
+  background: #fff; color: var(--ink); border: 3px solid var(--ink); border-radius: 18px;
+  box-shadow: 4px 5px 0 var(--ink);
 }
-.card--lg { border-radius: 26px; padding: 14px; }
-.card--row { border-radius: 22px; box-shadow: 0 4px 0 var(--clay); }
-.card--flat { background: var(--muted-bg); box-shadow: none; }
+.card--lg { border-radius: 20px; padding: 14px; }
+.card--row { border-radius: 16px; box-shadow: 0 4px 0 var(--ink); }
+.card--flat { background: rgba(255, 255, 255, .55); border: 2.5px dashed var(--ink); box-shadow: none; }
 
 .hero {
-  position: relative; overflow: hidden; border-radius: 32px; padding: 22px;
-  display: flex; flex-direction: column; gap: 14px;
+  position: relative; overflow: hidden; border: 3px solid var(--ink); border-radius: 20px; padding: 20px;
+  display: flex; flex-direction: column; gap: 12px; box-shadow: 5px 6px 0 var(--ink); color: var(--ink);
 }
-.hero--blue {
-  background: var(--private); color: #fff;
-  box-shadow: 0 8px 0 var(--private-edge), 0 22px 34px rgba(53, 96, 230, .3), inset 0 3px 0 rgba(255, 255, 255, .3);
-}
-.hero--yellow {
-  background: var(--yellow); color: var(--ink);
-  box-shadow: 0 8px 0 var(--yellow-d), 0 22px 34px rgba(217, 161, 22, .3), inset 0 3px 0 rgba(255, 255, 255, .5);
-}
-.hero__title { font: 800 30px/1 var(--display); }
-/* Accueil : cartes un peu plus serrées pour tenir dans l'écran sans défiler. */
-.hero--tight { padding: 18px 20px; gap: 10px; }
-.home .seg--tall .seg__opt { height: 50px; }
-.home .hero--tight .btn--md { height: 50px; }
+.hero--blue { background: var(--bleu); color: #fff; }
+.hero--yellow { background: var(--jaune); }
+.hero--white { background: #fff; }
+.hero--turq { background: var(--turq); }
+.hero--rouge { background: var(--rouge); }
+.hero__title { font: 400 34px/.95 var(--fx); letter-spacing: .02em; }
+.hero--blue .hero__title { color: #fff; text-shadow: var(--stroke-2), 3px 4px 0 var(--ink); }
+.hero--tight { padding: 16px 18px; gap: 10px; }
+/* Rayons de vitesse derrière le contenu d'une case colorée */
+.rays { position: absolute; inset: -80px; z-index: -1; pointer-events: none; background: repeating-conic-gradient(from 6deg at var(--rx, 70%) var(--ry, 60%), rgba(255, 255, 255, .16) 0deg 5deg, rgba(255, 255, 255, 0) 5deg 13deg); }
 
-/* ---- Pastilles ---- */
+/* ---- Pastilles, récitatifs ---- */
 .pill {
-  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-  font: 800 12px var(--text); padding: 7px 11px; border-radius: 999px;
-  background: #fff; box-shadow: 0 3px 0 var(--clay);
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--ink);
+  font: 800 12px/1 var(--text); padding: 7px 11px 6px; border: 2.5px solid var(--ink); border-radius: 999px; background: #fff;
 }
+/* Récitatif : la petite boîte de texte des cases de BD */
 .tag {
-  align-self: flex-start; font: 900 11px var(--text); letter-spacing: .16em;
-  padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .18);
+  align-self: flex-start; font: 900 11px/1 var(--text); letter-spacing: .08em; text-transform: uppercase; color: var(--ink);
+  padding: 6px 10px 5px; border: 2.5px solid var(--ink); border-radius: 6px; background: #fff; box-shadow: 2px 3px 0 var(--ink); rotate: -2deg;
 }
-.tag--dark { background: var(--ink); color: var(--yellow); }
+.tag--dark { background: var(--ink); color: var(--jaune); box-shadow: none; }
+.tag--jaune { background: var(--jaune); }
 .badge-count {
-  min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px;
-  background: var(--ink); color: #fff; font: 900 11px/22px var(--text); text-align: center;
-  box-shadow: 0 0 0 2px var(--app);
+  min-width: 24px; height: 24px; padding: 0 5px; border: 2.5px solid var(--ink); border-radius: 12px;
+  background: #fff; color: var(--ink); font: 900 11px/19px var(--text); text-align: center;
 }
 .duo { display: inline-flex; align-items: center; }
-.duo > span { width: 14px; height: 14px; border-radius: 50%; }
-.duo > span + span { margin-left: -8px; box-shadow: 0 0 0 2px #fff; }
+.duo > span { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 2px var(--ink); }
+.duo > span + span { margin-left: -5px; }
 
 /* ---- Champs ---- */
 .field {
-  height: 54px; min-width: 0; border: none; border-radius: 18px; background: #fff;
-  padding: 0 16px; font: 700 15px var(--text); color: var(--ink); outline: none;
-  box-shadow: inset 0 2px 4px rgba(110, 80, 50, .1), 0 3px 0 var(--field-edge);
+  height: 54px; min-width: 0; border: 3px solid var(--ink); border-radius: 14px; background: #fff;
+  padding: 0 14px; font: 700 16px var(--text); color: var(--ink); outline: none; box-shadow: 0 4px 0 var(--ink);
 }
-.field--big { padding: 0 18px; font: 800 18px var(--text); }
-.field:focus-visible { outline: none; box-shadow: inset 0 2px 4px rgba(110, 80, 50, .1), 0 0 0 3px var(--blue-l), 0 3px 0 var(--field-edge); }
+.field--big { padding: 0 16px; font: 800 18px var(--text); }
+.field:focus-visible { outline: 3px solid var(--bleu); outline-offset: 2px; }
 
 /* ---- Segmenté ---- */
 .seg {
-  display: flex; gap: 6px; padding: 6px; border-radius: 22px;
-  background: var(--seg); box-shadow: inset 0 2px 4px rgba(110, 80, 50, .1);
+  display: flex; gap: 4px; padding: 4px; border: 3px solid var(--ink); border-radius: 17px;
+  background: #fff; color: var(--ink); box-shadow: 0 4px 0 var(--ink);
 }
 .seg__opt {
-  flex: 1; height: 44px; border: none; border-radius: 16px; cursor: pointer;
-  background: transparent; color: var(--ink); padding-top: 2px;
-  font: 800 16px/1 var(--display);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-  transition: all .2s;
+  flex: 1; min-width: 0; height: 44px; border: 2.5px solid transparent; border-radius: 11px; cursor: pointer;
+  background: transparent; color: var(--ink); padding: 1px 2px 0;
+  font: 900 14px/1 var(--text);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  transition: background .15s, border-color .15s;
 }
-.seg__opt[aria-pressed='true'] { background: #fff; box-shadow: 0 4px 0 var(--clay-2), 0 8px 14px rgba(110, 80, 50, .1); }
-.seg--tall { border-radius: 24px; }
-.seg--tall .seg__opt { height: 56px; border-radius: 18px; padding-top: 0; font-size: 17px; line-height: 1.1; }
-.seg__sub { font: 700 12px var(--text); color: var(--ink-2); }
+.seg__opt[aria-pressed='true'] { background: var(--jaune); border-color: var(--ink); }
+.seg--tall .seg__opt { height: 52px; font-size: 15px; line-height: 1.05; }
+.seg__sub { font: 700 11px/1 var(--text); color: var(--ink-2); }
 
 /* ---- Barre de progression ---- */
-.bar { height: 8px; border-radius: 4px; background: var(--field-edge); overflow: hidden; }
-.bar > div { height: 100%; border-radius: 4px; background: var(--teal); }
+.bar { height: 13px; border: 2.5px solid var(--ink); border-radius: 7px; background: #fff; overflow: hidden; }
+.bar > div { height: 100%; background: var(--turq); border-right: 2.5px solid var(--ink); }
 
-/* ---- Bille (pion) ----
-   --c couleur, --d relief, --s taille en px (sans unité). */
+/* ---- Bille ----
+   --c couleur, --d ombre du même ton, --s taille en px (sans unité). Reflet franc, ombre en croissant, trait d'encre. */
 .bille {
   --s: 17;
+  --shine: radial-gradient(circle at 31% 27%, #fff 0 13%, rgba(255, 255, 255, 0) 14%);
   width: calc(var(--s) * 1px); height: calc(var(--s) * 1px); border-radius: 50%; flex: none;
-  background:
-    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .95) 0 10%, transparent 32%),
-    radial-gradient(circle at 50% 48%, var(--c) 55%, var(--d) 100%);
-  box-shadow:
-    0 calc(var(--s) * .16px) 0 var(--d),
-    0 calc(var(--s) * .32px) calc(var(--s) * .4px) rgba(70, 40, 20, .32);
+  border: clamp(2px, calc(var(--s) * .085px), 5px) solid var(--ink);
+  background: var(--shine), radial-gradient(circle at 40% 36%, var(--c) 0 58%, var(--d) 59% 100%);
+  box-shadow: calc(var(--s) * .06px) calc(var(--s) * .14px) 0 rgba(22, 19, 31, .3);
   transform-origin: 50% 90%;
 }
-/* Billes de la boutique : un motif posé sur la couleur du joueur (on reconnaît toujours l'équipe) */
-.bille--rayee { background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .95) 0 10%, transparent 32%), repeating-linear-gradient(135deg, rgba(255, 255, 255, .5) 0 calc(var(--s) * .09px), transparent calc(var(--s) * .09px) calc(var(--s) * .22px)), radial-gradient(circle at 50% 48%, var(--c) 55%, var(--d) 100%); }
-.bille--pois { background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .95) 0 10%, transparent 32%), radial-gradient(circle, rgba(255, 255, 255, .75) 0 18%, transparent 21%) 0 0 / calc(var(--s) * .34px) calc(var(--s) * .34px), radial-gradient(circle at 50% 48%, var(--c) 55%, var(--d) 100%); }
-.bille--cristal { background: radial-gradient(circle at 30% 26%, #fff 0 12%, transparent 30%), radial-gradient(circle at 68% 72%, rgba(255, 255, 255, .6) 0 10%, transparent 26%), radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--c) 55%, #fff) 25%, var(--c) 70%, var(--d) 100%); }
-.bille--lave { background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .9) 0 9%, transparent 28%), radial-gradient(circle at 62% 66%, #ffe066 0 8%, #ff7a1a 16%, transparent 34%), radial-gradient(circle at 34% 72%, #ff9a3c 0 6%, transparent 20%), radial-gradient(circle at 50% 48%, var(--c) 45%, var(--d) 100%); box-shadow: 0 calc(var(--s) * .16px) 0 var(--d), 0 0 calc(var(--s) * .5px) rgba(255, 120, 30, .65); }
-.bille--or { background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .95) 0 10%, transparent 32%), radial-gradient(circle at 70% 26%, #fff6c8 0 5%, transparent 12%), radial-gradient(circle at 50% 48%, var(--c) 55%, var(--d) 100%); box-shadow: 0 0 0 calc(var(--s) * .1px) #ffd34d, 0 calc(var(--s) * .18px) 0 #c99a1b, 0 calc(var(--s) * .34px) calc(var(--s) * .4px) rgba(70, 40, 20, .32); }
-.bille--galaxie { background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .9) 0 8%, transparent 26%), radial-gradient(circle at 66% 40%, #fff 0 3%, transparent 6%), radial-gradient(circle at 40% 68%, #fff 0 2.5%, transparent 5%), radial-gradient(circle at 72% 70%, rgba(255, 255, 255, .85) 0 2%, transparent 4%), radial-gradient(circle at 50% 48%, var(--c) 25%, color-mix(in srgb, var(--d) 55%, #1b1440) 100%); }
-.bille--sel {
-  animation: tocBob .8s ease-in-out infinite;
-  box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--c), 0 8px 12px rgba(0, 0, 0, .25);
-}
-.bille--target { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink), 0 8px 12px rgba(0, 0, 0, .25); }
+/* Billes du kiosque : un motif posé sur la couleur du joueur (on reconnaît toujours l'équipe) */
+.bille--rayee { background: var(--shine), repeating-linear-gradient(-35deg, var(--c) 0 calc(var(--s) * .16px), #fff calc(var(--s) * .16px) calc(var(--s) * .26px)); }
+.bille--pois { background: var(--shine), radial-gradient(circle, #fff 0 23%, rgba(255, 255, 255, 0) 26%) calc(var(--s) * .04px) calc(var(--s) * .04px) / calc(var(--s) * .3px) calc(var(--s) * .3px), var(--c); }
+.bille--cristal { background: var(--shine), linear-gradient(135deg, rgba(255, 255, 255, .8) 0 20%, rgba(255, 255, 255, 0) 21% 52%, rgba(255, 255, 255, .55) 53% 66%, rgba(255, 255, 255, 0) 67%), color-mix(in srgb, var(--c) 55%, #fff); }
+.bille--lave { background: radial-gradient(circle at 31% 27%, #fff 0 10%, rgba(255, 255, 255, 0) 11%), radial-gradient(circle at 68% 62%, #ffcf1f 0 15%, rgba(255, 255, 255, 0) 16%), radial-gradient(circle at 34% 72%, #ff8a1f 0 12%, rgba(255, 255, 255, 0) 13%), radial-gradient(circle at 64% 26%, #ff8a1f 0 9%, rgba(255, 255, 255, 0) 10%), radial-gradient(circle at 40% 36%, var(--c) 0 58%, var(--d) 59% 100%); }
+.bille--or { background: var(--shine), radial-gradient(circle at 70% 26%, #fff 0 6%, rgba(255, 255, 255, 0) 7%), radial-gradient(circle at 40% 36%, var(--c) 0 58%, var(--d) 59% 100%); box-shadow: 0 0 0 calc(var(--s) * .09px) #ffcf1f, 0 0 0 calc(var(--s) * .17px) var(--ink), calc(var(--s) * .06px) calc(var(--s) * .2px) 0 rgba(22, 19, 31, .3); }
+.bille--galaxie { background: radial-gradient(circle at 31% 27%, #fff 0 9%, rgba(255, 255, 255, 0) 10%), radial-gradient(circle at 72% 30%, #fff 0 4%, rgba(255, 255, 255, 0) 5%), radial-gradient(circle at 58% 74%, #fff 0 3.5%, rgba(255, 255, 255, 0) 4.5%), linear-gradient(-28deg, rgba(255, 255, 255, 0) 0 45%, rgba(255, 255, 255, .75) 46% 54%, rgba(255, 255, 255, 0) 55%), radial-gradient(circle at 40% 36%, var(--c) 0 58%, color-mix(in srgb, var(--d) 50%, #1b1440) 59% 100%); }
+.bille--sel { animation: tocBob .8s ease-in-out infinite; box-shadow: 0 0 0 3px var(--jaune), 0 0 0 5.5px var(--ink); }
+.bille--target { box-shadow: 0 0 0 3px #fff, 0 0 0 5.5px var(--rouge), 0 0 0 8px var(--ink); }
 .bille--land { animation: tocSquash .42s ease-out; }
 
-/* ---- Carte à jouer ---- */
+/* ---- Personnage (une bille avec un visage) ---- */
+.perso { display: inline-block; flex: none; line-height: 0; }
+.perso > svg { width: 100%; height: 100%; display: block; }
+.avatar { position: relative; flex: none; }
+.avatar-ring { position: relative; flex: none; line-height: 0; }
+
+/* ---- Carte à jouer ----
+   Rang et couleur dans les deux coins du haut (toujours lisible dans l'éventail), couleur en grand au milieu,
+   bandeau de pouvoir en bas. --col : encre ou rouge ; --bbg : aplat du bandeau. */
 .pcard {
-  position: relative; width: 80px; height: 116px; border-radius: 16px; background: #fff; flex: none;
-  display: flex; flex-direction: column; padding: 8px; color: var(--col, var(--ink));
-  box-shadow: 0 6px 0 var(--clay-2), 0 12px 20px rgba(70, 40, 20, .14);
-  /* Grain de carton */
-  background-image: radial-gradient(rgba(150, 110, 70, .08) 1px, transparent 1.3px); background-size: 5px 5px;
-  transition: top .28s cubic-bezier(.3, 1.5, .5, 1), left .28s ease, transform .28s cubic-bezier(.3, 1.5, .5, 1), box-shadow .2s, opacity .2s;
+  position: relative; width: 92px; height: 132px; border: 3px solid var(--ink); border-radius: 13px; background: var(--paper); flex: none;
+  padding: 0; overflow: hidden; color: var(--col, var(--ink)); box-shadow: 0 5px 0 var(--ink);
+  transition: top .28s cubic-bezier(.3, 1.5, .5, 1), left .28s ease, transform .28s cubic-bezier(.3, 1.5, .5, 1), box-shadow .2s, opacity .2s, filter .2s;
 }
-.pcard[aria-pressed='true'] { box-shadow: 0 0 0 3px var(--coral), 0 0 26px rgba(255, 107, 74, .5), 0 8px 0 var(--clay-2), 0 22px 30px rgba(242, 90, 56, .3); }
+.pcard[aria-pressed='true'] { box-shadow: 0 0 0 4px var(--jaune), 0 0 0 7px var(--ink), 0 9px 0 var(--ink); }
 /* Dans la main : la carte choisie flotte, les cartes injouables pâlissent. */
 .hand .pcard[aria-pressed='true'] { animation: tocLift 1.6s ease-in-out infinite; }
-.pcard--dead { filter: saturate(.25); }
+.pcard--dead { filter: saturate(.2) brightness(.92); }
 @keyframes tocLift { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
-.pcard__corner { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
-.pcard__rank { font: 800 20px/1 var(--display); }
-.pcard__suit { font: 700 13px/1 sans-serif; }
-.pcard__pip { flex: 1; display: flex; align-items: center; justify-content: center; font: 700 34px/1 sans-serif; margin-top: -8px; }
+.pcard__corner { position: absolute; top: 6px; left: 8px; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1; }
+.pcard__corner--end { left: auto; right: 8px; }
+.pcard__rank { font: 400 37px/.9 var(--fx); }
+/* Le 10 : deux chiffres, plus serrés pour que les deux coins ne se touchent pas */
+.pcard__rank--wide { font-size: 30px; line-height: 1.1; letter-spacing: -.03em; }
+.pcard__suit { width: 16px; height: 16px; display: block; }
+.pcard__suit > svg, .pcard__pip > svg { width: 100%; height: 100%; display: block; }
+.pcard__pip { position: absolute; left: 50%; top: 61px; width: 38px; height: 38px; margin-left: -19px; opacity: .2; }
 .pcard__badge {
-  align-self: center; font: 900 10px/1 var(--text); padding: 5px 7px; border-radius: 999px; white-space: nowrap;
-  background: var(--bbg); color: var(--bc);
+  position: absolute; left: 0; right: 0; bottom: 0; height: 29px; padding: 1px 4px 0; border-top: 3px solid var(--ink);
+  display: flex; align-items: center; justify-content: center; white-space: nowrap;
+  font: 900 10.5px/1 var(--text); letter-spacing: .04em; text-transform: uppercase; background: var(--bbg); color: var(--bc);
 }
 /* Dos de carte (pioche) */
 .pback { position: relative; width: 54px; height: 76px; flex: none; }
-.pback::before { content: ''; position: absolute; left: 4px; top: 4px; width: 100%; height: 100%; border-radius: 12px; background: var(--blue-d); }
+.pback::before { content: ''; position: absolute; left: 3px; top: 4px; width: 100%; height: 100%; border-radius: 9px; background: var(--ink); }
 .pback > span {
-  position: absolute; inset: 0; border-radius: 12px; background: radial-gradient(circle, rgba(255, 255, 255, .2) 2px, transparent 2.6px) 0 0 / 10px 10px, var(--blue);
-  display: flex; align-items: center; justify-content: center; font: 800 15px/1 var(--display); color: #fff; text-shadow: 0 2px 0 var(--blue-d);
-  box-shadow: inset 0 0 0 4px #fff, inset 0 0 0 6px var(--blue), inset 0 0 0 7px rgba(255, 255, 255, .5), 0 6px 10px rgba(40, 60, 140, .25);
+  position: absolute; inset: 0; border: 2.5px solid var(--ink); border-radius: 9px; background: var(--rouge);
+  display: flex; align-items: center; justify-content: center; font: 400 17px/1 var(--fx); letter-spacing: .04em; color: #fff; text-shadow: 0 2px 0 var(--ink);
+  box-shadow: inset 0 0 0 3px var(--rouge), inset 0 0 0 5px #fff;
 }
 
-/* ---- Avatar (formes simples, 10em = taille) ---- */
-.avatar { position: relative; flex: none; }
-.avatar > div { position: absolute; }
-.avatar-ring { position: relative; flex: none; padding: 4px; border-radius: 50%; background: #fff; }
-
-/* ---- Barre d'onglets flottante ---- */
+/* ---- Barre d'onglets ---- */
 .tabbar {
   position: fixed; left: 50%; transform: translateX(-50%);
-  width: calc(min(100vw, 430px) - 32px); bottom: max(8px, calc(var(--safe-bottom) - 14px)); height: 72px; z-index: 20;
-  border-radius: 30px; background: #fff; display: flex; padding: 8px; gap: 6px;
-  box-shadow: 0 8px 0 var(--clay), 0 18px 34px rgba(110, 80, 50, .16);
+  width: calc(min(100vw, 430px) - 28px); bottom: max(8px, calc(var(--safe-bottom) - 12px)); height: 68px; z-index: 20;
+  border: 3px solid var(--ink); border-radius: 22px; background: #fff; display: flex; align-items: center; padding: 0 5px; gap: 2px;
+  box-shadow: 0 5px 0 var(--ink);
 }
 .tabbar__btn {
-  position: relative; flex: 1; border: none; border-radius: 22px; background: transparent; cursor: pointer; color: var(--ink-3);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  font: 800 12px var(--text); transition: background .2s, color .2s;
+  position: relative; flex: 1; min-width: 0; height: 52px; border: 2.5px solid transparent; border-radius: 15px; background: transparent; cursor: pointer; color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0;
+  font: 800 10.5px/1 var(--text); transition: background .15s, border-color .15s;
 }
-.tabbar__btn[aria-current='page'] { color: var(--coral-d); }
-.tabbar__pill {
-  position: absolute; top: 8px; bottom: 8px; left: 8px; width: calc((100% - 28px) / 3); border-radius: 22px; background: var(--coral-l);
-  transform: translateX(calc(var(--i, 0) * (100% + 6px))); transition: transform .38s cubic-bezier(.3, 1.3, .5, 1);
-}
-.tabbar__icon { position: relative; width: 26px; height: 26px; filter: grayscale(.9); opacity: .55; transition: filter .2s, opacity .2s; }
+.tabbar__btn[aria-current='page'] { background: var(--jaune); border-color: var(--ink); font-weight: 900; }
+.tabbar__icon { width: 23px; height: 23px; display: block; }
 .tabbar__icon > svg { width: 100%; height: 100%; display: block; }
-.tabbar__btn[aria-current='page'] .tabbar__icon { filter: none; opacity: 1; animation: tocTabHop .55s .15s cubic-bezier(.3, 1.6, .5, 1) both; }
+.tabbar__btn[aria-current='page'] .tabbar__icon { animation: tocTabHop .5s .1s cubic-bezier(.3, 1.6, .5, 1) both; }
 @keyframes tocTabHop { 0% { translate: 0 0; scale: 1; } 40% { translate: 0 -5px; scale: 1.15; } 100% { translate: 0 0; scale: 1; } }
-.tabbar__icon > i { position: absolute; background: currentColor; }
+.tabbar__dot { position: absolute; top: 4px; right: 14%; min-width: 16px; height: 16px; padding: 0 4px; border: 2px solid var(--ink); border-radius: 8px; background: var(--rouge); color: #fff; font: 900 9px/12px var(--text); text-align: center; }
 
-/* ---- Écran mobile ----
-   Référence 393 × 852 ; au-delà de 430 px de large, l'app reste centrée. */
+/* ---- Écran ----
+   Référence 393 × 852 ; au-delà de 430 px de large, l'app reste centrée.
+   Le fond prend le ton de l'écran, avec deux trames de points dans les coins. */
 .screen {
   position: relative; min-height: 100dvh; width: 100%; max-width: 430px; margin: 0 auto;
-  overflow-x: hidden; background: var(--app);
-  padding: calc(var(--safe-top) + 6px) 20px calc(var(--safe-bottom) + 28px);
+  overflow-x: hidden; background: var(--app); color: var(--on-app);
+  padding: calc(var(--safe-top) + 6px) 18px calc(var(--safe-bottom) + 28px);
   display: flex; flex-direction: column; gap: 16px;
 }
+.screen::before, .screen::after {
+  content: ''; position: absolute; z-index: -1; width: 400px; height: 400px; border-radius: 50%; pointer-events: none;
+  background-size: 12px 12px;
+}
+.screen::before { right: -140px; top: -140px; background-image: var(--dots-ink); }
+.screen::after { left: -160px; bottom: 60px; background-image: var(--dots-white); }
+[data-tone='bleu'].screen::before, [data-tone='nuit'].screen::before { background-image: radial-gradient(circle, rgba(255, 255, 255, .16) 2.2px, rgba(255, 255, 255, 0) 2.8px); }
+[data-tone='bleu'].screen::after, [data-tone='nuit'].screen::after { background-image: radial-gradient(circle, rgba(22, 19, 31, .3) 2.2px, rgba(22, 19, 31, 0) 2.8px); }
 /* La barre d'onglets descend juste au-dessus du trait de l'iPhone (ou à 8 px du bord sans trait). */
-.screen--tabs { padding-bottom: calc(var(--safe-bottom) + 70px); }
+.screen--tabs { padding-bottom: calc(var(--safe-bottom) + 72px); }
 
 /* ---- Pliant ouvert : la liste à gauche, le détail à droite (main.ts, setSplit) ---- */
-.split { position: fixed; inset: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: var(--seg); }
+.split { position: fixed; inset: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: var(--ink); }
 @media (horizontal-viewport-segments: 2) {
   .split { grid-template-columns: env(viewport-segment-width 0 0) env(viewport-segment-width 1 0); gap: calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0)); }
 }
 .split__pane { position: relative; overflow: hidden; background: var(--app); }
 .split__pane > .fit { position: absolute; }
-.split__auto { position: absolute; inset: 0; }
+.split__auto { position: absolute; inset: 0; background: var(--turq); }
 .split__auto > .fit { position: absolute; }
-.split__empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; }
-.split__empty .t-body { max-width: 30ch; color: var(--ink-2); }
+.split__empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; color: var(--ink); }
+.split__empty .t-body { max-width: 30ch; }
 
 /* ---- Mise à l'échelle (src/ui/fit.ts) ----
    La scène va jusqu'aux bords ; les marges d'encoche et de barre du bas (--safe-top, --safe-bottom)
@@ -267,27 +268,27 @@
 .fit__stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .fit .screen { min-height: 0; max-width: none; margin: 0; overflow: hidden; }
 /* Éléments « fixes » de l'écran : rattachés à la scène (une scène transformée les contient). */
-.fit .tabbar, .fit .rank-me { width: calc(100% - 32px); }
-.mascot { display: inline-block; flex: none; }
-.mascot > svg { width: 100%; height: 100%; display: block; }
+.fit .tabbar, .fit .rank-me { width: calc(100% - 28px); }
+.mascot { display: inline-block; flex: none; line-height: 0; }
+.mascot > svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .sheet > .mascot { align-self: center; margin: -8px 0 -4px; }
 .toc-says { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 8px; }
 .toc-says > .empty { margin: 0; }
 .scroll-y { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-/* Dans une zone qui défile, les cartes gardent leur taille (sinon elles s'écrasent au lieu de défiler). */
+/* Dans une zone qui défile, les cases gardent leur taille (sinon elles s'écrasent au lieu de défiler). */
 .scroll-y > * { flex-shrink: 0; }
-/* Les ronds décoratifs restent derrière le contenu de l'écran ou de la carte. */
+/* Les décors restent derrière le contenu de l'écran ou de la case. */
 .screen, .hero { isolation: isolate; }
 .screen__head { display: flex; align-items: center; gap: 12px; }
 .spacer { flex: 1; }
 .blob { position: absolute; z-index: -1; border-radius: 50%; pointer-events: none; }
 
-/* ---- Toast ---- */
+/* ---- Message flottant : une bulle ---- */
 .toast {
-  position: fixed; left: 50%; top: calc(var(--safe-top) + 240px); z-index: 60;
+  position: fixed; left: 50%; top: calc(var(--safe-top) + 230px); z-index: 60;
   /* Un message long passe à la ligne au lieu d'être coupé par les bords de l'écran. */
-  width: max-content; max-width: min(360px, calc(100vw - 32px)); text-align: center; text-wrap: balance;
-  font: 800 19px/1.15 var(--display); padding: 13px 20px 10px; border-radius: 20px; background: #fff; color: var(--ink);
-  box-shadow: 0 6px 0 var(--clay-2), 0 16px 30px rgba(70, 40, 20, .2);
-  animation: tocUp .35s cubic-bezier(.3, 1.5, .5, 1) both;
+  width: max-content; max-width: min(350px, calc(100vw - 32px)); text-align: center; text-wrap: balance;
+  font: 800 17px/1.2 var(--text); padding: 12px 18px 11px; border: 3px solid var(--ink); border-radius: 18px; background: #fff; color: var(--ink);
+  box-shadow: 4px 5px 0 var(--ink);
+  animation: tocUp .3s cubic-bezier(.3, 1.5, .5, 1) both;
 }

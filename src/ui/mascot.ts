@@ -1,115 +1,101 @@
-// Toc, la mascotte : un pion en bois à grosse tête, socle bleu nuit, gants blancs (d'après la planche de Mallory,
-// redessiné dans le style de l'app). Un seul dessin (SVG) pour l'icône, le coach de l'initiation et les écrans.
-// Repère : viewBox 512 × 512, pion entier de y ≈ 40 (couronne) à y ≈ 460 (ombre au sol).
+// Toc, la mascotte : la bille blanche masquée, héroïne et narratrice du jeu. Masque bleu nuit, cape rouge,
+// gants blancs qui flottent. Même famille que les personnages des joueurs (src/ui/kit/perso.ts), mais d'une couleur
+// qu'aucun joueur ne porte : on la reconnaît partout, de l'icône de l'app jusqu'aux moments forts de la partie.
+// Repère : viewBox 512 × 512, bille centrée en (256, 200), rayon 150 ; la cape descend jusqu'à y ≈ 455.
 
 export type MascotMood = 'content' | 'concentre' | 'surpris' | 'vainqueur';
 
-const WOOD = '#e2b47f', WOOD_D = '#c48f57', WOOD_L = '#f4d6aa';
-const BASE = '#1f4a6e', BASE_D = '#143650';
-const INK = '#2b2a3d', BROW = '#7a4a26', ARM = '#9a6436', GLOVE = '#ffffff', GLOVE_D = '#e3d6c4';
+const INK = '#16131f', IVORY = '#fffdf6', SHADE = '#e2dccd', NUIT = '#241f63', ROUGE = '#ff5433', ROUGE_D = '#d4381b', JAUNE = '#ffcf1f';
+const st = (w: number) => `stroke="${INK}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
+const ell = (cx: number, cy: number, rx: number, ry: number) =>
+  `M${cx - rx} ${cy} a${rx} ${ry} 0 1 0 ${2 * rx} 0 a${rx} ${ry} 0 1 0 ${-2 * rx} 0 Z`;
+const EL = 202, ER = 310, EY = 186;
+const two = (dx: number, dy: number, rx: number, ry: number) => ell(EL + dx, EY + dy, rx, ry) + ' ' + ell(ER + dx, EY + dy, rx, ry);
 
-let seq = 0;
-
-/**
- * Une main gantée (moufle, deux plis de doigts, pouce, manchette), tournée pour que la manchette
- * regarde vers (ax, ay), le point d'où arrive le bras.
- */
-function hand(x: number, y: number, ax: number, ay: number, r = 23): string {
-  const rot = (Math.atan2(ay - y, ax - x) * 180) / Math.PI - 90;
-  const st = `stroke="${GLOVE_D}" stroke-width="3"`;
-  return `<g transform="rotate(${rot.toFixed(1)} ${x} ${y})">`
-    + `<rect x="${x - r * .62}" y="${y + r * .62}" width="${r * 1.24}" height="${r * .55}" rx="${r * .22}" fill="${GLOVE}" ${st}/>`
-    + `<ellipse cx="${x + r * .9}" cy="${y + r * .05}" rx="${r * .36}" ry="${r * .55}" transform="rotate(-25 ${x + r * .9} ${y})" fill="${GLOVE}" ${st}/>`
-    + `<rect x="${x - r}" y="${y - r}" width="${r * 2}" height="${r * 1.8}" rx="${r * .85}" fill="${GLOVE}" ${st}/>`
-    + `<path d="M${x - r * .33} ${y - r * .95} v${r * .55} M${x + r * .2} ${y - r * .98} v${r * .55}" stroke="${GLOVE_D}" stroke-width="3" stroke-linecap="round"/>`
+/** Un gant ouvert (moufle, pouce, manchette), tourné de `rot` degrés autour de son centre. */
+function glove(x: number, y: number, rot: number, r = 30): string {
+  return `<g transform="rotate(${rot} ${x} ${y})">`
+    + `<rect x="${x - r * 0.62}" y="${y + r * 0.6}" width="${r * 1.24}" height="${r * 0.6}" rx="${r * 0.22}" fill="#fff" ${st(8)}/>`
+    + `<ellipse cx="${x + r * 0.95}" cy="${y + r * 0.1}" rx="${r * 0.36}" ry="${r * 0.58}" transform="rotate(-25 ${x + r * 0.95} ${y})" fill="#fff" ${st(8)}/>`
+    + `<rect x="${x - r}" y="${y - r}" width="${r * 2}" height="${r * 1.8}" rx="${r * 0.85}" fill="#fff" ${st(8)}/>`
+    + `<path d="M${x - r * 0.33} ${y - r * 0.9} v${r * 0.5} M${x + r * 0.2} ${y - r * 0.92} v${r * 0.5}" fill="none" ${st(6)}/>`
     + '</g>';
 }
 
-/** Le pouce levé : poing de profil, pouce dressé, manchette vers le bas à gauche (le bras). */
-function thumbsUp(x: number, y: number, r = 25): string {
-  const st = `stroke="${GLOVE_D}" stroke-width="3"`;
-  return `<rect x="${x - r * .55}" y="${y - r * 1.95}" width="${r * .78}" height="${r * 1.55}" rx="${r * .39}" fill="${GLOVE}" ${st}/>`
-    + `<rect x="${x - r}" y="${y - r * .7}" width="${r * 2}" height="${r * 1.55}" rx="${r * .55}" fill="${GLOVE}" ${st}/>`
-    + `<path d="M${x - r * .1} ${y - r * .2} h${r * .8} M${x - r * .1} ${y + r * .25} h${r * .8}" stroke="${GLOVE_D}" stroke-width="3" stroke-linecap="round"/>`
-    + `<rect x="${x - r * 1.35}" y="${y - r * .15}" width="${r * .5}" height="${r * 1.1}" rx="${r * .2}" transform="rotate(-20 ${x - r * 1.1} ${y + r * .4})" fill="${GLOVE}" ${st}/>`;
+/** Le pouce levé : poing de profil, pouce dressé. */
+function thumbsUp(x: number, y: number, r = 30): string {
+  return `<rect x="${x - r * 0.55}" y="${y - r * 1.95}" width="${r * 0.78}" height="${r * 1.55}" rx="${r * 0.39}" fill="#fff" ${st(8)}/>`
+    + `<rect x="${x - r}" y="${y - r * 0.7}" width="${r * 2}" height="${r * 1.55}" rx="${r * 0.55}" fill="#fff" ${st(8)}/>`
+    + `<path d="M${x - r * 0.1} ${y - r * 0.15} h${r * 0.8} M${x - r * 0.1} ${y + r * 0.3} h${r * 0.8}" fill="none" ${st(6)}/>`;
 }
 
-/** Un bras : trait brun arrondi de l'épaule (sx, sy) à la main (hx, hy), courbé par (cx, cy). */
-const arm = (sx: number, sy: number, cx: number, cy: number, hx: number, hy: number) =>
-  `<path d="M${sx} ${sy} Q${cx} ${cy} ${hx} ${hy}" fill="none" stroke="${ARM}" stroke-width="18" stroke-linecap="round"/>`;
+/** Un poing levé (victoire). */
+function fist(x: number, y: number, r = 30): string {
+  return `<rect x="${x - r * 0.62}" y="${y + r * 0.55}" width="${r * 1.24}" height="${r * 0.6}" rx="${r * 0.22}" fill="#fff" ${st(8)}/>`
+    + `<rect x="${x - r}" y="${y - r * 0.85}" width="${r * 2}" height="${r * 1.6}" rx="${r * 0.6}" fill="#fff" ${st(8)}/>`
+    + `<path d="M${x - r * 0.45} ${y - r * 0.8} v${r * 0.55} M${x} ${y - r * 0.82} v${r * 0.55} M${x + r * 0.45} ${y - r * 0.8} v${r * 0.55}" fill="none" ${st(6)}/>`;
+}
 
-function face(mood: MascotMood): string {
-  const eye = (x: number, dx = 0, dy = 0, big = 1) =>
-    `<ellipse cx="${x}" cy="160" rx="${29 * big}" ry="${35 * big}" fill="#fff" stroke="${WOOD_D}" stroke-width="3"/>`
-    + `<ellipse cx="${x + 5 + dx}" cy="${167 + dy}" rx="${(mood === 'surpris' ? 12 : 16)}" ry="${(mood === 'surpris' ? 15 : 20)}" fill="${INK}"/>`
-    + `<circle cx="${x - 2 + dx}" cy="${158 + dy}" r="7" fill="#fff"/>`;
-  const happyEye = (x: number) => `<path d="M${x - 24} 170 Q${x} 140 ${x + 24} 170" fill="none" stroke="${INK}" stroke-width="10" stroke-linecap="round"/>`;
-  const brow = (x: number, tilt: number, lift = 0) =>
-    `<path d="M${x - 24} ${108 - lift + tilt} Q${x} ${96 - lift} ${x + 24} ${108 - lift - tilt}" fill="none" stroke="${BROW}" stroke-width="9" stroke-linecap="round"/>`;
-  const cheeks = `<ellipse cx="186" cy="206" rx="19" ry="11" fill="#ff6b6b" opacity=".32"/><ellipse cx="326" cy="206" rx="19" ry="11" fill="#ff6b6b" opacity=".32"/>`;
-  const nose = `<ellipse cx="256" cy="196" rx="12" ry="9" fill="${WOOD_D}"/>`;
-  const bigSmile = `<path d="M212 214 Q256 276 300 214 Q256 230 212 214 Z" fill="#5b2318"/><path d="M236 246 Q256 230 276 246 Q256 258 236 246 Z" fill="#ff8f80"/>`;
+interface Face { white: string; pupil: string; glint: string; lids: string; brow: string; mouth: string; tongue: string; smile: string }
+
+function face(mood: MascotMood): Face {
   switch (mood) {
     case 'concentre':
-      return brow(214, 6, 4) + brow(298, -10) + eye(214, -7, -8) + eye(298, -7, -8) + cheeks + nose
-        + `<path d="M234 230 Q252 222 276 228" fill="none" stroke="#5b2318" stroke-width="9" stroke-linecap="round"/>`;
+      return {
+        white: 'M166 182 A36 34 0 0 0 238 182 Z M274 182 A36 34 0 0 0 346 182 Z', pupil: two(-8, 12, 14, 14), glint: '', lids: '',
+        brow: 'M170 118 L236 130 M276 130 L342 110', mouth: '', tongue: 'M290 280 Q306 278 306 292 Q306 304 296 304 Q286 304 286 290 Z',
+        smile: 'M210 288 Q252 300 302 276',
+      };
     case 'surpris':
-      return brow(214, -4, 14) + brow(298, 4, 14) + eye(214, 0, 0, 1.08) + eye(298, 0, 0, 1.08) + cheeks + nose
-        + `<ellipse cx="256" cy="238" rx="17" ry="21" fill="#5b2318"/>`;
+      return {
+        white: two(0, 0, 40, 46), pupil: two(0, 2, 11, 13), glint: two(-4, -3, 4, 4), lids: '',
+        brow: 'M170 104 Q202 84 234 100 M278 100 Q310 84 342 104', mouth: ell(256, 288, 23, 27), tongue: '', smile: '',
+      };
     case 'vainqueur':
-      return brow(214, 0, 8) + brow(298, 0, 8) + happyEye(214) + happyEye(298) + cheeks + nose + bigSmile;
+      return {
+        white: '', pupil: '', glint: '', lids: 'M168 198 Q202 150 236 198 M276 198 Q310 150 344 198',
+        brow: 'M170 112 Q202 94 234 108 M278 108 Q310 94 342 112',
+        mouth: 'M186 256 Q256 338 326 256 Q256 280 186 256 Z', tongue: 'M226 300 Q256 280 286 300 Q256 318 226 300 Z', smile: '',
+      };
     default:
-      return brow(214, 2) + brow(298, -2) + eye(214, 3) + eye(298, 3) + cheeks + nose + bigSmile;
+      return {
+        white: two(0, 0, 36, 40), pupil: two(6, 6, 17, 21), glint: two(1, -3, 7, 7), lids: '',
+        brow: 'M172 118 Q202 100 232 114 M280 114 Q310 100 340 118',
+        mouth: 'M196 260 Q256 324 316 260 Q256 282 196 260 Z', tongue: 'M228 296 Q256 278 284 296 Q256 312 228 296 Z', smile: '',
+      };
   }
 }
 
-function arms(mood: MascotMood): { back: string; front: string } {
+function hands(mood: MascotMood): string {
   switch (mood) {
-    case 'concentre': // une main sous le menton, l'autre le long du corps
-      return {
-        back: arm(212, 304, 186, 340, 160, 372) + hand(156, 380, 186, 340, 21),
-        front: arm(300, 308, 350, 300, 318, 270) + hand(306, 262, 338, 300, 22),
-      };
-    case 'surpris': // les mains levées de chaque côté, paumes ouvertes
-      return { back: '', front: arm(212, 304, 160, 300, 138, 252) + arm(300, 304, 352, 300, 374, 252) + hand(134, 238, 150, 290) + hand(378, 238, 362, 290) };
-    case 'vainqueur': // les deux bras en l'air, bien au-dessus des épaules
-      return { back: arm(212, 300, 140, 270, 118, 168) + arm(300, 300, 372, 270, 394, 168), front: hand(114, 150, 124, 200, 24) + hand(398, 150, 388, 200, 24) };
-    default: // pouce levé, l'autre bras le long du corps
-      return {
-        back: arm(212, 304, 186, 340, 160, 372) + hand(156, 380, 186, 340, 21),
-        front: arm(300, 304, 362, 316, 384, 282) + thumbsUp(398, 270),
-      };
+    case 'concentre': return glove(86, 336, 18) + glove(346, 340, -28, 28);
+    case 'surpris': return glove(62, 204, -18) + glove(452, 292, 18);
+    case 'vainqueur': return fist(60, 108) + fist(456, 62);
+    default: return glove(84, 336, 18) + thumbsUp(444, 330);
   }
 }
 
-const crown = `<path d="M206 78 L214 36 L238 60 L256 26 L274 60 L298 36 L306 78 Z" fill="#ffc93c" stroke="#d9a116" stroke-width="5" stroke-linejoin="round"/>`
-  + `<circle cx="256" cy="58" r="7" fill="#ff6b4a"/>`;
-
-/** Le dessin SVG de Toc. `ground` : son ombre au sol (pas dans l'icône, où il est coupé) ; `arms` : sans bras (favicon). */
+/** Le dessin SVG de Toc. `ground` : son ombre au sol ; `arms` : sans les gants (icône, tout petit format). */
 export function mascotSvg(mood: MascotMood = 'content', o: { viewBox?: string; ground?: boolean; arms?: boolean } = {}): string {
-  const k = ++seq;
-  const head = `hd${k}`, body = `bd${k}`, gloss = `gl${k}`;
-  const { back, front } = o.arms === false ? { back: '', front: '' } : arms(mood);
+  const f = face(mood);
+  const p = (d: string, attrs: string) => (d ? `<path d="${d}" ${attrs}/>` : '');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${o.viewBox ?? '0 0 512 512'}" aria-hidden="true">
-<defs>
-<clipPath id="${head}"><circle cx="256" cy="168" r="112"/></clipPath>
-<linearGradient id="${body}" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="${WOOD_L}"/><stop offset=".45" stop-color="${WOOD}"/><stop offset="1" stop-color="${WOOD_D}"/></linearGradient>
-<radialGradient id="${gloss}" cx="34%" cy="26%" r="42%"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-</defs>
-${o.ground === false ? '' : '<ellipse cx="256" cy="456" rx="122" ry="14" fill="#000" opacity=".13"/>'}
-${back}
-<path d="M210 262 C208 322 170 372 160 412 L352 412 C342 372 304 322 302 262 Z" fill="url(#${body})"/>
-<path d="M232 330 C228 360 222 382 218 404 M286 300 C292 336 300 368 306 404" fill="none" stroke="${WOOD_D}" stroke-width="4" stroke-linecap="round" opacity=".35"/>
-<ellipse cx="256" cy="278" rx="62" ry="13" fill="${WOOD_D}" opacity=".55"/>
-<rect x="148" y="398" width="216" height="54" rx="24" fill="${BASE_D}"/>
-<rect x="148" y="398" width="216" height="40" rx="20" fill="${BASE}"/>
-<rect x="172" y="406" width="120" height="8" rx="4" fill="#fff" opacity=".18"/>
-<circle cx="256" cy="168" r="112" fill="${WOOD_D}"/>
-<circle cx="244" cy="152" r="112" fill="${WOOD}" clip-path="url(#${head})"/>
-<circle cx="256" cy="168" r="112" fill="url(#${gloss})"/>
-${face(mood)}
-${front}
-${mood === 'vainqueur' ? crown : ''}
+${o.ground === false ? '' : `<ellipse cx="262" cy="470" rx="132" ry="14" fill="${INK}" opacity=".16"/>`}
+<path d="M138 262 C112 330 128 392 108 446 C150 436 170 458 214 440 C250 462 290 440 330 452 C370 438 406 454 450 416 C412 372 398 318 374 262 Z" fill="${ROUGE}" ${st(12)}/>
+<path d="M214 346 C206 384 216 412 210 438 M300 350 C312 388 320 418 330 448" fill="none" stroke="${ROUGE_D}" stroke-width="9" stroke-linecap="round"/>
+<path d="M400 170 L462 140 L446 182 Z M400 186 L466 206 L432 226 Z" fill="${NUIT}" ${st(10)}/>
+<circle cx="256" cy="200" r="150" fill="${IVORY}" ${st(13)}/>
+<path d="M379.8 128.5 A143 143 0 0 1 184.5 323.8 A180 180 0 0 0 379.8 128.5 Z" fill="${SHADE}"/>
+<ellipse cx="150" cy="270" rx="20" ry="12" fill="#ff9fb0" opacity=".8"/><ellipse cx="362" cy="270" rx="20" ry="12" fill="#ff9fb0" opacity=".8"/>
+<path d="M110 176 C130 118 382 118 402 176 C410 222 370 252 312 236 C290 229 270 222 256 222 C242 222 222 229 200 236 C142 252 102 222 110 176 Z" fill="${NUIT}" ${st(11)}/>
+<circle cx="404" cy="180" r="12" fill="${NUIT}" ${st(9)}/>
+${p(f.white, `fill="#fff" ${st(9)}`)}${p(f.pupil, `fill="${INK}"`)}${p(f.glint, 'fill="#fff"')}
+${p(f.lids, 'fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round"')}
+${p(f.brow, `fill="none" ${st(12)}`)}
+${p(f.mouth, `fill="#5b1f1a" ${st(9)}`)}${p(f.tongue, 'fill="#ff8a7a"')}${p(f.smile, `fill="none" ${st(11)}`)}
+<circle cx="256" cy="360" r="19" fill="${JAUNE}" ${st(9)}/><circle cx="250" cy="354" r="5" fill="#fff"/>
+${mood === 'vainqueur' ? `<path d="M196 70 L206 18 L234 46 L256 8 L278 46 L306 18 L316 70 Q256 54 196 70 Z" fill="${JAUNE}" ${st(11)}/><circle cx="256" cy="44" r="8" fill="${ROUGE}" ${st(6)}/>` : ''}
+${o.arms === false ? '' : hands(mood)}
 </svg>`;
 }
 
@@ -124,11 +110,11 @@ export function tocSays(text: string, mood: MascotMood = 'content', size = 84): 
   return el;
 }
 
-/** Toc dans la page : `crop` 'buste' ne garde que la tête et les épaules (coach, bulles). */
+/** Toc dans la page : `crop` 'buste' ne garde que la bille et son masque, sans la cape ni les gants (coach, bulles). */
 export function mascot(mood: MascotMood = 'content', size = 96, crop: 'entier' | 'buste' = 'entier'): HTMLElement {
   const el = document.createElement('span');
   el.className = 'mascot';
   el.style.width = el.style.height = size + 'px';
-  el.innerHTML = mascotSvg(mood, crop === 'buste' ? { viewBox: '84 10 344 344', ground: false } : {});
+  el.innerHTML = mascotSvg(mood, crop === 'buste' ? { viewBox: '70 14 400 400', ground: false, arms: false } : {});
   return el;
 }

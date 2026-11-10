@@ -51,6 +51,8 @@ export function fitScreen(screen: HTMLElement, mode: FitMode, opts: { minW?: num
   const MAXW = opts.maxW ?? MAX_W;
   const stage = h('div', { class: 'fit__stage' }, screen);
   const root = h('div', { class: 'fit' }, stage);
+  // Le cadre prend le ton de l'écran : pas de bande d'une autre couleur autour de la scène.
+  if (screen.dataset.tone) root.dataset.tone = screen.dataset.tone;
 
   // offsetHeight : hauteur de mise en page, sans les rotations (app redressée en paysage).
   const natural = (w: number, s: number) => {
