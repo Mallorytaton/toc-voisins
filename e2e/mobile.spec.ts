@@ -38,11 +38,16 @@ test('premier lancement : splash, présentation, perso, accueil', async ({ page 
   await expect(page.getByText('Salut Ginette !')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Créer une salle · 4 joueurs' })).toBeVisible();
   await expectNoSideScroll(page);
-  // Les onglets mènent aux amis et au classement.
-  await page.getByRole('button', { name: 'Amis', exact: true }).click();
+  // Les onglets mènent à ta bande, aux albums, au classement et au kiosque.
+  await page.getByRole('button', { name: 'Ta bande', exact: true }).click();
   await expect(page.getByText('Ton code ami', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Classement' }).click();
+  await page.getByRole('button', { name: 'Albums', exact: true }).click();
+  await expect(page.locator('.t-screen')).toHaveText('Tes albums');
+  await page.getByRole('button', { name: 'Classement', exact: true }).click();
   await expect(page.locator('.t-screen')).toHaveText('Classement');
+  await page.getByRole('button', { name: 'Kiosque', exact: true }).click();
+  await expect(page.locator('.t-screen')).toHaveText('Le kiosque');
+  await expectNoSideScroll(page);
   expect(errors).toEqual([]);
 });
 
@@ -85,8 +90,11 @@ test('écran de jeu à 6 joueurs : 96 trous et 24 billes', async ({ page, contex
   await page.addInitScript((p) => localStorage.setItem('toc.profile', JSON.stringify(p)), PROFILE);
   await page.goto('./#/accueil');
   await context.setOffline(true);
-  await page.getByRole('button', { name: /6 joueurs/ }).click();
+  // Un toucher sur « 6 joueurs » crée la salle.
   await page.getByRole('button', { name: 'Créer une salle · 6 joueurs' }).click();
+  // L'affiche : trois équipes de deux places.
+  await expect(page.locator('.aff-team')).toHaveCount(3);
+  await expect(page.locator('.aff-slot')).toHaveCount(6);
   await page.getByRole('button', { name: 'Compléter avec des robots' }).click();
   await page.getByRole('button', { name: 'Lancer la partie' }).click();
   await expect(page.locator('.game')).toBeVisible({ timeout: 10_000 });

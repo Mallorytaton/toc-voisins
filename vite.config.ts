@@ -20,8 +20,8 @@ export default defineConfig({
         // Un lien de partage touché alors que l'app tourne déjà la réutilise au lieu d'en ouvrir une autre.
         launch_handler: { client_mode: ['navigate-existing', 'auto'] },
         orientation: 'portrait',
-        background_color: '#fbf6ef',
-        theme_color: '#fbf6ef',
+        background_color: '#ffcf1f',
+        theme_color: '#ffcf1f',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
