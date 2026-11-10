@@ -79,6 +79,15 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
   --res-sh: inset 0 2px 3px rgba(0, 0, 0, .4), 0 1px 0 rgba(255, 228, 186, .4);
 }
 .board--shake { animation: tocShake .45s ease-out; }
+/* BOUM : la bille renvoyée tournoie en l'air avant de retomber dans sa réserve. */
+.bille--ko { animation: tocKo .73s cubic-bezier(.3, .6, .4, 1); }
+@keyframes tocKo { 0% { rotate: 0deg; scale: 1; } 45% { scale: 1.5; } 100% { rotate: 720deg; scale: 1; } }
+/* Fin de partie serrée : le bord du plateau s'assombrit et bat au rythme du cœur de la musique (1,32 s). */
+.g-tense { position: absolute; z-index: 2; left: 16px; top: 82px; width: 360px; height: 360px; border-radius: 44px; pointer-events: none; opacity: 0; transition: opacity 1.2s; background: radial-gradient(circle closest-side, transparent 66%, rgba(150, 20, 10, .4) 100%); }
+.game--tense .g-tense { opacity: 1; animation: tocTense 1.32s ease-in-out infinite; }
+.game--manette .g-tense { display: none; }
+@keyframes tocTense { 0%, 100% { scale: 1; } 12% { scale: 1.035; } 30% { scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .bille--ko, .game--tense .g-tense { animation: none; } }
 /* Caméra du plateau : pendant le partage du 7, elle se rapproche des arrivées (le plateau est alors découpé à sa taille). */
 .board { transition: clip-path .5s cubic-bezier(.3, .8, .3, 1); }
 .board__cam { position: absolute; inset: 0; transform-origin: 0 0; transition: transform .5s cubic-bezier(.3, .8, .3, 1); }
@@ -171,6 +180,13 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 /* Écran de fin : continuer à discuter */
 .victory__chat { position: relative; width: 100%; height: 46px; flex: none; border: 2px solid rgba(255, 255, 255, .75); border-radius: 23px; background: rgba(255, 255, 255, .14); color: #fff; font: 800 16px/1 var(--display); padding-top: 3px; cursor: pointer; }
 .victory__chat:active { transform: scale(.97); }
+.victory__chat:disabled { opacity: .6; }
+/* Fin de partie : « Moments forts » et « Partager », côte à côte */
+.victory__duo { width: 100%; display: flex; gap: 8px; flex: none; }
+.victory__duo .victory__chat { width: auto; flex: 1; min-width: 0; }
+/* Film de la partie : bouton pour l'arrêter */
+.g-skip { position: absolute; z-index: 45; right: 16px; top: 452px; height: 40px; padding: 3px 18px 0; border: 0; border-radius: 20px; background: var(--ink); color: #fff; font: 800 15px/1 var(--display); box-shadow: 0 4px 0 rgba(0, 0, 0, .25); cursor: pointer; }
+.g-skip:disabled { opacity: .5; }
 .victory__chatsheet { position: absolute; left: 16px; right: 16px; top: 48px; z-index: 5; padding: 14px; border-radius: 24px; background: #fff; color: var(--ink); text-align: left; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 10px 0 rgba(0, 0, 0, .12), 0 24px 40px rgba(0, 0, 0, .3); animation: tocIn .25s ease-out both; }
 .victory__chatsheet .table-chat__list { height: 300px; }
 .victory {
