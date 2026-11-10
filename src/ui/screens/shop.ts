@@ -1,4 +1,4 @@
-// Boutique : billes, effets de BOUM, cris et titres, achetés avec les pièces gagnées en partie.
+// Le kiosque (la boutique) : billes, effets de BOUM, cris et titres, achetés avec les pièces gagnées en partie.
 import { type ShopItem, type ShopKind, SHOP, buy, lookOf, owns, wears } from '../../app/shop';
 import { draftProfile } from '../../app/profile';
 import { syncProfile } from '../../net/social';
@@ -6,8 +6,8 @@ import { boomFx } from '../board/boom';
 import { playFx } from '../board/fx';
 import { h, toast } from '../dom';
 import { COL } from '../kit/data';
-import { backButton, bille, billeSkin, segmented } from '../kit/kit';
-import { ROUTES, go } from '../nav';
+import { bille, billeSkin, segmented, tabbar } from '../kit/kit';
+import { burstEl } from '../planche';
 
 type Tab = 'bille' | 'boom' | 'titre' | 'plateau';
 const fmt = (n: number) => n.toLocaleString('fr-FR');
@@ -23,7 +23,8 @@ export function shopScreen(): { el: HTMLElement; cleanup: () => void } {
   /** Aperçu : quatre billes, ou un bout de plateau où l'effet se joue quand on le touche. */
   const preview = (it: ShopItem): HTMLElement => {
     if (it.kind === 'bille') return h('div', { class: 'shop__marbles' }, ...[0, 1, 2, 3].map(() => marble(it.id, 30)));
-    if (it.kind === 'cri') return h('div', { class: 'shop__fxbox' }, h('span', { class: 'shop__cri' }, it.name));
+    // Le cri, tel qu'il claque sur le plateau : dans son étoile.
+    if (it.kind === 'cri') return h('div', { class: 'shop__fxbox shop__burst' }, ...burstEl('#fff', 12, 36, 5), h('span', { class: 'shop__cri' }, it.name));
     if (it.kind === 'titre') return h('div', { class: 'shop__fxbox' }, h('span', { class: 'shop__titre' }, it.id === 'aucun' ? '—' : it.name));
     if (it.kind === 'plateau') return h('div', { class: 'shop__board shop__board--' + it.id, style: it.id === 'peint' ? { backgroundImage: `url(${import.meta.env.BASE_URL}plateaux/peint-mini.jpg)` } : {} });
     const layer = h('div', { class: 'shop__fx' });
@@ -65,10 +66,9 @@ export function shopScreen(): { el: HTMLElement; cleanup: () => void } {
   const tabs = segmented<Tab>([{ value: 'bille', label: 'Billes' }, { value: 'boom', label: 'BOUM' }, { value: 'titre', label: 'Titres' }, { value: 'plateau', label: 'Plateaux' }], tab, (v) => { tab = v; draw(); });
   draw();
 
-  const el = h('div', { class: 'screen shop', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 8px)' } },
+  const el = h('div', { class: 'screen screen--tabs shop', 'data-fit': 'tabs', 'data-tone': 'rose', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)' } },
     h('div', { class: 'screen__head' },
-      backButton(() => (history.length > 1 ? history.back() : go(ROUTES.home))),
-      h('span', { class: 't-title', style: { flex: 1, paddingTop: 3 } }, 'Boutique'), coins),
-    tabs, list);
+      h('span', { class: 't-screen', style: { marginRight: 'auto' } }, 'Le kiosque'), coins),
+    tabs, list, tabbar('shop'));
   return { el, cleanup: () => {} };
 }

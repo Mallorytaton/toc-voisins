@@ -90,7 +90,7 @@ function friendsPane(): View {
         h('span', { class: 'sheet__title' }, 'Ton QR code ami'),
         qrCard(friendLink(code)),
         h('span', { class: 'friend-code__value', style: { color: 'var(--ink)' } }, code),
-        h('span', { class: 'sheet__text' }, 'Ton ami le scanne dans TOC (Amis, bouton appareil photo) ou avec l’appareil photo de son téléphone.'),
+        h('span', { class: 'sheet__text' }, 'Ton ami le scanne dans TOC (Ta bande, bouton appareil photo) ou avec l’appareil photo de son téléphone.'),
         button('Fermer', 'text', close)));
     (document.getElementById('app') ?? document.body).append(wrap);
   };
@@ -232,8 +232,8 @@ export function friendsScreen(addCode: string | null = null): View {
     }
   };
   show('amis');
-  const el = h('div', { class: 'screen screen--tabs', 'data-fit': 'tabs', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)' } },
-    h('span', { class: 't-screen' }, 'Tes amis'),
+  const el = h('div', { class: 'screen screen--tabs bande', 'data-fit': 'tabs', 'data-tone': 'violet', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)' } },
+    h('span', { class: 't-screen' }, 'Ta bande'),
     segmented([{ value: 'amis' as const, label: 'Amis' }, { value: 'chat' as const, label: 'Chat d’équipe' }], 'amis', show),
     content,
     tabbar('friends'));
@@ -261,10 +261,11 @@ export function rankingScreen(): View {
       h('div', { class: 'podium' }, ...steps.filter(([i]) => rk[i]).map(([i, c, d, ht, nc, size]) => {
         const r = rk[i];
         return h('div', { ...(r.uid ? { role: 'button', tabindex: 0, style: { cursor: 'pointer' }, onclick: () => go('/joueur/' + r.uid) } : {}) },
-          avatarRing(r.char, r.color, size, c, 4, 3, '0 8px 14px rgba(70,40,20,.15)'),
+          // Le premier jubile, les deux autres font avec.
+          avatar(r.char, r.color, size, i === 0 ? 'joie' : i === 1 ? 'malin' : 'concentre'),
           h('span', { class: 'podium__name' }, r.name),
           h('span', { class: 'podium__pts' }, `${fmt(r.pts)} pts`),
-          h('div', { class: 'podium__step', style: { height: ht, background: c, color: nc, boxShadow: `0 7px 0 ${d},inset 0 3px 0 rgba(255,255,255,.45)` } }, i + 1));
+          h('div', { class: 'podium__step', style: { height: ht, background: c, color: nc, '--d': d } }, i + 1));
       })),
       h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 } }, ...rk.slice(3).map((r, i) =>
         h(r.uid ? 'button' : 'div', { class: 'rank-row', ...(r.uid ? { type: 'button', onclick: () => go('/joueur/' + r.uid) } : {}) },
@@ -301,7 +302,7 @@ export function rankingScreen(): View {
       .then(([all, f]) => { real = { all, friends: new Set(f) }; show(scope); })
       .catch(() => { real = { all: [], friends: new Set() }; show(scope); });
 
-  const el = h('div', { class: 'screen screen--tabs', 'data-fit': 'tabs', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)', paddingBottom: 'calc(var(--safe-bottom) + 162px)' } },
+  const el = h('div', { class: 'screen screen--tabs classement', 'data-fit': 'tabs', 'data-tone': 'bleu', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)', paddingBottom: 'calc(var(--safe-bottom) + 162px)' } },
     h('div', { style: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 } },
       h('span', { class: 't-screen' }, 'Classement'),
       h('span', { class: 'pill' }, DEMO ? 'Saison 4 · finit dans 12 j' : 'Saison 1')),

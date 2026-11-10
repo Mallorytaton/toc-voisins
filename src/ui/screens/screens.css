@@ -628,3 +628,86 @@ button.seat { background: #fff; box-shadow: 0 4px 0 var(--ink); }
 .recap__sub, .recap__line { color: var(--ink-2); }
 .recap__line { border: 2.5px solid var(--ink); border-radius: 10px; background: #fff; }
 .league-exit > .link-btn { color: var(--ink); }
+
+/* ---- Ta bande, le classement, le kiosque : à l'encre ---- */
+.friend-code { border: 3px solid var(--ink); border-radius: 18px; box-shadow: 4px 5px 0 rgba(22, 19, 31, .4); padding: 12px 14px; }
+.friend__dot { right: -2px; bottom: 0; width: 16px; height: 16px; border: 3px solid var(--ink); box-shadow: none; }
+.friend__name { font: 900 16.5px/1.1 var(--display); }
+.friend--off .friend__name { color: var(--ink-2); }
+.in-game { border: 2.5px solid var(--ink); border-radius: 10px; background: var(--jaune); color: var(--ink); font: 900 11.5px/1 var(--text); padding: 7px 9px 6px; }
+.bande > .scroll-y .t-label, .bande .t-label { color: var(--ink); }
+.bubble--me { background: var(--jaune); color: var(--ink); border: 3px solid var(--ink); border-radius: 16px 16px 4px 16px; box-shadow: 3px 4px 0 var(--ink); }
+.bubble--them { border: 3px solid var(--ink); border-radius: 16px 16px 16px 4px; box-shadow: 3px 4px 0 var(--ink); }
+.typing { border: 3px solid var(--ink); border-radius: 16px 16px 16px 4px; box-shadow: 3px 4px 0 var(--ink); }
+/* Le podium : trois marches cernées d'encre, le chiffre lettré */
+.podium { padding-top: 10px; }
+.podium__name { font: 900 14px/1.1 var(--display); color: var(--on-app); }
+.podium__pts { color: var(--on-app); opacity: .92; }
+.podium__step { align-self: stretch; display: grid; place-items: start center; padding-top: 6px; border: 3px solid var(--ink); border-bottom: none; border-radius: 16px 16px 0 0; box-shadow: inset 0 -10px 0 var(--d, rgba(0, 0, 0, .2)); font: 400 54px/1 var(--fx); text-shadow: none; }
+.podium > div > .avatar { filter: drop-shadow(3px 4px 0 rgba(22, 19, 31, .35)); }
+.rank-row { border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 4px 0 var(--ink); color: var(--ink); padding: 7px 12px 7px 8px; }
+button.rank-row { cursor: pointer; text-align: left; width: 100%; }
+.rank-row__n { font: 400 24px/1 var(--fx); color: var(--ink); padding-top: 4px; }
+.rank-row__name { font: 900 15.5px/1.1 var(--display); }
+.rank-me { background: var(--jaune); border: 3px solid var(--ink); box-shadow: 4px 5px 0 var(--ink); }
+.rank-me .rank-row__n { color: var(--rouge-txt); width: 44px; font-size: 22px; }
+.classement .pill { flex: none; }
+/* Le kiosque */
+.shop__grid { gap: 11px; }
+.shop__item { border: 3px solid var(--ink); border-radius: 18px; box-shadow: 4px 5px 0 var(--ink); padding: 10px 9px 9px; gap: 7px; }
+.shop__item--on { background: var(--jaune-l); box-shadow: 4px 5px 0 var(--ink); }
+.shop__marbles, .shop__fxbox { border: 3px solid var(--ink); border-radius: 12px; background: var(--wood); box-shadow: inset 0 -6px 0 rgba(120, 60, 10, .22); }
+.shop__marbles { align-self: stretch; justify-content: center; padding: 10px 6px 12px; }
+.shop__fxbox.shop__burst { height: 74px; border: none; background: none; box-shadow: none; }
+.shop__burst > i { position: absolute; }
+.shop__cri { position: relative; padding: 5px 0 0; border-radius: 0; background: none; box-shadow: none; font: 400 23px/1 var(--fx); letter-spacing: .03em; color: var(--rouge); text-shadow: none; }
+.shop__titre { border-radius: 7px; background: var(--ink); color: var(--jaune); font: 900 10.5px/1.3 var(--text); letter-spacing: .06em; text-transform: uppercase; padding: 4px 9px 3px; }
+.shop__name { font: 900 14.5px/1.1 var(--display); }
+.shop__btn { min-height: 38px; border: 2.5px solid var(--ink); border-radius: 11px; background: #fff; box-shadow: 0 3px 0 var(--ink); font: 900 12.5px/1.15 var(--display); }
+.shop__btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.shop__btn--buy { background: var(--jaune); color: var(--ink); }
+.shop__btn:disabled { background: var(--muted-bg); border-style: dashed; box-shadow: none; color: var(--ink-2); }
+.shop__coin { width: 15px; height: 15px; border: 2.5px solid var(--ink); background: #fff; }
+.shop__state { min-height: 30px; margin: 4px 0; padding: 1px 12px 0; border-radius: 999px; background: var(--ink); color: #fff; font: 900 10.5px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; }
+.shop__board { border: 3px solid var(--ink); box-shadow: 3px 4px 0 var(--ink); }
+.shop__foot { color: var(--ink); font-weight: 700; }
+.shop .t-label { color: var(--ink); }
+.shop .tokens { align-self: center; }
+
+/* ---- Fiche de héros ---- */
+.heros > .rays { --rx: 50%; --ry: 24%; inset: -40px; z-index: -1; }
+.heros__head { justify-content: space-between; flex: none; }
+.heros__k { color: var(--ink); letter-spacing: .14em; }
+.heros__body { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 0 -20px; padding: 0 20px 18px; }
+.heros__star { position: relative; width: 250px; height: 214px; display: grid; place-items: center; flex: none; }
+.heros__star > i { position: absolute; }
+.heros__star > .avatar { position: relative; filter: drop-shadow(5px 6px 0 rgba(22, 19, 31, .3)); }
+.heros__lvl { position: absolute; right: 8px; top: 8px; width: 58px; height: 58px; border: 3px solid var(--ink); border-radius: 50%; background: #fff; box-shadow: 3px 4px 0 var(--ink); rotate: 10deg; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.heros__lvl > small { font: 900 7.5px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; }
+.heros__lvl > b { font: 400 25px/1 var(--fx); padding-top: 2px; }
+.heros__name { margin-top: -30px; position: relative; max-width: 100%; padding: 6px 8px 0; font: 400 62px/.9 var(--fx); letter-spacing: .02em; color: #fff; text-shadow: var(--stroke-3), 5px 6px 0 var(--ink); rotate: -4deg; white-space: nowrap; }
+.heros__name--long { font-size: 44px; }
+.heros__titre { align-self: center; font: 400 19px/1 var(--fx); letter-spacing: .04em; padding: 7px 13px 4px; rotate: 2deg; }
+.heros__xp { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 0 34px; }
+.heros__xp > .bar { align-self: stretch; }
+.heros__xp > span { font: 900 11px/1 var(--text); letter-spacing: .08em; }
+.heros__tiles { align-self: stretch; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 2px; }
+.heros__tile { padding: 12px 4px 9px; border: 3px solid var(--ink); border-radius: 16px; background: #fff; box-shadow: 4px 5px 0 var(--ink); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.heros__tile--hot { background: var(--jaune); rotate: -3deg; }
+.heros__tile > b { font: 400 38px/1 var(--fx); letter-spacing: .02em; }
+.heros__tile > span { font: 900 10px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; }
+.heros__duo { align-self: stretch; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 9px; }
+.heros__card { min-width: 0; padding: 11px 11px 10px; border: 3px solid var(--ink); border-radius: 16px; background: #fff; box-shadow: 4px 5px 0 var(--ink); display: flex; flex-direction: column; gap: 6px; }
+.heros__card--jaune { background: var(--jaune); }
+.heros__card-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.heros__card-row > div:last-child { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.heros__card-row b { font: 400 23px/1 var(--fx); letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 2px; }
+.heros__card-row span { font: 700 11.5px/1.25 var(--text); }
+/* La carte fétiche, en petit : la vraie carte du jeu, réduite */
+.heros__mini { flex: none; width: 42px; height: 60px; rotate: -6deg; }
+.heros__mini > .pcard { transform: scale(.455); transform-origin: 0 0; }
+.heros__lines { align-self: stretch; padding: 6px 14px; display: flex; flex-direction: column; }
+.heros__line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 8px 0; font: 700 13.5px/1.2 var(--text); color: var(--ink-2); }
+.heros__line + .heros__line { border-top: 2.5px dashed var(--ink); }
+.heros__line > b { font: 900 14.5px/1.2 var(--display); color: var(--ink); text-align: right; }
+.heros__since { color: var(--ink); text-align: center; }
