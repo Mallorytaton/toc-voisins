@@ -1,6 +1,8 @@
 // Données de démonstration de la maquette, affichées seulement avec ?demo dans l'adresse
 // (captures d'écran, comparaison avec la maquette). Les vraies données arrivent avec les comptes.
 import { CHARS, COLOR_NAMES, type CharId, type ColorName } from './kit/data';
+import { DEFAULT_VARIANTS } from '../engine';
+import type { League } from '../net/league';
 
 export const DEMO = new URLSearchParams(location.search).has('demo');
 
@@ -69,3 +71,38 @@ export const DEMO_GUESTS: { name: string; char: CharId; color: ColorName }[] = [
   { name: 'Ginette', char: 'chignon', color: 'violet' },
   { name: 'Praline', char: 'bandeau', color: 'rose' },
 ];
+
+// ---------- Un album de démonstration : quatre voisins, douze épisodes ----------
+
+export const DEMO_UID = 'demo-fredo';
+const DAY = 86_400_000;
+/** Jeudi prochain, 20 h 30 (la soirée de la bande). */
+function nextThursday(): number {
+  const d = new Date();
+  d.setDate(d.getDate() + ((4 - d.getDay() + 7) % 7 || 7));
+  d.setHours(20, 30, 0, 0);
+  return d.getTime();
+}
+/** [gagnant, jours écoulés, billes renvoyées par place] des douze parties, de la plus récente à la plus ancienne. */
+const DEMO_GAMES: [number, number, number[]][] = [
+  [0, 5, [2, 1, 4, 1]], [1, 5, [1, 2, 0, 5]], [0, 12, [5, 2, 1, 1]], [0, 12, [1, 0, 3, 2]], [1, 19, [0, 4, 1, 2]], [0, 19, [3, 1, 2, 0]],
+  [1, 26, [1, 3, 1, 3]], [0, 26, [2, 2, 2, 1]], [1, 33, [0, 2, 1, 4]], [0, 33, [4, 1, 1, 0]], [1, 40, [2, 5, 0, 1]], [0, 40, [1, 1, 3, 2]],
+];
+export const DEMO_LEAGUE: League = {
+  code: '4821', name: 'Les voisins du 12', n: 4, host: DEMO_UID,
+  seats: [DEMO_UID, 'demo-boss', 'demo-mimi', 'demo-coco'],
+  members: {
+    [DEMO_UID]: { name: 'Frédo', char: 'tuque', color: 'coral' },
+    'demo-boss': { name: 'Le Boss', char: 'couronne', color: 'blue' },
+    'demo-mimi': { name: 'Mimi', char: 'lunettes', color: 'yellow' },
+    'demo-coco': { name: 'Coco', char: 'casquette', color: 'teal' },
+  },
+  wins: [7, 5],
+  games: DEMO_GAMES.map(([winner, days, captures], k) => ({
+    key: 'demo-' + k, winner, at: Date.now() - days * DAY - (k % 2) * 3_600_000, duration: (24 + (k * 7) % 13) * 60_000,
+    captures, exits: [4, 4, 4, 4].map((v, s) => (s % 2 === winner ? v : 2 + ((k + s) % 3))), offline: k === 4,
+  })),
+  variants: DEFAULT_VARIANTS,
+  soiree: { id: 'demo-soiree', at: nextThursday(), place: 'Chez Mimi', by: 'demo-mimi', rsvp: { 'demo-mimi': 'oui', 'demo-boss': 'oui', 'demo-coco': 'peut' } },
+  offline: [],
+};

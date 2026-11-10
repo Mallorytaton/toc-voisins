@@ -22,7 +22,7 @@ import { ROUTES, go, rememberLink } from './ui/nav';
 import { gameScreen } from './ui/screens/game';
 import './ui/screens/game.css';
 import { homeScreen, savedMode } from './ui/screens/home';
-import { leagueScreen, newLeagueScreen } from './ui/screens/league';
+import { albumsScreen, leagueScreen, newLeagueScreen } from './ui/screens/league';
 import { onboardScreen, pickScreen, splashScreen } from './ui/screens/intro';
 import { roomScreen } from './ui/screens/room';
 import { friendsScreen, rankingScreen } from './ui/screens/social';
@@ -64,7 +64,7 @@ function startSocial() {
     if (location.hash === '#' + target || location.hash === '#/partie') return;
     document.querySelector('.invite-banner')?.remove();
     const banner = h('div', { class: 'invite-banner', role: 'alert' },
-      h('span', null, inv.league ? `${inv.name} t’invite dans le tournoi « ${inv.league} » !` : `${inv.name} t’invite dans sa salle !`),
+      h('span', null, inv.league ? `${inv.name} t’invite dans l’album « ${inv.league} » !` : `${inv.name} t’invite dans sa salle !`),
       button(inv.league ? 'Voir' : 'Rejoindre', 'primary', () => { banner.remove(); go(target); }, { size: 'xs' }),
       h('button', { class: 'btn btn--text', type: 'button', 'aria-label': 'Fermer', onclick: () => banner.remove() }, '✕'));
     app.append(banner);
@@ -154,8 +154,8 @@ const myPane = (text: string) => lazyPane(pickHint(text), (show) => {
   return () => { alive = false; };
 });
 /** Ton tournoi le plus récent (Jouer), sinon de quoi en créer un. */
-const leaguePane = () => lazyPane(pickHint('Touche un de tes tournois : sa prochaine soirée, son classement et son chat s’affichent ici.',
-  ['Créer un tournoi', () => go('/tournoi/nouveau')]), (show) => {
+const leaguePane = () => lazyPane(pickHint('Touche un de tes albums : sa prochaine soirée, son classement et son chat s’affichent ici.',
+  ['Créer un album', () => go('/tournoi/nouveau')]), (show) => {
   if (!navigator.onLine) return () => {};
   let done = false;
   return watchMyLeagues((list) => { if (done || !list.length) return; done = true; show(leagueScreen(list[0].code)); });
@@ -253,7 +253,7 @@ function router() {
   }
   const lg = /^\/tournoi\/(\d{4})$/.exec(path);
   if (lg) {
-    if (!navigator.onLine) return message('Pas de réseau', 'Les tournois se jouent en ligne. Réessaie quand tu es connecté.');
+    if (!navigator.onLine) return message('Pas de réseau', 'Les albums se jouent en ligne. Réessaie quand tu es connecté.');
     return wideFold() ? setSplit('home', () => listView('home', params), leagueScreen(lg[1])) : setView(leagueScreen(lg[1]));
   }
   if (path === '/partie') {
@@ -277,6 +277,8 @@ function router() {
     case ROUTES.ranking:
       if (wideFold()) return setSplit('ranking', () => listView('ranking', params), myPane('Touche un joueur pour voir sa fiche.'));
       return setView(rankingScreen());
+    case ROUTES.albums:
+      return setView(albumsScreen());
     case ROUTES.home:
       // Sur un téléphone, dans le navigateur : on propose d'installer l'app.
       // (seulement si on est encore sur l'accueil : jamais au milieu d'une salle ou d'une partie)
@@ -327,7 +329,7 @@ async function openOnlineRoom(code: string, n: 4 | 6, ligue: string | null = nul
       else if (ligue) {
         // Partie de tournoi : places fixes de chaque membre, invitation envoyée aux autres.
         const l = await getLeagueOnce(ligue);
-        if (!l) throw new Error('Ce tournoi n’existe plus.');
+        if (!l) throw new Error('Cet album n’existe plus.');
         currentSession = await RoomSession.create(l.n, l.variants, { league: l.code, title: l.name, reserved: l.seats });
         const me = currentSession.uid;
         // Les membres se connaissent : pas de lien à partager, la partie leur est annoncée (app et notification).

@@ -1,13 +1,15 @@
-// Tournois : création, page du tournoi (équipes fixes, score cumulé, dernières parties).
+// Albums (les tournois) : la liste de tes albums, la création, et la page d'un album
+// (équipes fixes, victoires cumulées, soirées, épisodes).
 import {
   type League, type OfflineClaim, type Rsvp, answerSoiree, cancelSoiree, claimApproved, createLeague, deleteLeague, dropOffline, liveGame,
-  type LeagueMsg, leagueLink, leaveLeague, proposeOffline, proposeSoiree, refusedBy, sendLeagueMsg, settleOffline, takeLeagueSeat,
-  voteOffline, watchLeague, watchLeagueChat,
+  type LeagueMsg, leagueLink, leaveLeague, parseLeagueCode, proposeOffline, proposeSoiree, refusedBy, sendLeagueMsg, settleOffline, takeLeagueSeat,
+  voteOffline, watchLeague, watchLeagueChat, watchMyLeagues,
 } from '../../net/league';
 import { type FriendView, currentUid, inviteToLeague, watchFriends } from '../../net/social';
-import { h, toast } from '../dom';
+import { DEMO, DEMO_LEAGUE, DEMO_UID } from '../demo';
+import { deNom, h, toast } from '../dom';
 import { COL, SEAT_COLORS, TEAM_NAMES } from '../kit/data';
-import { avatarRing, backButton, button, duo, segmented } from '../kit/kit';
+import { ICONS, avatar, avatarRing, backButton, button, duo, icon, segmented, tabbar } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { savedMode } from './home';
 import { soireeReminderHint } from '../push-offer';
@@ -22,6 +24,8 @@ type View = { el: HTMLElement; cleanup: () => void };
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
 
 const dayFmt = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' });
+const calDay = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' });
+const calMonth = new Intl.DateTimeFormat('fr-FR', { month: 'short' });
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
 /** « Ce soir · 20 h 30 », « Demain · 20 h », « Jeudi 31 oct. · 20 h 30 ». */
@@ -32,10 +36,11 @@ export function soireeLabel(at: number): string {
   return `${day.charAt(0).toUpperCase() + day.slice(1)} · ${d.getHours()} h${m ? ' ' + String(m).padStart(2, '0') : ''}`;
 }
 
-const ANSWERS: [Rsvp, string][] = [['oui', 'Je viens'], ['peut', 'Peut-être'], ['non', 'Je ne peux pas']];
+const ANSWERS: [Rsvp, string][] = [['oui', 'Je viens'], ['peut', 'Peut-être'], ['non', 'Pas dispo']];
+/** Pastilles de réponse : aplats francs, lisibles sur la carte jaune de la soirée. */
 const PILLS: Record<Rsvp | 'none', [string, string, string]> = {
-  oui: ['Présent·e', '#d4f4eb', '#16705a'], peut: ['Peut-être', '#fff1c9', '#7a5600'],
-  non: ['Absent·e', '#ffe3da', '#c9401f'], none: ['Pas encore répondu', 'rgba(255,255,255,.22)', '#fff'],
+  oui: ['Vient', 'var(--turq)', 'var(--ink)'], peut: ['Peut-être', '#fff', 'var(--ink)'],
+  non: ['Pas dispo', 'var(--rouge)', 'var(--ink)'], none: ['Sans réponse', 'var(--muted-bg)', 'var(--ink-2)'],
 };
 
 /** Formulaire « Proposer une soirée » : date, heure, lieu. */
@@ -63,7 +68,7 @@ function openSoireeSheet(code: string) {
   const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
     h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Proposer une soirée' },
       h('span', { class: 'sheet__title' }, 'Proposer une soirée'),
-      h('span', { class: 'sheet__text' }, 'Les autres joueurs du tournoi la verront et pourront répondre.'),
+      h('span', { class: 'sheet__text' }, 'Les autres joueurs de l’album la verront et pourront répondre.'),
       h('div', { style: { display: 'flex', gap: 8 } }, h('label', { style: { flex: 1.4, display: 'flex', flexDirection: 'column', gap: 6 } }, h('span', { class: 't-label' }, 'Date'), date),
         h('label', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 6 } }, h('span', { class: 't-label' }, 'Heure'), time)),
       h('label', { style: { display: 'flex', flexDirection: 'column', gap: 6 } }, h('span', { class: 't-label' }, 'Lieu (facultatif)'), place),
@@ -85,20 +90,25 @@ function soireeCard(l: League, me: string): HTMLElement {
   const people = l.seats.filter(Boolean);
   const mine = s.rsvp[me];
   const yes = people.filter((u) => s.rsvp[u] === 'oui').length;
-  return h('div', { class: 'hero hero--blue soiree' },
-    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 } },
-      h('span', { class: 'tag' }, 'PROCHAINE SOIRÉE'),
-      h('span', { style: { font: '800 13px var(--text)' } }, `${yes} / ${people.length} présents`)),
-    h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
-      h('span', { class: 'soiree__when' }, soireeLabel(s.at)),
-      h('span', { style: { font: '700 13px var(--text)', opacity: 0.9 } },
-        [s.place, l.members[s.by] ? `proposée par ${s.by === me ? 'toi' : l.members[s.by].name}` : ''].filter(Boolean).join(' · '))),
+  const when = new Date(s.at);
+  return h('div', { class: 'hero soiree' },
+    h('div', { class: 'soiree__top' },
+      // Le feuillet du calendrier : le jour, la date, le mois.
+      h('div', { class: 'soiree__cal', 'aria-hidden': 'true' },
+        h('i', null, calDay.format(when).replace('.', '')), h('b', null, when.getDate()), h('span', null, calMonth.format(when))),
+      h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 } },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 } },
+          h('span', { class: 't-mini' }, 'Prochaine soirée'),
+          h('span', { class: 't-mini' }, `${yes} sur ${people.length}`)),
+        h('span', { class: 'soiree__when' }, soireeLabel(s.at)),
+        h('span', { style: { font: '700 12.5px var(--text)' } },
+          [s.place, l.members[s.by] ? `proposée par ${s.by === me ? 'toi' : l.members[s.by].name}` : ''].filter(Boolean).join(' · ')))),
     h('div', { class: 'soiree__list' }, ...people.map((u) => {
       const m = l.members[u];
       const [label, bg, fg] = PILLS[s.rsvp[u] ?? 'none'];
       return h('div', { class: 'soiree__row' },
         avatarRing(m.char, m.color, 26, 'transparent', 2, 0, null),
-        h('span', { class: 'soiree__name' }, u === me ? `${m.name} (toi)` : m.name),
+        h('span', { class: 'soiree__name' }, u === me ? 'Toi' : m.name),
         h('span', { class: 'soiree__pill', style: { background: bg, color: fg } }, label));
     })),
     member && h('div', { class: 'rsvp', role: 'group', 'aria-label': 'Ta réponse' }, ...ANSWERS.map(([v, label]) =>
@@ -259,7 +269,7 @@ function openOfflineSheet(l: League) {
   const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
     h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Partie jouée hors de l’app' },
       h('span', { class: 'sheet__title' }, 'Partie hors de l’app'),
-      h('span', { class: 'sheet__text' }, 'Vous avez joué sur un vrai plateau ? La victoire comptera quand tous les joueurs du tournoi l’auront acceptée.'),
+      h('span', { class: 'sheet__text' }, 'Vous avez joué sur un vrai plateau ? La victoire comptera quand tous les joueurs de l’album l’auront acceptée.'),
       h('span', { class: 't-label' }, 'Qui a gagné ?'),
       h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } }, ...picks),
       h('label', { style: { display: 'flex', flexDirection: 'column', gap: 6 } }, h('span', { class: 't-label' }, 'Quel jour ?'), date),
@@ -313,9 +323,9 @@ export function newLeagueScreen(): View {
   let n = savedMode();
   let variants: Variants = { ...DEFAULT_VARIANTS };
   const rules = variantsCard(() => variants, () => true, (v) => { variants = v; rules.refresh(); });
-  const name = h('input', { class: 'field field--big', placeholder: 'Ex. Les voisins du 12', 'aria-label': 'Nom du tournoi', maxlength: 30, enterkeyhint: 'done' });
-  const create = button('Créer le tournoi', 'primary', async () => {
-    if (!navigator.onLine) return toast('Il faut du réseau pour créer un tournoi.');
+  const name = h('input', { class: 'field field--big', placeholder: 'Ex. Les voisins du 12', 'aria-label': 'Nom de l’album', maxlength: 30, enterkeyhint: 'done' });
+  const create = button('Créer l’album', 'primary', async () => {
+    if (!navigator.onLine) return toast('Il faut du réseau pour créer un album.');
     create.disabled = true;
     try {
       const code = await createLeague(name.value, n, variants);
@@ -326,13 +336,13 @@ export function newLeagueScreen(): View {
       create.disabled = false;
     }
   }, { block: true });
-  const el = h('div', { class: 'screen new-league', 'data-wide': '', style: { gap: 16, paddingTop: 'calc(var(--safe-top) + 8px)' } },
+  const el = h('div', { class: 'screen new-league', 'data-wide': '', 'data-tone': 'turq', style: { gap: 16, paddingTop: 'calc(var(--safe-top) + 8px)' } },
     h('div', { class: 'screen__head' },
-      backButton(() => go(ROUTES.home)),
-      h('span', { class: 't-title', style: { paddingTop: 3 } }, 'Nouveau tournoi')),
+      backButton(() => go(ROUTES.albums)),
+      h('span', { class: 't-title', style: { paddingTop: 3 } }, 'Nouvel album')),
     h('p', { class: 't-body new-league__desc', style: { margin: 0 } },
       'Toujours les mêmes équipes, et les victoires s’additionnent de partie en partie. Idéal pour jouer entre voisins.'),
-    h('label', { class: 'new-league__name', style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Nom du tournoi'), name),
+    h('label', { class: 'new-league__name', style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Nom de l’album'), name),
     h('div', { class: 'new-league__players', style: { display: 'flex', flexDirection: 'column', gap: 8 } }, h('span', { class: 't-label' }, 'Joueurs'),
       segmented<4 | 6>([{ value: 4, label: '4 joueurs', sub: '2 équipes de 2' }, { value: 6, label: '6 joueurs', sub: '3 équipes de 2' }], n, (v) => { n = v; })),
     rules.el,
@@ -400,7 +410,7 @@ function openChatSheet(l: League, me: string, onClose: () => void) {
   });
   const close = () => { stop(); wrap.remove(); onClose(); };
   const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
-    h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Discussion du tournoi' },
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Discussion de l’album' },
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
         h('span', { class: 'sheet__title', style: { flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, l.name),
         button('Fermer', 'text', close)),
@@ -419,16 +429,16 @@ function exitLinks(l: League, me: string): HTMLElement {
     seated && !(host && alone) && h('button', {
       class: 'link-btn link-btn--danger', type: 'button',
       onclick: () => confirmSheet(`Quitter « ${l.name} » ?`,
-        host ? 'Ta place se libère et un autre joueur devient le créateur du tournoi. Les victoires de ton équipe restent.'
+        host ? 'Ta place se libère et un autre joueur devient le créateur de l’album. Les victoires de ton équipe restent.'
           : 'Ta place se libère pour quelqu’un d’autre. Les victoires de ton équipe restent.',
-        'Quitter le tournoi', async () => { await leaveLeague(l.code); go(ROUTES.home); toast('Tu as quitté le tournoi.'); }),
-    }, 'Quitter le tournoi'),
+        'Quitter l’album', async () => { await leaveLeague(l.code); go(ROUTES.home); toast('Tu as quitté l’album.'); }),
+    }, 'Quitter l’album'),
     host && h('button', {
       class: 'link-btn link-btn--danger', type: 'button',
       onclick: () => confirmSheet(`Supprimer « ${l.name} » ?`,
-        'Le tournoi disparaît pour tout le monde : scores, historique des parties et prochaine soirée. C’est définitif.',
-        'Supprimer le tournoi', async () => { await deleteLeague(l.code); go(ROUTES.home); toast('Tournoi supprimé.'); }),
-    }, 'Supprimer le tournoi'));
+        'L’album disparaît pour tout le monde : scores, historique des parties et prochaine soirée. C’est définitif.',
+        'Supprimer l’album', async () => { await deleteLeague(l.code); go(ROUTES.home); toast('Album supprimé.'); }),
+    }, 'Supprimer l’album'));
 }
 
 /** « Inviter » : le lien à partager, ou directement un ami de l'app. */
@@ -459,15 +469,15 @@ function openInviteSheet(l: League) {
             h('span', { class: 'invite-row__name' }, f.name), h('span', { class: 'invite-row__status' }, f.status)),
           b);
       })
-      : [h('span', { class: 't-body' }, friends.length ? 'Tous tes amis sont déjà dans ce tournoi.' : 'Ajoute des amis depuis l’onglet Amis : tu pourras les inviter d’ici.')]));
+      : [h('span', { class: 't-body' }, friends.length ? 'Tous tes amis sont déjà dans cet album.' : 'Ajoute des amis depuis l’onglet Ta bande : tu pourras les inviter d’ici.')]));
   };
   draw([]);
   const stop = full ? () => {} : watchFriends(draw);
   const close = () => { stop(); wrap.remove(); };
   const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
-    h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Inviter dans le tournoi' },
-      h('span', { class: 'sheet__title' }, 'Inviter dans le tournoi'),
-      h('span', { class: 'sheet__text' }, full ? 'Le tournoi est complet : le lien permet seulement de le suivre.' : 'Envoie le lien à qui tu veux, ou invite directement un ami de l’app.'),
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Inviter dans l’album' },
+      h('span', { class: 'sheet__title' }, 'Inviter dans l’album'),
+      h('span', { class: 'sheet__text' }, full ? 'L’album est complet : le lien permet seulement de le suivre.' : 'Envoie le lien à qui tu veux, ou invite directement un ami de l’app.'),
       button('Partager le lien', 'primary', () => shareLeague(l), { size: 'md', block: true }),
       !full && h('span', { class: 't-label' }, 'Tes amis'),
       !full && h('div', { class: 'scroll-y', style: { maxHeight: '40vh' } }, list),
@@ -477,7 +487,7 @@ function openInviteSheet(l: League) {
 
 async function shareLeague(l: League) {
   const url = leagueLink(l.code);
-  const text = `Rejoins le tournoi « ${l.name} » sur TOC (code T-${l.code})`;
+  const text = `Rejoins l’album « ${l.name} » sur TOC (code T-${l.code})`;
   try {
     if (navigator.share) return await navigator.share({ title: 'TOC', text, url });
     await navigator.clipboard.writeText(`${text} : ${url}`);
@@ -485,11 +495,67 @@ async function shareLeague(l: League) {
   } catch { /* partage annulé */ }
 }
 
+// ---------- L'album : sa page, et la liste de tes albums ----------
+
+/** Toi, dans les données de l'album (un joueur fictif en démonstration). */
+const myUid = () => (DEMO ? DEMO_UID : currentUid());
+
+/** Le fond d'une équipe (comme sur l'affiche) et la couleur du texte posé dessus. */
+const TEAM_BG = ['var(--jaune)', 'var(--bleu)', '#ff8fc4'];
+const TEAM_INK = ['var(--ink)', '#fff', 'var(--ink)'];
+
+/** « En tête » : les équipes, leurs joueurs, et leurs victoires en gros chiffres. */
+function scoreCard(l: League, me: string): HTMLElement {
+  const half = l.n / 2;
+  const best = Math.max(...l.wins), leaders = l.wins.filter((w) => w === best).length;
+  const team = (t: number) => {
+    const seats = teamSeats(l.n, t);
+    const ahead = best > 0 && l.wins[t] === best && leaders === 1, behind = best > 0 && l.wins[t] < best;
+    return h('div', { class: 'alb-team' },
+      h('div', { class: 'alb-team__duo' }, ...seats.map((k, j) => {
+        const m = l.members[l.seats[k]];
+        return m ? avatar(m.char, m.color, half === 2 ? 50 : 40, ahead ? 'joie' : behind ? (j ? 'furieux' : 'concentre') : 'content', { flip: j === 1 }) : h('span', { class: 'alb-team__free' });
+      })),
+      h('span', { class: 'alb-team__name' }, TEAM_NAMES[t]),
+      h('span', { class: 'alb-team__who' }, seats.map((k) => { const u = l.seats[k]; return u === me ? 'Toi' : l.members[u]?.name ?? '…'; }).join(' et ')));
+  };
+  const score = (t: number) => h('b', { class: 'alb-score__n', style: { '--c': TEAM_BG[t] }, 'aria-label': `${TEAM_NAMES[t]} : ${l.wins[t]} victoire${l.wins[t] > 1 ? 's' : ''}` }, l.wins[t]);
+  return h('div', { class: 'card alb-score alb-score--n' + l.n },
+    h('span', { class: 'tag tag--jaune alb-score__tag' }, !best ? 'Tout reste à écrire' : leaders > 1 ? 'Égalité' : 'En tête : ' + TEAM_NAMES[l.wins.indexOf(best)]),
+    half === 2
+      ? h('div', { class: 'alb-score__row' }, team(0), h('div', { class: 'alb-score__mid' }, score(0), h('i', null, '-'), score(1)), team(1))
+      : h('div', { class: 'alb-score__row' }, ...[0, 1, 2].map((t) => h('div', { class: 'alb-score__col' }, score(t), team(t)))),
+    h('span', { class: 'alb-score__foot' }, 'Victoires depuis le début de l’album'));
+}
+
+/** Les derniers épisodes : une vignette par partie, de la plus récente à la plus ancienne. */
+function episodes(l: League, canDeclare: boolean): HTMLElement {
+  const total = l.games.length;
+  return h('div', { class: 'alb-eps' },
+    h('div', { class: 'alb-eps__head' }, h('span', { class: 't-title' }, 'Les derniers épisodes'),
+      canDeclare && h('button', { class: 'link-btn', type: 'button', onclick: () => openOfflineSheet(l) }, '+ Partie hors app')),
+    total
+      ? h('div', { class: 'alb-eps__strip' }, ...l.games.slice(0, 6).map((g, i) => {
+        const seats = teamSeats(l.n, g.winner);
+        // La vedette de l'épisode : le gagnant qui a renvoyé le plus de billes.
+        const star = seats.reduce((a, k) => ((g.captures[k] ?? 0) > (g.captures[a] ?? 0) ? k : a), seats[0]);
+        const m = l.members[l.seats[star]];
+        const booms = g.captures.reduce((a, v) => a + (v ?? 0), 0);
+        return h('div', { class: 'alb-ep', style: { '--c': TEAM_BG[g.winner], '--k': TEAM_INK[g.winner], rotate: `${[-2, 1.5, -1, 2][i % 4]}deg` } },
+          h('span', { class: 'alb-ep__no' }, `N° ${total - i}`),
+          h('span', { class: 'alb-ep__fx' }, booms ? `${booms} BOUM` : 'FIN !'),
+          m ? avatar(m.char, m.color, 44, 'joie') : null,
+          h('span', { class: 'alb-ep__cap' }, `Victoire ${TEAM_NAMES[g.winner]}`,
+            h('small', null, [g.at ? dateFmt.format(new Date(g.at)) : '', g.offline ? 'hors app' : ''].filter(Boolean).join(' · '))));
+      }))
+      : h('div', { class: 'card card--flat alb-eps__none' }, 'Aucun épisode pour l’instant. Le premier se joue ce soir ?'));
+}
+
 export function leagueScreen(code: string): View {
-  const title = h('span', { class: 't-title', style: { flex: 1, minWidth: 0, paddingTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, 'Tournoi');
-  const pill = h('span', { class: 'pill' });
-  const codeVal = h('span', { style: { font: '800 26px/1.05 var(--display)', letterSpacing: '.06em' } }, 'T-' + code);
-  const teams = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
+  const kicker = h('span', { class: 'tag' }, 'Album');
+  const title = h('span', { class: 't-screen alb-title' }, 'Album');
+  const codeVal = h('span', { style: { font: '900 24px/1.05 var(--display)', letterSpacing: '.06em' } }, 'T-' + code);
+  const top = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   const soiree = h('div');
   const recap = h('div');
   const claims = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
@@ -498,70 +564,74 @@ export function leagueScreen(code: string): View {
   let msgs: LeagueMsg[] | null = null;
   const drawChat = () => {
     const l = league;
-    const member = !!l?.members[currentUid()];
+    const member = !!l?.members[myUid()];
     // Devenu membre page ouverte : la lecture, refusée jusque-là, est relancée.
-    if (member && msgs === null && !retried) {
+    if (member && msgs === null && !retried && !DEMO) {
       retried = true;
       stopChat();
       stopChat = watchLeagueChat(code, onMsgs);
     }
-    chat.replaceChildren(...(l && msgs && member ? [chatCard(l, currentUid(), msgs, () => openChatSheet(l, currentUid(), drawChat))] : []));
+    chat.replaceChildren(...(l && msgs && member ? [chatCard(l, myUid(), msgs, () => openChatSheet(l, myUid(), drawChat))] : []));
   };
   let retried = false;
   const onMsgs = (m: LeagueMsg[] | null) => { msgs = m; drawChat(); };
-  let stopChat = watchLeagueChat(code, onMsgs);
+  let stopChat = DEMO ? () => {} : watchLeagueChat(code, onMsgs);
   const stats = h('div');
   const exit = h('div');
   // Déclarations acceptées par tous, en cours d'enregistrement (une seule fois par téléphone)
   const settling = new Set<string>();
-  const hist = h('div', { class: 'card', style: { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 } });
-  // Déclaré avant la carte « Règles », qui lit le tournoi dès sa création.
+  const hist = h('div');
+  // Déclaré avant la carte « Règles », qui lit l'album dès sa création.
   let league: League | null = null;
   const rules = variantsCard(() => league?.variants ?? DEFAULT_VARIANTS, () => false, () => undefined);
   const status = h('span', { class: 'status-line' });
   const play = button('Jouer une partie', 'primary', () => undefined, { size: 'lg', block: true });
-  const invite = button('Inviter', 'dark', () => league && openInviteSheet(league), { size: 'sm' });
+  const invite = h('button', { class: 'btn-round alb-invite', type: 'button', 'aria-label': 'Inviter dans l’album', onclick: () => league && openInviteSheet(league) }, icon(ICONS.invite, 22, 2.8));
+  const codeCard = h('div', { class: 'card alb-code' },
+    h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('span', { class: 't-mini' }, 'Code de l’album'), codeVal),
+    button('Inviter', 'dark', () => league && openInviteSheet(league), { size: 'sm' }));
 
   const draw = (l: League | null) => {
     league = l;
     if (!l) {
-      title.textContent = 'Tournoi introuvable';
-      teams.replaceChildren(tocSays(`Aucun tournoi T-${code}. Vérifie le code.`, 'surpris'));
-      hist.hidden = true;
-      play.hidden = true;
+      title.textContent = 'Album introuvable';
+      top.replaceChildren(tocSays(`Aucun album T-${code}. Vérifie le code.`, 'surpris'));
+      hist.hidden = codeCard.hidden = invite.hidden = play.hidden = true;
       return;
     }
-    const me = currentUid();
+    const me = myUid();
     const seated = l.seats.includes(me);
     const full = l.seats.every(Boolean);
     title.textContent = l.name;
-    pill.textContent = `${l.n} joueurs`;
-    teams.replaceChildren(...Array.from({ length: l.n / 2 }, (_, t) => {
+    title.classList.toggle('alb-title--long', l.name.length > 16);
+    kicker.textContent = `${l.games.length} épisode${l.games.length > 1 ? 's' : ''} · ${l.n} joueurs`;
+    // Album complet : le score en tête. Sinon, les équipes et leurs places à prendre.
+    top.replaceChildren(...(full ? [scoreCard(l, me)] : Array.from({ length: l.n / 2 }, (_, t) => {
       const seats = teamSeats(l.n, t);
       return h('div', { class: 'card card--lg', style: { display: 'flex', flexDirection: 'column', gap: 10 } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
           duo(SEAT_COLORS[l.n][seats[0]], SEAT_COLORS[l.n][seats[1]]),
-          h('span', { style: { flex: 1, font: '800 17px/1 var(--display)', paddingTop: 2 } }, 'Équipe ' + TEAM_NAMES[t]),
-          h('span', { style: { font: '800 30px/1 var(--display)', color: COL[SEAT_COLORS[l.n][seats[0]]].d }, 'aria-label': `${l.wins[t]} victoires` }, l.wins[t]),
+          h('span', { style: { flex: 1, font: '400 22px/1 var(--fx)', letterSpacing: '.03em', paddingTop: 3 } }, 'Équipe ' + TEAM_NAMES[t]),
+          h('span', { style: { font: '400 32px/1 var(--fx)', paddingTop: 3 }, 'aria-label': `${l.wins[t]} victoires` }, l.wins[t]),
           h('span', { style: { font: '800 12px var(--text)', color: 'var(--ink-2)', paddingTop: 6 } }, l.wins[t] > 1 ? 'victoires' : 'victoire')),
         h('div', { class: 'seat-grid' }, ...seats.map((k) => {
           const uid = l.seats[k], tint = COL[SEAT_COLORS[l.n][k]];
           const m = uid ? l.members[uid] : null;
           if (m)
             return h('div', { class: 'seat', style: { background: tint.l } },
-              avatarRing(m.char, m.color, 38, tint.c, 3, 2, null),
+              avatar(m.char, m.color, 40),
               h('div', { style: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 } },
                 h('span', { class: 'seat__name' }, m.name), h('span', { class: 'seat__tag' }, uid === me ? 'Toi' : uid === l.host ? 'Créateur' : 'Joueur')));
-          // Place libre : on la prend (rejoindre, ou choisir son duo tant que le tournoi n'est pas complet).
+          // Place libre : on la prend (rejoindre, ou choisir son duo tant que l'album n'est pas complet).
           return h('button', {
-            class: 'seat', type: 'button', style: { border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' },
+            class: 'seat', type: 'button', style: { width: '100%', textAlign: 'left', cursor: 'pointer' },
             onclick: () => takeLeagueSeat(code, k).catch((e) => toast(e instanceof Error ? e.message : 'Place indisponible.')),
           },
             h('div', { class: 'seat__wait' }),
             h('div', { class: 'seat__invite' }, h('span', null, 'Place libre'), h('span', null, seated ? 'Changer de place' : 'Prendre la place')));
         })));
-    }));
-    hist.hidden = false;
+    })));
+    hist.hidden = codeCard.hidden = invite.hidden = false;
     soiree.replaceChildren(soireeCard(l, me));
     const rc = recapCard(l);
     recap.replaceChildren(...(rc ? [rc] : []));
@@ -569,57 +639,111 @@ export function leagueScreen(code: string): View {
     exit.replaceChildren(exitLinks(l, me));
     drawChat();
     // Une déclaration acceptée par tous devient une victoire ; n'importe quel joueur l'enregistre (sans doublon).
-    for (const o of l.offline)
-      if (seated && claimApproved(l, o) && !settling.has(o.id)) {
-        settling.add(o.id);
-        void settleOffline(code, o).catch(() => settling.delete(o.id));
-      }
+    if (!DEMO)
+      for (const o of l.offline)
+        if (seated && claimApproved(l, o) && !settling.has(o.id)) {
+          settling.add(o.id);
+          void settleOffline(code, o).catch(() => settling.delete(o.id));
+        }
     claims.replaceChildren(...l.offline.filter((o) => !claimApproved(l, o)).map((o) => offlineCard(l, o, me)));
     rules.refresh();
-    const canDeclare = seated && l.seats.filter(Boolean).length >= 2;
-    hist.replaceChildren(
-      h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
-        h('span', { class: 't-label' }, 'Dernières parties'),
-        canDeclare && h('button', { class: 'link-btn', type: 'button', onclick: () => openOfflineSheet(l) }, '+ Partie hors app')),
-      ...(l.games.length
-        ? l.games.slice(0, 4).map((g) => {
-          const seats = teamSeats(l.n, g.winner);
-          return h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, font: '700 14px var(--text)' } },
-            duo(SEAT_COLORS[l.n][seats[0]], SEAT_COLORS[l.n][seats[1]], 12),
-            h('span', { style: { flex: 1 } }, `Victoire ${TEAM_NAMES[g.winner]}`, g.offline && h('span', { class: 'hist-tag' }, 'hors app')),
-            h('span', { style: { color: 'var(--ink-3)', font: '800 12px var(--text)' } }, g.at ? dateFmt.format(new Date(g.at)) : ''));
-        })
-        : [h('span', { class: 't-body' }, 'Aucune partie pour l’instant.')]));
+    hist.replaceChildren(episodes(l, seated && l.seats.filter(Boolean).length >= 2));
     const filled = l.seats.filter(Boolean).length;
-    status.textContent = !full ? `${filled} / ${l.n} joueurs · partage le lien pour compléter`
-      : seated ? 'Les équipes sont fixes. Bonne partie !' : 'Ce tournoi est complet.';
+    // Album complet et toi dedans : le bouton suffit, pas besoin d'une phrase de plus.
+    status.textContent = !full ? `${filled} / ${l.n} joueurs · partage le lien pour compléter` : seated ? '' : 'Cet album est complet.';
+    status.hidden = !status.textContent;
     play.hidden = !seated && full;
     play.disabled = !full || !seated;
     play.className = 'btn btn--lg btn--block ' + (full && seated ? 'btn--primary' : 'btn--off');
     // Un autre membre a lancé une partie : on la rejoint (sa place est gardée), au lieu d'en créer une autre.
     const live = seated ? liveGame(l, me) : null;
-    play.textContent = live ? `Rejoindre la partie de ${live.by}` : full ? 'Jouer une partie' : 'En attente des joueurs…';
+    play.textContent = live ? `Rejoindre la partie ${deNom(live.by)}` : full ? `Jouer l’épisode ${l.games.length + 1}` : 'En attente des joueurs…';
     play.onclick = () => go(live ? '/salle/' + live.code : `/salle/nouvelle?n=${l.n}&ligue=${code}`);
   };
 
-  const stop = watchLeague(code, draw);
-  // Le milieu (soirée, équipes, parties, règles) défile ; le bouton « Jouer une partie » reste en bas.
-  const el = h('div', { class: 'screen', 'data-fit': 'tabs', style: { gap: 14, paddingTop: 'calc(var(--safe-top) + 8px)' } },
-    h('div', { class: 'screen__head' }, backButton(() => go(ROUTES.home)), title, pill),
-    h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14, margin: '0 -20px', padding: '4px 20px 10px' } },
-      h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: 12, padding: '14px 14px 14px 18px' } },
-        h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('span', { class: 't-mini' }, 'Code du tournoi'), codeVal),
-        invite),
+  // Le milieu (score, soirée, épisodes, règles) défile ; le bouton « Jouer l'épisode » reste en bas.
+  const el = h('div', { class: 'screen album', 'data-fit': 'tabs', 'data-tone': 'turq', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)' } },
+    h('div', { class: 'screen__head alb-head' }, backButton(() => go(ROUTES.albums)),
+      h('div', { class: 'alb-head__t' }, kicker, title), invite),
+    h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14, margin: '0 -20px', padding: '6px 20px 12px' } },
+      top,
       recap,
       soiree,
       claims,
       chat,
-      teams,
-      stats,
       hist,
+      stats,
+      codeCard,
       rules.el,
       exit),
     status,
     play);
+  if (DEMO) {
+    draw(demoLeague());
+    return { el, cleanup: () => {} };
+  }
+  const stop = watchLeague(code, draw);
   return { el, cleanup: () => { stop(); stopChat(); } };
+}
+
+/** L'album de démonstration ; « ?demo=libre » lui retire un joueur pour montrer les places à prendre. */
+function demoLeague(): League {
+  if (new URLSearchParams(location.search).get('demo') !== 'libre') return DEMO_LEAGUE;
+  const out = DEMO_LEAGUE.seats[3];
+  return { ...DEMO_LEAGUE, seats: DEMO_LEAGUE.seats.map((u) => (u === out ? '' : u)), members: Object.fromEntries(Object.entries(DEMO_LEAGUE.members).filter(([u]) => u !== out)) };
+}
+
+/** Les couvertures des albums, une couleur chacune. */
+const COVER_BG = ['var(--rouge)', 'var(--bleu)', 'var(--violet)', '#ff8fc4'];
+
+/** Tes albums : un album, c'est ta bande et ses soirées (mêmes équipes à chaque partie, victoires qui s'additionnent). */
+export function albumsScreen(): View {
+  const me = myUid();
+  const list = h('div', { class: 'alb-list' });
+  const note = (l: League) => {
+    const live = liveGame(l, me);
+    if (live) return h('span', { class: 'alb-cover__note alb-cover__note--live' }, `${live.by} lance une partie · touche pour rejoindre`);
+    if (l.seats.includes(me) && l.offline.some((o) => !o.votes[me] && !refusedBy(o).length))
+      return h('span', { class: 'alb-cover__note alb-cover__note--live' }, 'Une partie hors app à valider');
+    if (l.soiree) return h('span', { class: 'alb-cover__note' }, 'Soirée : ' + soireeLabel(l.soiree.at));
+    return h('span', { class: 'alb-cover__note' }, l.games.length && l.games[0].at ? `Dernier épisode le ${dateFmt.format(new Date(l.games[0].at))}` : 'Aucun épisode pour l’instant');
+  };
+  const create = () => go('/tournoi/nouveau');
+  const draw = (all: League[] | null) => {
+    list.replaceChildren(...(all === null ? [h('div', { class: 'card card--flat alb-eps__none' }, 'Les albums se jouent en ligne. Reviens quand tu es connecté.')]
+      : all.length ? all.map((l, i) => {
+        const live = liveGame(l, me);
+        const cast = l.seats.filter(Boolean).map((u) => l.members[u]).filter(Boolean);
+        return h('button', { class: 'alb-cover', type: 'button', style: { '--c': COVER_BG[i % COVER_BG.length] }, onclick: () => go(live ? '/salle/' + live.code : '/tournoi/' + l.code) },
+          h('i', { class: 'rays' }),
+          h('span', { class: 'tag' }, `${l.games.length} épisode${l.games.length > 1 ? 's' : ''} · ${l.n} joueurs`),
+          h('span', { class: 'alb-cover__title' + (l.name.length > 16 ? ' alb-cover__title--long' : '') }, l.name),
+          h('div', { class: 'alb-cover__cast' }, ...cast.map((m, k) => avatar(m.char, m.color, l.n === 4 ? 44 : 36, 'content', { flip: k % 2 === 1 }))),
+          h('div', { class: 'alb-cover__score', 'aria-label': 'Victoires : ' + l.wins.map((w, t) => `${TEAM_NAMES[t]} ${w}`).join(', ') },
+            ...l.wins.flatMap((w, t) => [...(t ? [h('i', null, '-')] : []), h('b', { style: { '--c': TEAM_BG[t] } }, w)])),
+          note(l));
+      })
+        : [h('div', { class: 'card alb-empty' },
+          tocSays('Un album, c’est ta bande et ses soirées : mêmes équipes à chaque partie, et les victoires s’additionnent.', 'content', 96),
+          button('Créer un album', 'primary', create, { size: 'md', block: true }))]));
+  };
+  const code = h('input', {
+    class: 'field', placeholder: 'Code (ex. T-4821)', 'aria-label': 'Code d’album',
+    inputmode: 'text', autocapitalize: 'characters', enterkeyhint: 'go', style: { flex: 1, minWidth: 0 },
+  }) as HTMLInputElement;
+  const join = () => {
+    const t = parseLeagueCode(code.value) ?? (/^\s*\d{4}\s*$/.test(code.value) ? code.value.trim() : null);
+    if (!t) return toast('Le code d’un album ressemble à T-4821');
+    go('/tournoi/' + t);
+  };
+  code.addEventListener('keydown', (e) => e.key === 'Enter' && join());
+  const stop = DEMO ? (draw([DEMO_LEAGUE]), () => {}) : navigator.onLine ? watchMyLeagues(draw) : (draw(null), () => {});
+  if (!DEMO && navigator.onLine) draw([]);
+  const el = h('div', { class: 'screen screen--tabs albums', 'data-fit': 'tabs', 'data-tone': 'turq', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 6px)' } },
+    h('div', { class: 'screen__head' }, h('span', { class: 't-screen', style: { marginRight: 'auto' } }, 'Tes albums'), button('Créer', 'dark', create, { size: 'xs' })),
+    h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14, margin: '0 -20px', padding: '6px 20px 12px' } },
+      list,
+      h('div', { class: 'alb-join' }, code, button('Rejoindre', 'dark', join, { size: 'md' }))),
+    tabbar('albums'));
+  return { el, cleanup: stop };
 }
