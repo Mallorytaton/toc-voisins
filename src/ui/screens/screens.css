@@ -711,3 +711,35 @@ button.rank-row { cursor: pointer; text-align: left; width: 100%; }
 .heros__line + .heros__line { border-top: 2.5px dashed var(--ink); }
 .heros__line > b { font: 900 14.5px/1.2 var(--display); color: var(--ink); text-align: right; }
 .heros__since { color: var(--ink); text-align: center; }
+
+/* ---- Les petits composants, à l'encre : règles, invitations, notifications, QR, chat d'équipe, écran de table ---- */
+.variant { border: 2.5px solid var(--ink); border-radius: 14px; }
+.variant__text > b { font: 900 14.5px/1.2 var(--display); }
+.rule-card { border: 2.5px solid var(--ink); border-radius: 12px; padding: 7px 10px; }
+.rule-card__rank { width: 36px; height: 48px; border: 2.5px solid var(--ink); border-radius: 8px; background: var(--paper); box-shadow: 2px 3px 0 var(--ink); font: 400 24px/1 var(--fx); padding-top: 4px; }
+.rule-card__badge { border: 2px solid var(--ink); border-radius: 6px; padding: 3px 6px 2px; letter-spacing: .04em; text-transform: uppercase; }
+.rule-list { font: 700 13.5px/1.4 var(--text); }
+.invite-banner { border: 3px solid var(--ink); border-radius: 16px; box-shadow: 4px 5px 0 var(--ink); }
+.invite-banner > span { font: 900 14px/1.25 var(--display); }
+.invite-row, .push-row { border: 2.5px solid var(--ink); border-radius: 14px; }
+.invite-row__name, .push-row b { font: 900 15px/1.1 var(--display); }
+.team-pick { border: 3px solid var(--ink); border-radius: 14px; background: #fff; }
+.team-pick[aria-pressed='true'] { border-color: var(--ink); background: var(--jaune); box-shadow: 0 4px 0 var(--ink); }
+.notif-bell { border: 3px solid var(--ink); border-radius: 14px; background-color: var(--jaune); box-shadow: 3px 4px 0 var(--ink); }
+.qr { border: 3px solid var(--ink); border-radius: 16px; box-shadow: 4px 5px 0 var(--ink); }
+.scan__frame { border: 4px dashed #fff; border-radius: 22px; }
+.scan__title { font: 400 30px/1 var(--fx); letter-spacing: .03em; }
+.quick > button { height: 38px; padding: 1px 13px 0; border: 2.5px solid var(--ink); border-radius: 12px; font: 900 13px/1 var(--display); box-shadow: 0 3px 0 var(--ink); }
+.send { border: 3px solid var(--ink); border-radius: 14px; background: var(--rouge); box-shadow: 0 4px 0 var(--ink); }
+.send:active { box-shadow: 0 1px 0 var(--ink); }
+.send > i { border-left-color: var(--ink); }
+.lchat-msg__who { font-weight: 900; color: var(--ink); }
+.ios-share { border: 2px solid var(--ink); box-shadow: none; }
+.empty { color: var(--on-app); font-weight: 800; }
+.card .empty, .sheet .empty, .toc-says > .empty { color: var(--ink-2); }
+/* Écran de table (tablette posée au milieu) : l'attente des joueurs */
+.table-wait__title { font: 400 48px/1 var(--fx); letter-spacing: .02em; color: #fff; text-shadow: var(--stroke-3), 5px 6px 0 var(--ink); rotate: -2deg; padding: 6px 8px 0; }
+.table-wait__text { padding: 10px 14px 9px; border: 3px solid var(--ink); border-radius: 8px; background: #fff; box-shadow: 4px 5px 0 var(--ink); color: var(--ink); font: 800 15px/1.4 var(--text); }
+.table-wait__seat { font: 900 14px/1.1 var(--display); }
+.table-wait__seat--empty > span:last-child { color: var(--ink-2); }
+.table-wait__tip { color: var(--ink); font-weight: 800; }

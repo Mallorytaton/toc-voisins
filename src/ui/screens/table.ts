@@ -3,8 +3,7 @@
 // La tablette suit la salle sans y prendre de place (RoomSession.watch) et n'a pas besoin de perso.
 import { RoomSession } from '../../net/session';
 import { h } from '../dom';
-import { COL, SEAT_COLORS } from '../kit/data';
-import { avatarRing, button } from '../kit/kit';
+import { avatar, button } from '../kit/kit';
 import { mascot } from '../mascot';
 import { ROUTES, go } from '../nav';
 import { unlockAudio } from '../sound';
@@ -55,7 +54,7 @@ export function tableScreen(code: string): { el: HTMLElement; cleanup: () => voi
     waiting(snap.status === 'countdown' ? 'La partie commence !' : 'En attente du lancement',
       'Le plateau s’affichera ici dès que l’hôte lancera la partie. Chacun joue sur son téléphone.',
       snap.seats.map((p, k) => (p
-        ? h('div', { class: 'table-wait__seat' }, avatarRing(p.char, p.color, 48, COL[SEAT_COLORS[snap.n][k]].c, 3, 2, null), h('span', null, p.name))
+        ? h('div', { class: 'table-wait__seat' }, avatar(p.char, p.color, 54), h('span', null, p.name))
         : h('div', { class: 'table-wait__seat table-wait__seat--empty' }, h('span', { class: 'aff-slot__chair', style: { width: 50, height: 50 } }, '+'), h('span', null, 'Place libre')))));
   };
 

@@ -34,7 +34,7 @@ export interface ChatMsg {
 export const DEMO_CHAT: ChatMsg[] = [
   { me: false, t: 'On se fait une revanche contre les Myrtilles ce soir ?' },
   { me: true, t: 'Carrément. Garde ton Valet pour Le Boss.' },
-  { me: false, t: 'Ça marche. Et toi, sors tes pions plus vite !' },
+  { me: false, t: 'Ça marche. Et toi, sors tes billes plus vite !' },
 ];
 export const PARTNER_REPLIES = ['Haha, on les a !', 'Ok, je te suis.', 'Vas-y, lance la salle !', 'Ça marche.'];
 

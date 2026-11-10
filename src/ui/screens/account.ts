@@ -3,7 +3,7 @@ import { draftProfile, getProfile } from '../../app/profile';
 import { account, signInWithGoogle } from '../../net/account';
 import { syncProfile } from '../../net/social';
 import { h, toast } from '../dom';
-import { avatarRing, button } from '../kit/kit';
+import { avatar, button } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { pushSetting } from '../push-offer';
 import { soundSettings } from '../sound';
@@ -44,7 +44,7 @@ export function openAccountSheet() {
   const wrap = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
     h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Ton compte' },
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
-        avatarRing(p.char, p.color, 52, 'var(--coral)'),
+        avatar(p.char, p.color, 56, 'joie'),
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
           h('span', { class: 'sheet__title' }, p.nick || 'Toi'),
           h('span', { class: 't-mini' }, `Code ami ${p.friendCode ?? '—'}`))),
@@ -52,9 +52,8 @@ export function openAccountSheet() {
       googleBtn,
       pushSetting(),
       soundSettings(),
-      navigator.onLine && button('Ma fiche de joueur', 'white', () => { close(); go('/joueur/' + currentUid()); }, { size: 'md', block: true }),
-      button('Changer de perso', 'white', () => { close(); go(ROUTES.pick); }, { size: 'md', block: true }),
-      button('Boutique', 'white', () => { close(); go('/boutique'); }, { size: 'md', block: true }),
+      navigator.onLine && button('Ma fiche de héros', 'yellow', () => { close(); go('/joueur/' + currentUid()); }, { size: 'md', block: true }),
+      button('Changer de héros', 'white', () => { close(); go(ROUTES.pick); }, { size: 'md', block: true }),
       button('Fermer', 'text', close),
       h('span', { class: 't-mini', style: { textAlign: 'center', color: 'var(--ink-3)' } },
         `Version du ${new Date(__BUILD__).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}`)));

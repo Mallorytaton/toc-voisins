@@ -11,16 +11,16 @@ interface Option {
   set: (v: Variants, on: boolean) => Variants;
 }
 
-/** Chaque interrupteur s'écarte des règles de base quand il est activé (sauf le pion bloquant). */
+/** Chaque interrupteur s'écarte des règles de base quand il est activé (sauf la bille bloquante). */
 const OPTIONS: Option[] = [
-  { label: 'Le Roi avance aussi de 13', desc: 'En plus de sortir un pion.', get: (v) => v.kingThirteen, set: (v, on) => ({ ...v, kingThirteen: on }) },
-  { label: 'Le Valet avance de 11', desc: 'Au lieu d’échanger deux pions.', get: (v) => v.jackEleven, set: (v, on) => ({ ...v, jackEleven: on }) },
-  { label: 'Le 7 sur plus de deux pions', desc: 'Les 7 pas se partagent entre autant de pions qu’on veut.', get: (v) => v.sevenAnyPawns, set: (v, on) => ({ ...v, sevenAnyPawns: on }) },
-  { label: 'Le 7 prend les pions dépassés', desc: 'Chaque pion sauté retourne dans sa réserve.', get: (v) => !v.sevenNoPassCapture, set: (v, on) => ({ ...v, sevenNoPassCapture: !on }) },
+  { label: 'Le Roi avance aussi de 13', desc: 'En plus de sortir une bille.', get: (v) => v.kingThirteen, set: (v, on) => ({ ...v, kingThirteen: on }) },
+  { label: 'Le Valet avance de 11', desc: 'Au lieu d’échanger deux billes.', get: (v) => v.jackEleven, set: (v, on) => ({ ...v, jackEleven: on }) },
+  { label: 'Le 7 sur plus de deux billes', desc: 'Les 7 pas se partagent entre autant de billes qu’on veut.', get: (v) => v.sevenAnyPawns, set: (v, on) => ({ ...v, sevenAnyPawns: on }) },
+  { label: 'Le 7 prend les billes dépassées', desc: 'Chaque bille sautée retourne dans sa réserve.', get: (v) => !v.sevenNoPassCapture, set: (v, on) => ({ ...v, sevenNoPassCapture: !on }) },
   { label: 'Jokers dans le paquet', desc: 'Deux jokers par paquet, qui remplacent n’importe quelle carte.', get: (v) => v.jokers > 0, set: (v, on) => ({ ...v, jokers: on ? 2 : 0 }) },
-  { label: 'Le 5 fait avancer un autre joueur', desc: 'On avance de 5 le pion de quelqu’un d’autre.', get: (v) => v.fiveOthers, set: (v, on) => ({ ...v, fiveOthers: on }) },
+  { label: 'Le 5 fait avancer un autre joueur', desc: 'On avance de 5 la bille de quelqu’un d’autre.', get: (v) => v.fiveOthers, set: (v, on) => ({ ...v, fiveOthers: on }) },
   { label: 'Défausser une seule carte', desc: 'Sans coup possible, on jette une carte au lieu de toute sa main.', get: (v) => v.discardOne, set: (v, on) => ({ ...v, discardOne: on }) },
-  { label: 'Pion bloquant au départ', desc: 'Un pion qui vient de sortir ne peut être ni dépassé ni pris.', get: (v) => v.startBlocks, set: (v, on) => ({ ...v, startBlocks: on }) },
+  { label: 'Bille bloquante au départ', desc: 'Une bille qui vient de sortir ne peut être ni dépassée ni prise.', get: (v) => v.startBlocks, set: (v, on) => ({ ...v, startBlocks: on }) },
 ];
 
 /** Règles complètes (les vieilles parties n'ont pas toutes les clés). */
@@ -33,7 +33,7 @@ export function variantsSummary(v: Variants): string {
 }
 
 /** Rappel des règles de base, en tête de la feuille. */
-const BASE = 'As : sortir ou 1 · Roi : sortir · 4 : recule de 4, même pour ressortir de sa maison · 7 : un pion ou partagé entre deux, sans prendre les pions dépassés · Valet : échange avec un pion de ton équipe ou adverse · les autres cartes avancent de leur valeur.';
+const BASE = 'As : sortir ou 1 · Roi : sortir · 4 : recule de 4, même pour ressortir de sa maison · 7 : une bille ou partagé entre deux, sans prendre les billes dépassées · Valet : échange avec une bille de ton équipe ou adverse · les autres cartes avancent de leur valeur.';
 
 /** Feuille « Règles de la partie ». editable = false : simple lecture (invités, tournoi). */
 export function openVariantsSheet(current: Variants, editable: boolean, onSave: (v: Variants) => void) {
