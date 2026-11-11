@@ -44,7 +44,7 @@ export function toScreen(beta: number, gamma: number, angle: number): Lean {
 
 
 const KEY = 'toc.relief';
-type Asking = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<'granted' | 'denied'> };
+type Asking = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<'granted' | 'denied' | 'prompt'> };
 /** Le choix du joueur dans la pause ('' : il n'a rien choisi, le relief marche là où le téléphone le permet d'office). */
 function choice(): 'oui' | 'non' | '' {
   try {
@@ -69,10 +69,14 @@ export const reliefOn = () => reliefAvailable() && (choice() === 'oui' || (choic
  * les autres répondent oui tout de suite. Renvoie false si l'accès est refusé, ou s'il faut un toucher pour le demander.
  */
 export async function askRelief(): Promise<boolean> {
+  // Le capteur répond déjà : rien à demander.
+  if (live) return true;
   const ask = typeof DeviceOrientationEvent !== 'undefined' ? (DeviceOrientationEvent as Asking).requestPermission : undefined;
   if (typeof ask !== 'function') return true;
   try {
-    return (await ask.call(DeviceOrientationEvent)) === 'granted';
+    // Seul un refus net compte. Certains navigateurs répondent « à demander » sans jamais rien demander, et envoient
+    // quand même leurs mesures : les prendre pour un refus empêchait de rallumer le relief après l'avoir coupé.
+    return (await ask.call(DeviceOrientationEvent)) !== 'denied';
   } catch {
     return false;
   }

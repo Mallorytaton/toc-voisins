@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { type ReliefState, leanStep, toScreen } from '../src/ui/board/relief';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { type ReliefState, askRelief, leanStep, toScreen } from '../src/ui/board/relief';
 
 /** Tient le téléphone dans cette position pendant `ms` millisecondes (une mesure toutes les 16 ms). */
 function hold(s: ReliefState, beta: number, gamma: number, ms: number) {
@@ -62,5 +62,35 @@ describe('plateau en relief', () => {
     expect(toScreen(10, 4, 90)).toEqual({ beta: -4, gamma: 10 });
     expect(toScreen(10, 4, 270)).toEqual({ beta: 4, gamma: -10 });
     expect(toScreen(10, 4, 180)).toEqual({ beta: -10, gamma: -4 });
+  });
+});
+
+describe('plateau en relief : l’accès aux mouvements du téléphone', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  /** Un téléphone qui répond ceci quand on lui demande l'accès (ou qui lève une erreur). */
+  const phone = (answer: string | Error) => vi.stubGlobal('DeviceOrientationEvent', {
+    requestPermission: () => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer)),
+  });
+
+  it('rien à demander : l’accès est d’office', async () => {
+    vi.stubGlobal('DeviceOrientationEvent', {});
+    expect(await askRelief()).toBe(true);
+  });
+
+  it('accordé : oui ; refusé : non', async () => {
+    phone('granted');
+    expect(await askRelief()).toBe(true);
+    phone('denied');
+    expect(await askRelief()).toBe(false);
+  });
+
+  it('« à demander », sans que rien ne soit demandé : ce n’est pas un refus (on peut rallumer le relief)', async () => {
+    phone('prompt');
+    expect(await askRelief()).toBe(true);
+  });
+
+  it('demande faite hors d’un toucher (iPhone) : pas d’accès pour l’instant', async () => {
+    phone(new Error('NotAllowedError'));
+    expect(await askRelief()).toBe(false);
   });
 });
