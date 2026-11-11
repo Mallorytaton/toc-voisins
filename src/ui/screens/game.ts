@@ -416,7 +416,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const padPanel = h('div', { class: 'pad-panel', hidden: true });
   stage.append(padPanel);
   const fxScreen = h('div', { class: 'fx-layer', style: { zIndex: 38 } });
-  // Fin de partie serrée : le bord du plateau s'assombrit et bat avec le cœur de la musique.
+  // Fin de partie serrée : le cadre de la case rougit et bat avec le cœur de la musique (sous le plateau, qui passe devant).
   stage.append(h('div', { class: 'g-tense', 'aria-hidden': 'true' }), fxScreen);
   // BOUM : Toc surgit au bas du plateau, l'air ébahi.
   const tocPeek = () => {

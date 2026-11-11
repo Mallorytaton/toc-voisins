@@ -67,7 +67,7 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 /* Écran de table : pas de main ni de bouton Jouer. */
 .game[data-layout='table'] .g-actions, .game[data-layout='table'] .g-timer, .game[data-layout='table'] .hand,
 .game[data-layout='table'] .g-top, .game[data-layout='table'] .g-journal-pop { display: none; }
-.game[data-layout='table'] .g-case { top: 30px; height: 432px; }
+.game[data-layout='table'] .g-case, .game[data-layout='table'] .g-tense { top: 30px; height: 432px; }
 
 /* ---- Barre du haut : la pause à gauche, le score des équipes à droite (maquette) ---- */
 .g-top { position: absolute; z-index: 3; left: 14px; right: 14px; top: 4px; height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -196,8 +196,10 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 /* BOUM : la bille renvoyée tournoie en l'air avant de retomber dans sa réserve. */
 .bille--ko { animation: tocKo .73s cubic-bezier(.3, .6, .4, 1); }
 @keyframes tocKo { 0% { rotate: 0deg; scale: 1; } 45% { scale: 1.5; } 100% { rotate: 720deg; scale: 1; } }
-/* Fin de partie serrée : le cadre de la case rougit et bat au rythme du cœur de la musique (1,32 s). */
-.g-tense { position: absolute; z-index: 2; left: 5px; top: 78px; width: 383px; height: 310px; border-radius: 18px; pointer-events: none; opacity: 0; transition: opacity 1s; box-shadow: inset 0 0 0 7px var(--rouge), inset 0 0 0 10px var(--ink); }
+/* Fin de partie serrée : le cadre de la case rougit et bat au rythme du cœur de la musique (1,32 s).
+   Il est posé sur la case, sous le plateau : là où le plateau, ses persos et leurs étiquettes débordent de la case,
+   ils passent devant le cadre. */
+.g-tense { position: absolute; z-index: 0; left: 5px; top: 78px; width: 383px; height: 310px; border-radius: 18px; pointer-events: none; opacity: 0; transition: opacity 1s; box-shadow: inset 0 0 0 7px var(--rouge), inset 0 0 0 10px var(--ink); }
 .game--tense .g-tense { opacity: 1; animation: tocTense 1.32s ease-in-out infinite; }
 @keyframes tocTense { 0%, 100% { opacity: .55; } 12% { opacity: 1; } 30% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .bille--ko, .game--tense .g-tense, .pawn--cand > .bille { animation: none; } }
