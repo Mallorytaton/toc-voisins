@@ -8,7 +8,7 @@ import {
 import { type FriendView, currentUid, inviteToLeague, watchFriends } from '../../net/social';
 import { DEMO, DEMO_LEAGUE, DEMO_UID } from '../demo';
 import { deNom, h, toast } from '../dom';
-import { COL, SEAT_COLORS, TEAM_BG, TEAM_INK, TEAM_NAMES } from '../kit/data';
+import { COL, SEAT_COLORS, TEAM_BG, TEAM_NAMES } from '../kit/data';
 import { ICONS, avatar, avatarRing, backButton, button, duo, icon, segmented, tabbar } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { savedMode } from './home';
@@ -24,7 +24,7 @@ type View = { el: HTMLElement; cleanup: () => void };
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
 
 const dayFmt = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' });
-const calDay = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' });
+const weekDay = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' });
 const calMonth = new Intl.DateTimeFormat('fr-FR', { month: 'short' });
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
@@ -77,54 +77,88 @@ function openSoireeSheet(code: string) {
   (document.getElementById('app') ?? document.body).append(wrap);
 }
 
-/** Carte « Prochaine soirée » du tournoi. */
+/** « Je viens », « Pas dispo »… : enregistre ta réponse, et dit quand arrivera le rappel. */
+function answer(l: League, me: string, v: Rsvp, then?: () => void) {
+  const s = l.soiree;
+  if (!s) return;
+  const before = s.rsvp[me];
+  answerSoiree(l.code, s.id, v)
+    // Nouvelle réponse « Je viens » ou « Peut-être » : on dit quand arrivera le rappel.
+    .then(() => { if (v !== 'non' && before !== v) soireeReminderHint(new Date(s.at).toDateString() === new Date().toDateString()); then?.(); })
+    .catch(() => toast('Réponse non enregistrée. Réessaie.'));
+}
+
+/** Le détail de la soirée : où, proposée par qui, la réponse de chacun, « Peut-être », changer la date, annuler. */
+function openSoireeDetails(l: League, me: string) {
+  const s = l.soiree;
+  if (!s) return;
+  const member = !!l.members[me];
+  const people = l.seats.filter(Boolean);
+  const mine = s.rsvp[me];
+  const close = () => wrap.remove();
+  const wrap: HTMLElement = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'La prochaine soirée' },
+      h('span', { class: 'sheet__title' }, soireeLabel(s.at)),
+      h('span', { class: 'sheet__text', style: { marginBottom: 0 } },
+        [s.place, l.members[s.by] ? `Proposée par ${s.by === me ? 'toi' : l.members[s.by].name}` : ''].filter(Boolean).join(' · ') || 'La prochaine soirée de l’album.'),
+      h('div', { class: 'soiree__list' }, ...people.map((u) => {
+        const m = l.members[u];
+        const [label, bg, fg] = PILLS[s.rsvp[u] ?? 'none'];
+        return h('div', { class: 'soiree__row' },
+          avatarRing(m.char, m.color, 26, 'transparent', 2, 0, null),
+          h('span', { class: 'soiree__name' }, u === me ? 'Toi' : m.name),
+          h('span', { class: 'soiree__pill', style: { background: bg, color: fg } }, label));
+      })),
+      member && h('div', { class: 'rsvp', role: 'group', 'aria-label': 'Ta réponse' }, ...ANSWERS.map(([v, label]) =>
+        h('button', { type: 'button', 'aria-pressed': String(mine === v), onclick: () => answer(l, me, v, close) }, label))),
+      member && h('div', { style: { display: 'flex', justifyContent: 'center', gap: 6 } },
+        h('button', { class: 'soiree__link', type: 'button', onclick: () => { close(); openSoireeSheet(l.code); } }, 'Changer la date'),
+        (s.by === me || l.host === me) && h('button', {
+          class: 'soiree__link', type: 'button',
+          onclick: () => cancelSoiree(l.code).then(() => { close(); toast('Soirée annulée.'); }).catch(() => toast('Annulation impossible.')),
+        }, 'Annuler la soirée')),
+      button('Fermer', 'text', close)));
+  (document.getElementById('app') ?? document.body).append(wrap);
+}
+
+/**
+ * Carte « Prochaine soirée », compacte comme sur la maquette : le feuillet du calendrier, le jour et l'heure,
+ * « Je viens » et « Pas dispo », et ceux qui viennent. Le reste (lieu, réponses de chacun, « Peut-être », changer la
+ * date) s'ouvre au toucher du calendrier ou des persos.
+ */
 function soireeCard(l: League, me: string): HTMLElement {
   const member = !!l.members[me];
   const s = l.soiree;
   if (!s)
-    return h('div', { class: 'card', style: { padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 } },
-      h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } },
-        h('span', { class: 't-label' }, 'Prochaine soirée'),
-        h('span', { class: 't-body' }, 'Aucune soirée prévue.')),
-      member && button('Proposer', 'primary', () => openSoireeSheet(l.code), { size: 'xs' }));
+    return h('div', { class: 'soiree soiree--vide' },
+      h('div', { class: 'soiree__cal', 'aria-hidden': 'true' }, h('i', null, 'Bientôt'), h('b', null, '?'), h('span', null, '…')),
+      h('span', { class: 'soiree__k' }, 'Prochaine soirée'),
+      h('span', { class: 'soiree__when' }, 'Rien de prévu'),
+      member ? h('div', { class: 'soiree__btns' }, h('button', { class: 'soiree__btn soiree__btn--on', type: 'button', onclick: () => openSoireeSheet(l.code) }, 'Proposer une date'))
+        : h('span', { class: 'soiree__note' }, 'Les joueurs de l’album proposent la date.'));
   const people = l.seats.filter(Boolean);
   const mine = s.rsvp[me];
-  const yes = people.filter((u) => s.rsvp[u] === 'oui').length;
+  const coming = people.filter((u) => s.rsvp[u] === 'oui');
   const when = new Date(s.at);
-  return h('div', { class: 'hero soiree' },
-    h('div', { class: 'soiree__top' },
-      // Le feuillet du calendrier : le jour, la date, le mois.
-      h('div', { class: 'soiree__cal', 'aria-hidden': 'true' },
-        h('i', null, calDay.format(when).replace('.', '')), h('b', null, when.getDate()), h('span', null, calMonth.format(when))),
-      h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 } },
-        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 } },
-          h('span', { class: 't-mini' }, 'Prochaine soirée'),
-          h('span', { class: 't-mini' }, `${yes} sur ${people.length}`)),
-        h('span', { class: 'soiree__when' }, soireeLabel(s.at)),
-        h('span', { style: { font: '700 12.5px var(--text)' } },
-          [s.place, l.members[s.by] ? `proposée par ${s.by === me ? 'toi' : l.members[s.by].name}` : ''].filter(Boolean).join(' · ')))),
-    h('div', { class: 'soiree__list' }, ...people.map((u) => {
-      const m = l.members[u];
-      const [label, bg, fg] = PILLS[s.rsvp[u] ?? 'none'];
-      return h('div', { class: 'soiree__row' },
-        avatarRing(m.char, m.color, 26, 'transparent', 2, 0, null),
-        h('span', { class: 'soiree__name' }, u === me ? 'Toi' : m.name),
-        h('span', { class: 'soiree__pill', style: { background: bg, color: fg } }, label));
-    })),
-    member && h('div', { class: 'rsvp', role: 'group', 'aria-label': 'Ta réponse' }, ...ANSWERS.map(([v, label]) =>
-      h('button', {
-        type: 'button', 'aria-pressed': String(mine === v),
-        onclick: () => answerSoiree(l.code, s.id, v)
-          // Nouvelle réponse « Je viens » ou « Peut-être » : on dit quand arrivera le rappel.
-          .then(() => { if (v !== 'non' && mine !== v) soireeReminderHint(new Date(s.at).toDateString() === new Date().toDateString()); })
-          .catch(() => toast('Réponse non enregistrée. Réessaie.')),
-      }, label))),
-    member && h('div', { style: { display: 'flex', justifyContent: 'center', gap: 6 } },
-      h('button', { class: 'soiree__link', type: 'button', onclick: () => openSoireeSheet(l.code) }, 'Changer la date'),
-      (s.by === me || l.host === me) && h('button', {
-        class: 'soiree__link', type: 'button',
-        onclick: () => cancelSoiree(l.code).then(() => toast('Soirée annulée.')).catch(() => toast('Annulation impossible.')),
-      }, 'Annuler la soirée')));
+  const details = () => openSoireeDetails(l, me);
+  const m0 = when.getMinutes();
+  // « Jeudi, 20 h 30 » : le jour en toutes lettres, le feuillet donne déjà la date.
+  const day = sameDay(when, new Date()) ? (when.getHours() >= 17 ? 'Ce soir' : 'Aujourd’hui') : sameDay(when, new Date(Date.now() + 86_400_000)) ? 'Demain' : weekDay.format(when);
+  const label = `${day.charAt(0).toUpperCase() + day.slice(1)}, ${when.getHours()} h${m0 ? ' ' + String(m0).padStart(2, '0') : ''}`;
+  return h('div', { class: 'soiree' },
+    // Le feuillet du calendrier : le jour, la date, le mois.
+    h('button', { class: 'soiree__cal', type: 'button', 'aria-label': 'Détails de la soirée', onclick: details },
+      h('i', null, weekDay.format(when)), h('b', null, when.getDate()), h('span', null, calMonth.format(when))),
+    h('span', { class: 'soiree__k' }, 'Prochaine soirée'),
+    h('span', { class: 'soiree__when' }, label),
+    member
+      ? h('div', { class: 'soiree__btns', role: 'group', 'aria-label': 'Ta réponse' },
+        h('button', { class: 'soiree__btn' + (mine !== 'non' ? ' soiree__btn--on' : ''), type: 'button', 'aria-pressed': String(mine === 'oui'), onclick: () => answer(l, me, 'oui') }, mine === 'oui' ? 'Je viens ✓' : 'Je viens'),
+        h('button', { class: 'soiree__btn' + (mine === 'non' ? ' soiree__btn--on' : ''), type: 'button', 'aria-pressed': String(mine === 'non'), onclick: () => answer(l, me, 'non') }, 'Pas dispo'))
+      : h('span', { class: 'soiree__note' }, s.place || 'Soirée de l’album'),
+    h('button', { class: 'soiree__who', type: 'button', 'aria-label': `${coming.length} sur ${people.length} viennent : voir les réponses`, onclick: details },
+      h('span', null, `${coming.length} sur ${people.length}`),
+      h('span', { class: 'soiree__faces' }, ...coming.slice(0, 4).map((u) => avatar(l.members[u].char, l.members[u].color, 28)))));
 }
 
 // ---------- Statistiques et trophées ----------
@@ -501,56 +535,145 @@ async function shareLeague(l: League) {
 const myUid = () => (DEMO ? DEMO_UID : currentUid());
 
 
-/** « En tête » : les équipes, leurs joueurs, et leurs victoires en gros chiffres. */
+/** Le chiffre d'une équipe sur fond blanc : sa couleur (le jaune du Soleil, illisible sur blanc, passe au rouge comme sur la maquette). */
+const scoreInk = (t: number) => (t === 0 ? '#ff5433' : TEAM_BG[t]);
+
+/** « En tête » : les équipes face à face et leurs victoires en gros chiffres (ton équipe à gauche). */
 function scoreCard(l: League, me: string): HTMLElement {
   const half = l.n / 2;
   const best = Math.max(...l.wins), leaders = l.wins.filter((w) => w === best).length;
+  const state = (t: number) => ({ ahead: best > 0 && l.wins[t] === best && leaders === 1, behind: best > 0 && l.wins[t] < best });
+  const score = (t: number) => h('b', { class: 'alb-score__n', style: { '--c': scoreInk(t) }, 'aria-label': `${TEAM_NAMES[t]} : ${l.wins[t]} victoire${l.wins[t] > 1 ? 's' : ''}` }, l.wins[t]);
+  const foot = h('span', { class: 'alb-score__foot' }, 'Victoires depuis le début de l’album');
+  const label = !best ? 'Tout reste à écrire' : leaders > 1 ? 'Égalité' : 'En tête';
+  if (half === 2) {
+    // Ton équipe à gauche, l'autre à droite : les persos se font face, le plus grand au bord de la case.
+    const mine = Math.max(0, l.seats.indexOf(me)) % 2, order = [mine, 1 - mine];
+    const lead = leaders === 1 && best > 0 ? order.indexOf(l.wins.indexOf(best)) : -1;
+    const duoOf = (t: number, right: boolean) => {
+      const { ahead, behind } = state(t);
+      const seats = teamSeats(l.n, t);
+      return h('div', { class: 'alb-duo' + (right ? ' alb-duo--d' : '') },
+        ...seats.map((k, j) => {
+          const m = l.members[l.seats[k]];
+          const big = right ? j === 1 : j === 0;
+          return m ? avatar(m.char, m.color, big ? 62 : 56, ahead ? 'joie' : behind ? (big ? 'furieux' : 'concentre') : 'content', { flip: right })
+            : h('span', { class: 'alb-team__free', style: { width: big ? 62 : 56, height: big ? 62 : 56 } });
+        }),
+        h('span', { class: 'alb-duo__name' }, TEAM_NAMES[t]));
+    };
+    return h('div', { class: 'alb-score alb-score--duel' + (Math.max(...l.wins) > 9 ? ' alb-score--grand' : '') },
+      h('span', { class: 'alb-score__tag' + (lead === 1 ? ' alb-score__tag--d' : lead < 0 ? ' alb-score__tag--mi' : '') }, label),
+      duoOf(order[0], false),
+      h('div', { class: 'alb-score__mid' }, score(order[0]), h('i', { 'aria-hidden': 'true' }), score(order[1])),
+      duoOf(order[1], true),
+      foot);
+  }
   const team = (t: number) => {
     const seats = teamSeats(l.n, t);
-    const ahead = best > 0 && l.wins[t] === best && leaders === 1, behind = best > 0 && l.wins[t] < best;
+    const { ahead, behind } = state(t);
     return h('div', { class: 'alb-team' },
       h('div', { class: 'alb-team__duo' }, ...seats.map((k, j) => {
         const m = l.members[l.seats[k]];
-        return m ? avatar(m.char, m.color, half === 2 ? 50 : 40, ahead ? 'joie' : behind ? (j ? 'furieux' : 'concentre') : 'content', { flip: j === 1 }) : h('span', { class: 'alb-team__free' });
+        return m ? avatar(m.char, m.color, 40, ahead ? 'joie' : behind ? (j ? 'furieux' : 'concentre') : 'content', { flip: j === 1 }) : h('span', { class: 'alb-team__free' });
       })),
-      h('span', { class: 'alb-team__name' }, TEAM_NAMES[t]),
-      h('span', { class: 'alb-team__who' }, seats.map((k) => { const u = l.seats[k]; return u === me ? 'Toi' : l.members[u]?.name ?? '…'; }).join(' et ')));
+      h('span', { class: 'alb-team__name' }, TEAM_NAMES[t]));
   };
-  const score = (t: number) => h('b', { class: 'alb-score__n', style: { '--c': TEAM_BG[t] }, 'aria-label': `${TEAM_NAMES[t]} : ${l.wins[t]} victoire${l.wins[t] > 1 ? 's' : ''}` }, l.wins[t]);
-  return h('div', { class: 'card alb-score alb-score--n' + l.n },
-    h('span', { class: 'tag tag--jaune alb-score__tag' }, !best ? 'Tout reste à écrire' : leaders > 1 ? 'Égalité' : 'En tête : ' + TEAM_NAMES[l.wins.indexOf(best)]),
-    half === 2
-      ? h('div', { class: 'alb-score__row' }, team(0), h('div', { class: 'alb-score__mid' }, score(0), h('i', null, '-'), score(1)), team(1))
-      : h('div', { class: 'alb-score__row' }, ...[0, 1, 2].map((t) => h('div', { class: 'alb-score__col' }, score(t), team(t)))),
-    h('span', { class: 'alb-score__foot' }, 'Victoires depuis le début de l’album'));
+  return h('div', { class: 'card alb-score alb-score--n6' },
+    h('span', { class: 'tag tag--jaune alb-score__tag6' }, leaders === 1 && best > 0 ? 'En tête : ' + TEAM_NAMES[l.wins.indexOf(best)] : label),
+    h('div', { class: 'alb-score__row' }, ...[0, 1, 2].map((t) => h('div', { class: 'alb-score__col' }, score(t), team(t)))),
+    foot);
 }
 
-/** Les derniers épisodes : une vignette par partie, de la plus récente à la plus ancienne. */
+/** Le fond des vignettes d'épisode : jamais la couleur du perso qui y figure, et pas le turquoise de la page. */
+const EP_BG: [string, string][] = [['#ff8fc4', 'rose'], ['#3b5bff', 'blue'], ['#ffcf1f', 'yellow'], ['#ff5433', 'coral'], ['#9b6bff', 'violet']];
+
+interface Episode { no: number; fx: string; title: string; star: number; winner: number; at: number; duration: number; booms: number; offline: boolean }
+
+/**
+ * Chaque partie de l'album devient un épisode titré, d'après ce que l'album en a gardé (qui a gagné, les billes
+ * renvoyées par chacun, la durée, le score d'avant) : « La remontada », « Le doublé de Mimi », « Coco contre-attaque »…
+ * Du plus récent au plus ancien.
+ */
+function episodesOf(l: League): Episode[] {
+  const teams = l.n / 2;
+  const chrono = [...l.games].map((g, i) => ({ g, i })).sort((a, b) => a.g.at - b.g.at || b.i - a.i);
+  const wins = Array<number>(teams).fill(0);
+  let run = { team: -1, n: 0 };
+  const out: Episode[] = [];
+  chrono.forEach(({ g }, k) => {
+    const w = g.winner, seats = teamSeats(l.n, w);
+    // La vedette de l'épisode : le gagnant qui a renvoyé le plus de billes.
+    const star = seats.reduce((a, s) => ((g.captures[s] ?? 0) > (g.captures[a] ?? 0) ? s : a), seats[0]);
+    const name = l.members[l.seats[star]]?.name ?? TEAM_NAMES[w];
+    const mine = g.captures[star] ?? 0, booms = g.captures.reduce((a, v) => a + (v ?? 0), 0);
+    const others = Math.max(0, ...wins.filter((_, t) => t !== w));
+    const trailing = wins[w] < others;
+    run = run.team === w ? { team: w, n: run.n + 1 } : { team: w, n: 1 };
+    wins[w]++;
+    const min = g.duration / 60_000;
+    const [fx, title] = g.offline ? ['TOC !', 'Sur le vrai plateau']
+      : trailing && wins[w] >= others ? ['BOUM !', 'La remontada']
+        : run.n === 2 ? ['DOUBLÉ !', `Le doublé ${deNom(name)}`]
+          : run.n === 3 ? ['TRIPLÉ !', `Le triplé ${deNom(name)}`]
+            : run.n > 3 ? ['ENCORE !', `${TEAM_NAMES[w]} intouchable`]
+              : trailing && mine > 0 ? ['PAF !', `${name} contre-attaque`]
+                : mine >= 4 ? ['BOUM !', `${name} fait le ménage`]
+                  : min > 0 && min < 15 ? ['ZOU !', 'Victoire éclair']
+                    : min > 40 ? ['OUF !', 'Au bout du suspense']
+                      : mine > 0 ? ['PAF !', `Le coup ${deNom(name)}`] : ['TOC !', `Victoire ${TEAM_NAMES[w]}`];
+    out.push({ no: k + 1, fx, title, star, winner: w, at: g.at, duration: g.duration, booms, offline: !!g.offline });
+  });
+  return out.reverse();
+}
+
+/** Tous les épisodes de l'album, dans une feuille : le titre, le jour, l'équipe gagnante, les BOUM, la durée. */
+function openEpisodesSheet(l: League, canDeclare: boolean) {
+  const eps = episodesOf(l);
+  const close = () => wrap.remove();
+  const wrap: HTMLElement = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
+    h('div', { class: 'sheet sheet--tall', role: 'dialog', 'aria-label': 'Tous les épisodes' },
+      h('span', { class: 'sheet__title' }, eps.length > 1 ? `Les ${eps.length} épisodes` : 'Les épisodes'),
+      eps.length
+        ? h('div', { class: 'scroll-y', style: { maxHeight: '52vh', display: 'flex', flexDirection: 'column', gap: 8 } }, ...eps.map((e) => {
+          const m = l.members[l.seats[e.star]];
+          return h('div', { class: 'ep-row' },
+            m ? avatar(m.char, m.color, 38, 'joie') : h('span', { style: { width: 38 } }),
+            h('div', { class: 'ep-row__t' },
+              h('b', null, `N° ${e.no} · ${e.title}`),
+              h('span', null, [`Victoire ${TEAM_NAMES[e.winner]}`, e.at ? dateFmt.format(new Date(e.at)) : '', e.offline ? 'hors app' : `${e.booms} BOUM`,
+                e.duration > 0 ? `${Math.max(1, Math.round(e.duration / 60_000))} min` : ''].filter(Boolean).join(' · '))));
+        }))
+        : h('span', { class: 'sheet__text' }, 'Aucun épisode pour l’instant. Le premier se joue ce soir ?'),
+      // Une partie jouée sur un vrai plateau compte aussi, une fois acceptée par tous les joueurs.
+      canDeclare && button('Ajouter une partie jouée hors de l’app', 'white', () => { close(); openOfflineSheet(l); }, { size: 'sm', block: true }),
+      button('Fermer', 'text', close)));
+  (document.getElementById('app') ?? document.body).append(wrap);
+}
+
+/** Les derniers épisodes : une vignette par partie (son numéro, son mot, sa vedette, son titre), de la plus récente à la plus ancienne. */
 function episodes(l: League, canDeclare: boolean): HTMLElement {
-  const total = l.games.length;
+  const eps = episodesOf(l);
+  const open = () => openEpisodesSheet(l, canDeclare);
   return h('div', { class: 'alb-eps' },
-    h('div', { class: 'alb-eps__head' }, h('span', { class: 't-title' }, 'Les derniers épisodes'),
-      canDeclare && h('button', { class: 'link-btn', type: 'button', onclick: () => openOfflineSheet(l) }, '+ Partie hors app')),
-    total
-      ? h('div', { class: 'alb-eps__strip' }, ...l.games.slice(0, 6).map((g, i) => {
-        const seats = teamSeats(l.n, g.winner);
-        // La vedette de l'épisode : le gagnant qui a renvoyé le plus de billes.
-        const star = seats.reduce((a, k) => ((g.captures[k] ?? 0) > (g.captures[a] ?? 0) ? k : a), seats[0]);
-        const m = l.members[l.seats[star]];
-        const booms = g.captures.reduce((a, v) => a + (v ?? 0), 0);
-        return h('div', { class: 'alb-ep', style: { '--c': TEAM_BG[g.winner], '--k': TEAM_INK[g.winner], rotate: `${[-2, 1.5, -1, 2][i % 4]}deg` } },
-          h('span', { class: 'alb-ep__no' }, `N° ${total - i}`),
-          h('span', { class: 'alb-ep__fx' }, booms ? `${booms} BOUM` : 'FIN !'),
-          m ? avatar(m.char, m.color, 44, 'joie') : null,
-          h('span', { class: 'alb-ep__cap' }, `Victoire ${TEAM_NAMES[g.winner]}`,
-            h('small', null, [g.at ? dateFmt.format(new Date(g.at)) : '', g.offline ? 'hors app' : ''].filter(Boolean).join(' · '))));
+    h('div', { class: 'alb-eps__head' }, h('span', { class: 'alb-eps__title' }, 'Les derniers épisodes'),
+      (eps.length > 0 || canDeclare) && h('button', { class: 'alb-eps__all', type: 'button', onclick: open }, eps.length ? 'Tout voir' : '+ Partie hors app')),
+    eps.length
+      ? h('div', { class: 'alb-eps__strip' }, ...eps.slice(0, 6).map((e, i) => {
+        const m = l.members[l.seats[e.star]];
+        const bg = (EP_BG.map((_, k) => EP_BG[(i + k) % EP_BG.length]).find(([, name]) => name !== m?.color) ?? EP_BG[i % EP_BG.length])[0];
+        return h('button', { class: 'alb-ep', type: 'button', 'aria-label': `Épisode ${e.no} : ${e.title}`, style: { '--c': bg, rotate: `${[-2, 1.5, -1, 2][i % 4]}deg` }, onclick: open },
+          h('span', { class: 'alb-ep__no' }, `N° ${e.no}`),
+          h('span', { class: 'alb-ep__fx' }, e.fx),
+          m ? avatar(m.char, m.color, 46, e.fx === 'PAF !' ? 'malin' : 'joie') : null,
+          h('span', { class: 'alb-ep__cap' }, e.title));
       }))
       : h('div', { class: 'card card--flat alb-eps__none' }, 'Aucun épisode pour l’instant. Le premier se joue ce soir ?'));
 }
 
 export function leagueScreen(code: string): View {
-  const kicker = h('span', { class: 'tag' }, 'Album');
-  const title = h('span', { class: 't-screen alb-title' }, 'Album');
+  const kicker = h('span', { class: 'tag alb-kicker' }, 'Album');
+  const title = h('h1', { class: 'alb-title' }, 'Album');
   const codeVal = h('span', { style: { font: '900 24px/1.05 var(--display)', letterSpacing: '.06em' } }, 'T-' + code);
   const top = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } });
   const soiree = h('div');
@@ -582,8 +705,10 @@ export function leagueScreen(code: string): View {
   let league: League | null = null;
   const rules = variantsCard(() => league?.variants ?? DEFAULT_VARIANTS, () => false, () => undefined);
   const status = h('span', { class: 'status-line' });
-  const play = button('Jouer une partie', 'primary', () => undefined, { size: 'lg', block: true });
-  const invite = h('button', { class: 'btn-round alb-invite', type: 'button', 'aria-label': 'Inviter dans l’album', onclick: () => league && openInviteSheet(league) }, icon(ICONS.invite, 22, 2.8));
+  const play = button('Jouer une partie', 'primary', () => undefined, { size: 'md', block: true });
+  const invite = h('button', { class: 'btn-round alb-invite', type: 'button', 'aria-label': 'Inviter dans l’album', onclick: () => league && openInviteSheet(league) }, icon(ICONS.invite, 20, 2.8));
+  // Plusieurs albums, en créer un, en rejoindre un : la liste reste à un toucher, en bas de la page.
+  const allLink = h('button', { class: 'link-btn alb-all', type: 'button', onclick: () => go(ROUTES.albums + '?liste') }, 'Tous tes albums · créer ou rejoindre');
   const codeCard = h('div', { class: 'card alb-code' },
     h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('span', { class: 't-mini' }, 'Code de l’album'), codeVal),
     button('Inviter', 'dark', () => league && openInviteSheet(league), { size: 'sm' }));
@@ -600,8 +725,9 @@ export function leagueScreen(code: string): View {
     const seated = l.seats.includes(me);
     const full = l.seats.every(Boolean);
     title.textContent = l.name;
-    title.classList.toggle('alb-title--long', l.name.length > 16);
-    kicker.textContent = `${l.games.length} épisode${l.games.length > 1 ? 's' : ''} · ${l.n} joueurs`;
+    title.classList.toggle('alb-title--long', l.name.length > 17);
+    title.classList.toggle('alb-title--xl', l.name.length > 23);
+    kicker.textContent = l.games.length ? `Album · ${l.games.length} épisode${l.games.length > 1 ? 's' : ''}` : `Album · ${l.n} joueurs`;
     // Album complet : le score en tête. Sinon, les équipes et leurs places à prendre.
     top.replaceChildren(...(full ? [scoreCard(l, me)] : Array.from({ length: l.n / 2 }, (_, t) => {
       const seats = teamSeats(l.n, t);
@@ -651,30 +777,32 @@ export function leagueScreen(code: string): View {
     status.hidden = !status.textContent;
     play.hidden = !seated && full;
     play.disabled = !full || !seated;
-    play.className = 'btn btn--lg btn--block ' + (full && seated ? 'btn--primary' : 'btn--off');
+    play.className = 'btn btn--md btn--block ' + (full && seated ? 'btn--primary' : 'btn--off');
     // Un autre membre a lancé une partie : on la rejoint (sa place est gardée), au lieu d'en créer une autre.
     const live = seated ? liveGame(l, me) : null;
     play.textContent = live ? `Rejoindre la partie ${deNom(live.by)}` : full ? `Jouer l’épisode ${l.games.length + 1}` : 'En attente des joueurs…';
     play.onclick = () => go(live ? '/salle/' + live.code : `/salle/nouvelle?n=${l.n}&ligue=${code}`);
   };
 
-  // Le milieu (score, soirée, épisodes, règles) défile ; le bouton « Jouer l'épisode » reste en bas.
-  const el = h('div', { class: 'screen album', 'data-fit': 'tabs', 'data-tone': 'turq', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)' } },
-    h('div', { class: 'screen__head alb-head' }, backButton(() => go(ROUTES.albums)),
-      h('div', { class: 'alb-head__t' }, kicker, title), invite),
-    h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14, margin: '0 -20px', padding: '6px 20px 12px' } },
+  // Comme sur la maquette : l'en-tête, puis le score, la soirée et les derniers épisodes tiennent dans l'écran, au-dessus de
+  // « Jouer l'épisode » et des onglets. Le reste (discussion, statistiques, code, règles) suit en faisant défiler.
+  const el = h('div', { class: 'screen screen--tabs album', 'data-fit': 'tabs', 'data-tone': 'turq', style: { gap: 0, paddingTop: 'calc(var(--safe-top) + 6px)' } },
+    h('div', { class: 'alb-head' }, kicker, invite, title),
+    h('div', { class: 'scroll-y alb-body' },
       top,
-      recap,
-      soiree,
       claims,
-      chat,
+      soiree,
       hist,
+      recap,
+      chat,
       stats,
       codeCard,
       rules.el,
-      exit),
+      exit,
+      allLink),
     status,
-    play);
+    play,
+    tabbar('albums'));
   if (DEMO) {
     draw(demoLeague());
     return { el, cleanup: () => {} };
@@ -694,7 +822,7 @@ function demoLeague(): League {
 const COVER_BG = ['var(--rouge)', 'var(--bleu)', 'var(--violet)', '#ff8fc4'];
 
 /** Tes albums : un album, c'est ta bande et ses soirées (mêmes équipes à chaque partie, victoires qui s'additionnent). */
-export function albumsScreen(): View {
+export function albumsScreen(showList = false): View {
   const me = myUid();
   const list = h('div', { class: 'alb-list' });
   const note = (l: League) => {
@@ -734,13 +862,28 @@ export function albumsScreen(): View {
     go('/tournoi/' + t);
   };
   code.addEventListener('keydown', (e) => e.key === 'Enter' && join());
-  const stop = DEMO ? (draw([DEMO_LEAGUE]), () => {}) : navigator.onLine ? watchMyLeagues(draw) : (draw(null), () => {});
-  if (!DEMO && navigator.onLine) draw([]);
+  // Un seul album : l'onglet l'ouvre directement, comme sur la maquette (sa liste reste accessible depuis sa page).
+  let got = false;
+  const first = (all: League[]) => {
+    got = true;
+    if (!showList && all.length === 1) {
+      // Une fois cet écran posé (jamais pendant sa construction), et seulement si on est toujours sur l'onglet.
+      const here = location.hash;
+      setTimeout(() => {
+        if (location.hash !== here) return;
+        history.replaceState(null, '', '#/tournoi/' + all[0].code);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      }, 0);
+    } else draw(all);
+  };
+  const stop = DEMO ? (first([DEMO_LEAGUE]), () => {}) : navigator.onLine ? watchMyLeagues((all) => (got ? draw(all) : first(all))) : (draw(null), () => {});
+  // Sans réponse du réseau au bout d'un instant, on montre de quoi créer ou rejoindre un album.
+  const wait = !DEMO && navigator.onLine ? window.setTimeout(() => { if (!got) draw([]); }, 700) : 0;
   const el = h('div', { class: 'screen screen--tabs albums', 'data-fit': 'tabs', 'data-tone': 'turq', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 6px)' } },
     h('div', { class: 'screen__head' }, h('span', { class: 't-screen', style: { marginRight: 'auto' } }, 'Tes albums'), button('Créer', 'dark', create, { size: 'xs' })),
     h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14, margin: '0 -20px', padding: '6px 20px 12px' } },
       list,
       h('div', { class: 'alb-join' }, code, button('Rejoindre', 'dark', join, { size: 'md' }))),
     tabbar('albums'));
-  return { el, cleanup: stop };
+  return { el, cleanup: () => { clearTimeout(wait); stop(); } };
 }

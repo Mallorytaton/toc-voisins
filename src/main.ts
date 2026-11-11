@@ -280,7 +280,7 @@ function router() {
       if (wideFold()) return setSplit('ranking', () => listView('ranking', params), myPane('Touche un joueur pour voir sa fiche.'));
       return setView(rankingScreen());
     case ROUTES.albums:
-      return setView(albumsScreen());
+      return setView(albumsScreen(params.has('liste')));
     case ROUTES.home:
       // Sur un téléphone, dans le navigateur : on propose d'installer l'app.
       // (seulement si on est encore sur l'accueil : jamais au milieu d'une salle ou d'une partie)

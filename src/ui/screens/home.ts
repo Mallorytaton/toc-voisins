@@ -201,7 +201,8 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
     if (fresh) return { tag: `Salut ${p.nick || 'toi'} !`, title: 'Apprends à jouer', chip: 'Une partie guidée', cta: 'Commencer !', go: () => go('/initiation'), ...friends };
     return {
       tag: `Salut ${p.nick || 'toi'} !`, title: 'On joue ?',
-      chip: online.length ? `${online.slice(0, 2).map((f) => f.name).join(' et ')} ${online.length > 1 ? 'sont là' : 'est là'} !` : 'Ta bande t’attend',
+      // Court : le bandeau tient sur une ligne (Toc, dessous, donne les prénoms).
+      chip: online.length === 1 ? `${online[0].name} est là !` : online.length ? `${online.length} amis sont là !` : 'Ta bande t’attend',
       cta: 'C’est parti !', go: openNew, ...friends,
     };
   };
