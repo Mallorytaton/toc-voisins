@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
+import { HAPTICS } from '../src/ui/haptics';
 
 const PROFILE = { nick: 'Frédo', char: 'tuque', color: 'coral', level: 1, xp: 0, tokens: 0, friendCode: 'FREDO#2741' };
 
@@ -87,6 +88,39 @@ test('partie hors ligne contre les robots', async ({ page, context }) => {
   // Les robots enchaînent, puis la partie continue.
   await expect(page.locator('.g-top__turn')).not.toHaveText('À toi de jouer, Frédo', { timeout: 10_000 });
   await expectNoSideScroll(page);
+  expect(errors).toEqual([]);
+});
+
+test('retour haptique : la donne, une carte, « Donner » et « à toi » font vibrer le téléphone', async ({ page, context }) => {
+  const errors = watchErrors(page);
+  await page.addInitScript((p) => {
+    localStorage.setItem('toc.profile', JSON.stringify(p));
+    // La vibration du téléphone est remplacée par un carnet : chaque motif demandé y est noté.
+    const log: unknown[] = [];
+    Object.assign(window, { __vib: log });
+    Object.defineProperty(navigator, 'vibrate', { configurable: true, value: (v: unknown) => { log.push(v); return true; } });
+  }, PROFILE);
+  const vibrations = () => page.evaluate(() => (window as unknown as { __vib: unknown[] }).__vib);
+  await page.goto('./#/accueil');
+  await context.setOffline(true);
+  await page.getByRole('button', { name: /Nouvelle partie/ }).click();
+  await page.getByRole('button', { name: 'Créer une salle · 4 joueurs' }).click();
+  await page.getByRole('button', { name: 'Compléter avec des robots' }).click();
+  await page.getByRole('button', { name: 'Lancer la partie' }).click();
+  await expect(page.locator('.game')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.g-hint b')).toHaveText('Échange', { timeout: 10_000 });
+  await page.locator('.hand .pcard').first().click();
+  await page.getByRole('button', { name: 'Donner' }).click();
+  // Dans l'ordre : la donne claque, ma carte, « Donner », la carte du partenaire, puis « à toi ».
+  await expect.poll(vibrations, { timeout: 20_000 }).toEqual([HAPTICS.donne, HAPTICS.carte, HAPTICS.jouer, HAPTICS.carte, HAPTICS.tour]);
+
+  // Vibrations coupées dans la pause : choisir une carte ne fait plus rien vibrer.
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.getByRole('switch', { name: 'Vibrations' }).click();
+  await page.getByRole('button', { name: 'Reprendre' }).click();
+  await page.locator('.hand .pcard').first().click({ force: true });
+  await expect(page.locator('.hand .pcard[aria-pressed="true"]')).toHaveCount(1);
+  expect(await vibrations()).toHaveLength(5);
   expect(errors).toEqual([]);
 });
 

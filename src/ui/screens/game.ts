@@ -16,7 +16,8 @@ import { ICONS, avatar, bille, billeSkin, button, cardBack, icon, pauseButton, p
 import { type Humeur, setHumeur } from '../kit/perso';
 import { boomFx } from '../board/boom';
 import { openRulesSheet } from './rules';
-import { buzz, music, musicTension, sfx, soundSettings } from '../sound';
+import { music, musicTension, sfx, soundSettings } from '../sound';
+import { type Haptic, haptic } from '../haptics';
 import { type MascotMood, mascot } from '../mascot';
 import { openTableSheet } from '../table-invite';
 import { allowLandscape } from '../orientation';
@@ -62,6 +63,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // Écran de table (tablette, sans place) : le plateau seul, vu depuis la place 0, sans main ni « à toi ».
   const watching = src.mySeat < 0;
   const me = watching ? 0 : src.mySeat;
+  // ---------- Retour haptique (src/ui/haptics.ts) ----------
+  // Jamais sur l'écran de table : posé au milieu des joueurs, il n'est dans la main de personne.
+  /** Un geste du joueur, ou un évènement qui le concerne (son tour, la donne, la fin). */
+  const tap = (name: Haptic) => { if (!watching) haptic(name); };
+  /** Le coup en cours d'animation se sent-il dans la main ? (pas un coup rejoué à la fin) ; mine : c'est toi qui le joues. */
+  let felt = { on: false, mine: false };
+  /** Un instant du coup animé : pour celui qui le joue, et (also) pour celui dont une bille est concernée. */
+  const feel = (name: Haptic, also = false) => { if (felt.on && (felt.mine || also)) haptic(name); };
   // Plateau peint (boutique, à 4) : la photo du plateau, tournée pour que sa couleur soit en bas.
   const pg = !watching && N === 4 && lookOf(draftProfile().look).plateau === 'peint' ? paintedGeom(SEAT_COLORS[4][me]) : null;
   /** Le plateau dans son plan (trous, fonds teintés) ; `g`, plus bas, donne les mêmes positions vues à l'écran. */
@@ -841,6 +850,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   document.addEventListener('pointerdown', closeOutside, true);
   const sendEmote = (t: string) => {
+    tap('touche');
     setEmotes(false);
     bubble(me, t);
     src.emote?.(t);
@@ -857,7 +867,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const hintS = h('span');
   // « Une astuce ? » : propose un bon coup (le robot le choisit) sans le jouer à la place du joueur.
   const tipBtn = h('button', { class: 'g-tip', type: 'button', onclick: () => suggest() }, 'Une astuce ?');
-  const resetSeven = h('button', { class: 'g-tip', type: 'button', onclick: () => { chain = []; pick = null; render(); } }, 'Recommencer le partage');
+  const resetSeven = h('button', { class: 'g-tip', type: 'button', onclick: () => { tap('touche'); chain = []; pick = null; render(); } }, 'Recommencer le partage');
   const playBtn = button('Jouer !', 'primary', () => commit());
   playBtn.classList.add('g-play');
   // Initiation : Toc, la mascotte, remplace la bulle d'émotes et réagit à chaque leçon.
@@ -1099,6 +1109,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       target = null;
       way = null;
     } else return;
+    tap('bille');
     render();
   };
 
@@ -1110,6 +1121,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     // Partage déjà complet : c'est l'autre façon de jouer la dernière bille.
     chain = sv.left ? [...chain, d.part] : [...chain.slice(0, -1), d.part];
     pick = null;
+    tap('bille');
     settleSeven();
     render();
   };
@@ -1279,6 +1291,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const commit = () => {
     if (giving() && sel !== null) {
       const card = myHand()[sel];
+      tap('jouer');
       clearSel();
       stopTimer();
       src.give(card);
@@ -1286,6 +1299,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
     const pl = plan();
     if (!pl.chosen) return;
+    tap('jouer');
     clearSel();
     stopTimer();
     src.play(pl.chosen);
@@ -1300,6 +1314,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (!myTurn()) return;
     const m = botMove(view, () => 0.5, 0);
     if (!m) return;
+    tap('touche');
     clearSel();
     const hand = myHand();
     if (m.kind === 'discard') {
@@ -1471,7 +1486,15 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     timerBar.style.animation = `tocBurn ${TURN_MS / 1000}s linear both`;
     // Les secondes qui restent, à côté de la mèche.
     const end = Date.now() + TURN_MS;
-    const tick = () => { timerLeft.textContent = `${Math.max(0, Math.ceil((end - Date.now()) / 1000))} s`; };
+    let shownLeft = -1;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      if (left === shownLeft) return;
+      shownLeft = left;
+      timerLeft.textContent = `${left} s`;
+      // Les cinq dernières secondes se sentent dans la main, une par une.
+      if (left >= 1 && left <= 5) tap('urgence');
+    };
     clearInterval(timerTick);
     tick();
     timerTick = window.setInterval(tick, 250);
@@ -1588,7 +1611,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const el = playingCard(card, {
         selected: on, ...view.variants,
         onclick: () => {
-          if (!active) return toast('Patience, c’est pas ton tour !');
+          if (!active) { tap('refus'); return toast('Patience, c’est pas ton tour !'); }
+          tap(sel === i ? 'touche' : 'carte');
           if (sel === i) clearSel();
           else { clearSel(); sel = i; }
           setEmotes(false);
@@ -1622,7 +1646,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       choicePop.hidden = false;
       choicePop.replaceChildren(h('span', { class: 'pop__title' }, pl.ways!.includes('out') ? 'Ta bille est dans sa maison' : 'Ta bille est devant sa maison'),
         h('div', { class: 'chips' }, ...pl.ways!.map((w) =>
-          h('button', { type: 'button', 'aria-pressed': String(way === w), onclick: () => { way = w; render(); } },
+          h('button', { type: 'button', 'aria-pressed': String(way === w), onclick: () => { tap('touche'); way = w; render(); } },
             w === 'discard' && !view.variants.discardOne ? 'Défausser ma main' : WAY_LABEL[w]))));
       return;
     }
@@ -1630,7 +1654,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       choicePop.hidden = false;
       choicePop.replaceChildren(h('span', { class: 'pop__title' }, 'Joue ton Joker comme'),
         h('div', { class: 'chips' }, ...pl.jokerValues.map((r) =>
-          h('button', { type: 'button', 'aria-pressed': String(jokerAs === r), onclick: () => { jokerAs = r; pick = null; target = null; chain = []; render(); } },
+          h('button', { type: 'button', 'aria-pressed': String(jokerAs === r), onclick: () => { tap('touche'); jokerAs = r; pick = null; target = null; chain = []; render(); } },
             RANK_SHORT[r] ?? r))));
       return;
     }
@@ -1707,7 +1731,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       padPanel.replaceChildren(head,
         h('span', { class: 'pad-panel__hint' }, (chain.length ? `Encore ${sv.left} pas. ` : '') + 'Où va cette bille ?'),
         destBtns(),
-        h('button', { class: 'pad-panel__link', type: 'button', onclick: () => { chain = []; pick = null; render(); } }, 'Changer de bille'),
+        h('button', { class: 'pad-panel__link', type: 'button', onclick: () => { tap('touche'); chain = []; pick = null; render(); } }, 'Changer de bille'),
         foot);
       return;
     }
@@ -2000,9 +2024,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     root.classList.toggle('game--tense', lvl === 3);
   };
   const center2 = (s: number, i: number, p: number) => xy(s, i, p);
-  const land = (s: number, i: number, p: number, label: string, n: number) => {
+  /** La bille se pose. how : ce qu'on sent dans la main quand elle n'arrive pas dans sa maison. */
+  const land = (s: number, i: number, p: number, label: string, n: number, how: Haptic = 'pose') => {
     const [x, y] = center2(s, i, p), c = tint(s).c;
     if (inHome(N, p)) sfx('maison');
+    // Se poser ne se sent que pour le coup qu'on joue ; une sortie ou une rentrée, aussi quand c'est sa propre bille.
+    const what: Haptic = inHome(N, p) ? 'maison' : how;
+    feel(what, what !== 'pose' && s === me);
     fx('board', { kind: 'ring', x, y, c, ms: 550 });
     fx('board', { kind: 'burst', x, y, c, ms: 650 });
     fx('board', { kind: 'float', x, y: y - 12, c, t: label, fs: Math.abs(n) >= 10 ? 26 : 20, ms: 950 });
@@ -2058,6 +2086,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         break;
       }
       sfx('toc', k);
+      feel('pas');
       place(s, i, p, Math.round(sp * 0.87), Z.lift, 500);
       await sleep(sp / 2);
       unlift(s, i);
@@ -2088,6 +2117,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (!next.lastMove) return;
     const { seat, move } = next.lastMove;
     const mine = seat === me && !watching;
+    felt = { on: !watching && replay === undefined, mine };
     const sp = mine ? 150 : 110;
     // La main et les compteurs passent tout de suite à l'état suivant ; les billes partent de l'état précédent.
     view = { ...prev, hands: next.hands, turn: next.turn, phase: prev.phase };
@@ -2113,7 +2143,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const [x, y] = center2(move.pawn.s, move.pawn.i, 0);
       fx('board', { kind: 'confetti', x, y, ms: 1000 });
       sfx('sortie');
-      land(move.pawn.s, move.pawn.i, 0, 'SORTI !', 0);
+      land(move.pawn.s, move.pawn.i, 0, 'SORTI !', 0, 'sortie');
     } else if (move.kind === 'step') {
       const p = await hop(move.pawn.s, move.pawn.i, prev.pawns[move.pawn.s][move.pawn.i].p, move.steps, sp, move.lap, next.lastCaptures.length > 0);
       land(move.pawn.s, move.pawn.i, p, move.steps > 0 ? '+' + move.steps : String(move.steps), move.steps);
@@ -2121,6 +2151,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const a = move.pawn, b = move.target;
       const pa = next.pawns[a.s][a.i].p, pb = next.pawns[b.s][b.i].p;
       sfx('echange');
+      feel('echange', a.s === me || b.s === me);
       await Promise.all([flyTo(a.s, a.i, pa, 26), flyTo(b.s, b.i, pb, 26)]);
       for (const [r, p] of [[a, pa], [b, pb]] as const) {
         const [x, y] = center2(r.s, r.i, p);
@@ -2160,8 +2191,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       // Les persos réagissent : ceux qu'on renvoie sont sonnés, puis enragent ; celui qui frappe jubile.
       const hitSeats = [...new Set(caps.map((v) => v.s))];
       hitSeats.forEach((s) => { if (s !== seat) setFlash(s, 'ko', 1500); });
-      // Une de tes billes renvoyée dans ta réserve : le téléphone vibre.
-      if (!watching && caps.some((v) => v.s === me)) buzz([40, 30, 220]);
+      // Dans la main : fort quand une de tes billes repart dans ta réserve, net quand c'est toi qui renvoies,
+      // et un petit choc pour toute la table quand le plateau tremble.
+      feel(caps.some((v) => v.s === me) ? 'aie' : mine ? 'boum' : 'choc', true);
       // Arrêt sur image, puis la caméra recule pour suivre la bille jusqu'à sa réserve.
       await sleep(280);
       staged = false;
@@ -2189,6 +2221,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       hitSeats.forEach((s) => { if (s !== seat) setFlash(s, 'furieux', 3400); });
       // Une bille renvoyée : la page BOUM (sur téléphone) ; sinon, la case du moment fort sous le plateau.
       const victims = hitSeats.filter((s) => s !== seat);
+      // Ton doublé, ta vengeance : le moment fort se sent aussi.
+      if (tag && !tag.startsWith('OUPS')) feel('bravo');
       if (victims.length && boumPageOn()) await boumPage(seat, victims, move.card, tag, replay !== undefined);
       else if (tag) await moment(tag, seat, victims, momentText(tag, seat, hitSeats));
     }
@@ -2205,6 +2239,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       home = done ? 'TOUT RENTRÉ !' : exact ? 'AU MILLIMÈTRE !' : '';
       if (home) {
         setFlash(who, 'joie', 3200);
+        feel('bravo', who === me);
         await moment(home, who, [], !done ? 'Du parcours, droit au fond de la maison.'
           : isMe(who) ? `Tes 4 billes sont rentrées : tu joues maintenant celles ${deNom(nameOf(partner(N, who)))}.`
             : `${nameOf(who)} a rentré ses 4 billes et joue maintenant celles ${deNom(nameOf(partner(N, who)))}.`);
@@ -2249,12 +2284,15 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       dealing = false;
       const size = next.hands[me].length;
       sfx('donne');
+      tap('donne');
       if (next.dealNo === 0) fx('screen', { kind: 'banner', y: 452, t: 'C’EST PARTI !', ms: 1500 });
       else toast(!watching && next.dealer === me ? `Tu distribues ${size} cartes` : `${nameOf(next.dealer)} distribue ${size} cartes`);
       await sleep(1300);
     } else if (prev.phase === 'exchange' && next.phase === 'play') {
       render();
       if (!watching) {
+        // Un instant après : si c'est ta carte qui boucle l'échange, ton « Donner » vibre encore sous le doigt.
+        setTimeout(() => { if (!disposed) tap('carte'); }, 180);
         toast(`${nameOf(partner(N, me))} t’a passé une carte`, 1000);
         await sleep(1050);
       }
@@ -2269,7 +2307,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       if (drawerOpen && document.activeElement !== chatInput) setDrawer(false);
       if (!opened) fx('screen', { kind: 'banner', y: 452, t: 'À TOI DE JOUER !', ms: 1500 });
       sfx('tour');
-      buzz([60, 40, 60]);
+      tap('tour');
     }
     if (next.phase === 'over' && prev.phase !== 'over') showEnd(next);
   };
@@ -2499,7 +2537,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const won = watching || teamOf(N, me) === st.winner;
     if (src.initiation) setCoach(won ? 'vainqueur' : 'surpris');
     sfx(won ? 'victoire' : 'defaite');
-    if (won && !watching) buzz([80, 60, 80, 60, 200]);
+    tap(won ? 'victoire' : 'defaite');
     for (let k = 0; k < 3; k++) setTimeout(() => fx('board', { kind: 'confetti', x: 120 + k * 60, y: 160 + (k % 2) * 40, ms: 1200 }), k * 250);
     setTimeout(() => showVictory(st, won), 900);
   };

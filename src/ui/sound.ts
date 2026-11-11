@@ -1,20 +1,18 @@
-// Sons, musique et vibrations du jeu : produits par le téléphone (Web Audio), sans fichier à télécharger.
+// Sons et musique du jeu : produits par le téléphone (Web Audio), sans fichier à télécharger.
 // Les navigateurs n'autorisent le son qu'après un toucher : unlockAudio() au premier geste.
-// Vibrations : Android seulement (l'iPhone ne les permet pas aux apps web).
+// Les vibrations ont leur palette à part (haptics.ts) ; leur interrupteur est ici, avec ceux du son.
 import { h } from './dom';
+import { canVibrate, haptic, hapticsOn, setHapticsOn } from './haptics';
 
 export type Sfx = 'toc' | 'carte' | 'donne' | 'sortie' | 'maison' | 'echange' | 'elan' | 'boum' | 'roule' | 'moment' | 'tour' | 'victoire' | 'defaite';
 
 const SOUND_KEY = 'toc.sons';
 const MUSIC_KEY = 'toc.musique';
-const BUZZ_KEY = 'toc.vibrations';
 const pref = (k: string) => { try { return localStorage.getItem(k) !== '0'; } catch { return true; } };
 const setPref = (k: string, on: boolean) => { try { localStorage.setItem(k, on ? '1' : '0'); } catch { /* sans stockage, réglage pour cette visite */ } };
 
 export const soundOn = () => pref(SOUND_KEY);
 export const musicOn = () => pref(MUSIC_KEY);
-export const buzzOn = () => pref(BUZZ_KEY);
-export const canBuzz = () => typeof navigator.vibrate === 'function';
 
 let ctx: AudioContext | null = null;
 /** Le moteur n'a pas voulu repartir après un toucher : on en crée un neuf au toucher suivant. */
@@ -299,11 +297,6 @@ export function music(on: boolean) {
 /** Tension de la partie, de 0 (début tranquille) à 3 (une équipe n'a plus qu'une bille à rentrer). */
 export function musicTension(level: number) { tension = Math.max(0, Math.min(3, level)); }
 
-/** Vibration (Android), si elle n'est pas coupée. */
-export function buzz(pattern: number | number[]) {
-  if (buzzOn() && canBuzz()) try { navigator.vibrate(pattern); } catch { /* refusée : rien à faire */ }
-}
-
 /** Interrupteurs « Sons », « Musique » et « Vibrations » (pause du jeu, Ton compte). */
 export function soundSettings(): HTMLElement {
   const row = (label: string, sub: string, on: boolean, set: (v: boolean) => void) => {
@@ -315,5 +308,6 @@ export function soundSettings(): HTMLElement {
   return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
     row('Sons', 'Billes, cartes, BOUM, ton tour…', soundOn(), (v) => setPref(SOUND_KEY, v)),
     row('Musique', 'Pendant la partie, elle monte avec la tension.', musicOn(), (v) => setPref(MUSIC_KEY, v)),
-    canBuzz() && row('Vibrations', 'Ton tour, une bille renvoyée.', buzzOn(), (v) => { setPref(BUZZ_KEY, v); if (v) buzz(60); }));
+    // Seulement là où le téléphone sait vibrer pour une page web (pas sur iPhone).
+    canVibrate() && row('Vibrations', 'Tes gestes, tes billes, les BOUM.', hapticsOn(), (v) => { setHapticsOn(v); if (v) haptic('tour'); }));
 }
