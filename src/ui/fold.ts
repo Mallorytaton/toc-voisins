@@ -54,7 +54,8 @@ let asked: { cols: MediaQueryList; rows: MediaQueryList; coarse: MediaQueryList;
 function ask() {
   if (asked) return asked;
   // Essais et captures : « ?pli=book » (ou open, tent, flip, phone) impose une tenue, quel que soit l'écran.
-  const v = new URLSearchParams(location.search).get('pli');
+  // (accepté aussi en fin d'adresse, après le « # » : « …/#/accueil?pli=open », là où on l'ajoute naturellement)
+  const v = new URLSearchParams(location.search).get('pli') ?? new URLSearchParams(location.hash.split('?')[1] ?? '').get('pli');
   asked = {
     cols: matchMedia('(horizontal-viewport-segments: 2)'), rows: matchMedia('(vertical-viewport-segments: 2)'), coarse: matchMedia('(pointer: coarse)'),
     forced: v === 'phone' || v === 'open' || v === 'book' || v === 'tent' || v === 'flip' ? v : null,
