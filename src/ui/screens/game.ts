@@ -6,7 +6,7 @@ import {
   type Card, type GameState, type Move, type PawnRef, type Rank, type SevenPart, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, homeIndex, inHome, isLap, leavesHome, legalMovesFor, occupant, partner, rankOf, sameRef, squareOf, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
 } from '../../engine';
 import { type Fx, playFx } from '../board/fx';
-import { FLAT, SEATED, type Tilt, armOf, geom, pawnXY, projector, seatedAvs, tilted, trackIndex } from '../board/geom';
+import { FLAT, SEATED, type Tilt, armOf, geom, pawnXY, planeShift, projector, seatedAvs, shiftCss, tilted, trackIndex } from '../board/geom';
 import { paintedGeom } from '../board/painted';
 import { askRelief, relief, reliefAvailable, reliefOn, setReliefPref } from '../board/relief';
 import { criOf, lookOf } from '../../app/shop';
@@ -33,6 +33,10 @@ const BOARD_Y = 70;
 const ACTIONS_Y = 424;
 /** Largeur d'une carte de la main */
 const CARD_W = 98;
+/** Épaisseur de la dalle du plateau, dans les unités du plan (elle se voit sur une douzaine de pixels, de sa place) */
+const SLAB = 19;
+/** Plateau en relief : de combien le regard tourne (gauche, droite) et monte ou descend, en degrés, téléphone incliné à fond */
+const LOOK_YAW = 7, LOOK_PITCH = 5;
 const VIEW_KEY = 'toc.vue';
 const BOUM_KEY = 'toc.boum';
 /** Réglage « Vue du plateau » : inclinée depuis sa place (par défaut), ou de dessus. */
@@ -79,12 +83,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
    * À 6, ton perso quitte le bout de son bras pour le coin proche, à gauche, comme à 4 : le milieu du bord reste
    * libre pour les messages de la partie.
    */
-  const seen = () => {
+  /** Où se tiennent les persos, dans le plan du plateau (avant projection). */
+  const planeAvs = (): [number, number][] => {
     const t = tiltFor();
     let avs = t.deg && !pg ? seatedAvs(flat) : flat.avs;
     if (N === 6 && !watching) avs = avs.map((p, k): [number, number] => (k === N / 2 ? (t.deg ? [24, 360] : [17, 357]) : p));
-    return tilted({ ...flat, avs }, t);
+    return avs;
   };
+  const seen = () => tilted({ ...flat, avs: planeAvs() }, tiltFor());
   let g = seen();
   const tint = (s: number) => COL[SEAT_COLORS[N][s]];
   const nick = draftProfile().nick || 'Toi';
@@ -258,11 +264,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   posture?.addEventListener('change', fit);
   window.addEventListener('resize', fit);
 
+  // Le fond de la case est le sol sur lequel le plateau est posé : ses rayons et ses trames le suivent (plateau en relief).
+  const ground = h('div', { class: 'g-case__sol' }, h('i'), h('b'), h('b'));
   // Décor : deux trames de points dans les coins, et la case de BD derrière le plateau (ses rayons partent du centre).
   stage.append(
     h('div', { class: 'g-dots', style: { left: -150, top: 470 } }),
     h('div', { class: 'g-dots', style: { right: -170, top: -150 } }),
-    h('div', { class: 'g-case', 'aria-hidden': 'true' }, h('i')),
+    h('div', { class: 'g-case', 'aria-hidden': 'true' }, ground),
   );
 
   // ---------- Barre du haut ----------
@@ -278,6 +286,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     applyTilt();
     placeAvatars();
     syncPawns(view);
+    applyLean(lean[0], lean[1]);
     render();
   };
   // Journal : les 4 derniers coups joués, pour savoir ce qui s'est passé (demandé par Mallory).
@@ -333,19 +342,37 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     ln.forEach(([x, y]) => plane.append(hole(x, y, Z.hs, 'home', c)));
     flat.res[arm].forEach(([x, y]) => plane.append(hole(x, y, Z.rs, 'res', c)));
   });
-  plane.append(h('div', { class: 'pile', style: { transform: `scale(${N === 4 ? (pg ? 1 : 0.88) : 0.72})` } }, cardBack(), deckCount, discard));
+  // Les ombres des billes, à plat sur le bois : elles restent au sol quand la bille se soulève ou s'envole.
+  const shadeLayer = h('div', { class: 'board__shades', 'aria-hidden': 'true' });
+  // Sur le bois : la défausse (une carte à plat) et l'ombre de la pioche. La pioche elle-même est un paquet en volume.
+  const pileOf = (...kids: HTMLElement[]) => h('div', { class: 'pile', style: { transform: `scale(${N === 4 ? (pg ? 1 : 0.88) : 0.72})` } }, ...kids);
+  plane.append(shadeLayer, pileOf(h('b', { class: 'pback-ombre' }), discard));
+  // La pioche en volume : des cartes empilées au-dessus du bois (leurs tranches), la carte « TOC » et son compteur tout en haut.
+  const deck = h('div', { class: 'board__deck', 'aria-hidden': 'true' },
+    ...[1, 3, 5].map((j) => h('i', { style: { '--j': j } }, pileOf(h('b', { class: 'pback-tranche' })))),
+    h('i', { style: { '--j': 7 } }, pileOf(cardBack(), deckCount)));
+  // La dalle en volume : sa tranche (des couches empilées sous le bois), son contour d'encre et son ombre sur le sol.
+  // Chaque couche reprend la perspective du plan, un peu plus bas : la tranche se découvre vraiment quand le regard tourne.
+  const slab = h('div', { class: 'board__slab', 'aria-hidden': 'true' },
+    h('i', { class: 'board__slab-ombre', style: { '--j': SLAB } }), h('i', { class: 'board__slab-encre', style: { '--j': SLAB } }),
+    ...Array.from({ length: 10 }, (_, k) => h('i', { style: { '--j': SLAB - 2 * k } })));
+  // Les marques posées à plat (trajets, arrivées) suivent le plan par une seule déformation, depuis le coin du cadre.
+  pathLayer.style.transformOrigin = ghostLayer.style.transformOrigin = '0 0';
   // Tout le plateau passe dans une « caméra » : pendant le partage du 7, elle se rapproche des arrivées.
-  const cam = h('div', { class: 'board__cam' }, plane, pathLayer, ghostLayer, pawnLayer, avLayer, fxBoard);
+  const cam = h('div', { class: 'board__cam' }, slab, plane, deck, pathLayer, ghostLayer, pawnLayer, avLayer, fxBoard);
   board.append(cam);
   stage.append(board, bubbleLayer);
   const applyTilt = () => {
+    const t = tiltFor();
     plane.style.transform = proj.css;
-    board.classList.toggle('board--flat', !tiltFor().deg);
+    board.classList.toggle('board--flat', !t.deg);
+    // Hors de la vue de la maquette (vue de dessus, plateau peint), le récitatif de la manche remonte au-dessus de la case :
+    // les persos y sont dans les coins du plateau, et leurs étiquettes passent juste dessous.
+    root.classList.toggle('game--coins', !t.deg || !!pg);
+    // La perspective du plan, pour les couches en volume (la tranche de la dalle, la pioche) qui la reprennent.
+    for (const [k, v] of [['--pitch', t.deg + 'deg'], ['--yaw', '0deg'], ['--k', String(t.k)], ['--dist', t.dist + 'px']]) cam.style.setProperty(k, v);
   };
   applyTilt();
-  // Le plateau en relief : il bascule légèrement quand on incline le téléphone (pas l'écran de table, posé à plat).
-  const tilt3d = watching ? null : relief({ board, slab: plane.querySelector<HTMLElement>(pg ? '.board__photo' : '.board__wood'), scene: stage.querySelector<HTMLElement>('.g-case') });
-  tilt3d?.sync();
   let zoomed = '';
   /** Mise en scène d'un BOUM en cours : la caméra lui appartient, le reste de l'écran n'y touche pas. */
   let staged = false;
@@ -428,21 +455,45 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // ---------- Billes ----------
   /** Ce que porte un joueur (boutique) : soi-même d'après son profil, les autres d'après la salle. */
   const lookOfSeat = (s: number) => (s === me && !watching ? draftProfile().look : src.players[s]?.look);
-  const pawnEls = new Map<string, { outer: HTMLElement; inner: HTMLElement; y: number }>();
+  /** Une bille : son élément, son ombre sur le bois, sa position à l'écran (regard droit devant) et dans le plan du plateau. */
+  type PawnEl = { outer: HTMLElement; inner: HTMLElement; shade: HTMLElement; y: number; fx: number; fy: number };
+  const pawnEls = new Map<string, PawnEl>();
   const xy = (s: number, i: number, p: number) => pawnXY(g, me, s, i, p);
   for (let s = 0; s < N; s++)
     for (let i = 0; i < 4; i++) {
       const inner = billeSkin(bille(SEAT_COLORS[N][s], { size: Z.ps }), lookOfSeat(s)?.bille);
       const outer = h('div', { class: 'pawn', style: { width: Z.ps, height: Z.ps } }, inner);
       outer.addEventListener('click', () => onPawn({ s, i }));
-      pawnEls.set(`${s}.${i}`, { outer, inner, y: 0 });
+      const shade = h('i', { class: 'pawn-shade' });
+      pawnEls.set(`${s}.${i}`, { outer, inner, shade, y: 0, fx: 0, fy: 0 });
       pawnLayer.append(outer);
+      shadeLayer.append(shade);
     }
+  /** Le regard en cours sur le plateau (plateau en relief), de -1 à 1 : 0, 0 droit devant. */
+  let lean: [number, number] = [0, 0];
+  /** L'inclinaison du plateau vue avec ce regard. */
+  const leanTilt = (): Tilt => { const t = tiltFor(); return { ...t, deg: t.deg + lean[1] * LOOK_PITCH, yaw: lean[0] * LOOK_YAW }; };
+  /** Décale une bille de sa place de repos à sa place vue avec le regard en cours (elle reste debout, face à nous). */
+  const leanPawn = (e: PawnEl, live: ReturnType<typeof projector> | null) => {
+    if (!live) { e.outer.style.transform = ''; return; }
+    // On suit le milieu de la bille, un peu au-dessus du bois : debout sur son trou, elle bouge un rien plus que son ombre.
+    const h0 = Z.ps * 0.9, [x0, y0, s0] = proj.at(e.fx, e.fy, h0), [x1, y1, s1] = live.at(e.fx, e.fy, h0);
+    e.outer.style.transform = `translate(${r1(x1 - x0)}px, ${r1(y1 - y0)}px) scale(${(s1 / s0).toFixed(4)})`;
+  };
   /** Place une bille sur la progression p (durée de transition en ms, soulèvement en px). */
   const place = (s: number, i: number, p: number, dur = 0, lift = 0, extraZ = 0) => {
     const e = pawnEls.get(`${s}.${i}`)!;
     const [x, y] = xy(s, i, p);
     e.y = y;
+    [e.fx, e.fy] = pawnXY(flat, me, s, i, p);
+    // Son ombre, à plat sur le bois, du côté opposé à la lumière : elle suit la bille au sol, pas son soulèvement.
+    const d = Z.ps * pawnBoost(), sw = d * 0.95, sh = d * (tiltFor().deg ? 0.66 : 0.86);
+    e.shade.style.transition = dur ? `left ${dur}ms ease-out, top ${dur}ms ease-out` : 'none';
+    e.shade.style.width = r1(sw) + 'px';
+    e.shade.style.height = r1(sh) + 'px';
+    e.shade.style.left = r1(e.fx + d * 0.36 - sw / 2) + 'px';
+    e.shade.style.top = r1(e.fy + d * 0.3 - sh / 2) + 'px';
+    if (lean[0] || lean[1]) leanPawn(e, projector(leanTilt()));
     e.outer.style.transition = dur ? `left ${dur}ms ease-out, top ${dur}ms ease-out, translate ${Math.round(dur / 2)}ms ease-out, scale ${dur}ms ease-out` : 'none';
     e.outer.style.left = r1(x - Z.ps / 2) + 'px';
     e.outer.style.top = r1(y - Z.ps * 0.62) + 'px';
@@ -496,8 +547,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       // Vue de la maquette : l'étiquette du partenaire part à sa gauche (sa bulle part à droite) ; celles des adversaires
       // se posent au-dessus d'eux, hors du plateau (dessous, elles couvriraient deux trous).
       const side = mockView() ? (x < 110 ? 'over-start' : x > 250 ? 'over-end' : 'left')
-        // Tout en haut à gauche (vue de dessus), l'étiquette passe sous le perso : au-dessus, le récitatif de la manche la cacherait.
-        : y < 150 ? (x < 110 ? (y - size / 2 < 60 ? 'under-start' : 'over-start') : x > 250 ? 'over-end' : 'right')
+        // Tout en haut à gauche (vue de dessus), l'étiquette part à droite du perso : au-dessus, le récitatif de la manche
+        // la cacherait ; dessous, elle couvrirait la réserve.
+        : y < 150 ? (x < 110 ? (y - size / 2 < 40 ? 'right' : 'over-start') : x > 250 ? 'over-end' : 'right')
           : N === 6 && !isMe ? (x < 110 ? 'under-start' : x > 250 ? 'under-end' : 'under') : x < 110 ? 'right' : x > 250 ? 'left' : 'under';
       // Dans les coins proches (toi compris), l'étiquette part sur le côté, descendue sous la dernière rangée de trous.
       const low = y >= 150 && (side === 'right' || side === 'left');
@@ -509,6 +561,39 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
   };
   placeAvatars();
+
+  // ---------- Le plateau en relief ----------
+  // Incliner le téléphone change le point de vue : on regarde le plateau d'un peu plus à gauche, à droite, de plus haut
+  // ou de plus bas. Le plan (bois, trous, ombres) reprend sa perspective, la tranche de la dalle se découvre, les billes
+  // et les persos se replacent debout, le sol de la case suit : le plateau reste posé, il ne glisse pas sur son fond.
+  const applyLean = (x: number, y: number) => {
+    lean = [x, y];
+    const rest = !x && !y;
+    const t0 = tiltFor(), t1 = leanTilt(), live = rest ? null : projector(t1);
+    // En mouvement, plus de transition sur le plan : il suit le capteur image par image, comme les billes.
+    board.classList.toggle('board--live', !rest);
+    plane.style.transform = (live ?? proj).css;
+    cam.style.setProperty('--pitch', t1.deg.toFixed(2) + 'deg');
+    cam.style.setProperty('--yaw', (t1.yaw ?? 0).toFixed(2) + 'deg');
+    pathLayer.style.transform = ghostLayer.style.transform = rest ? '' : shiftCss(planeShift(t0, t1));
+    // Le sol est sous la dalle : le coin du cadre du plateau, vu depuis l'intérieur de la case (bord de 3 px).
+    ground.style.transform = rest ? '' : shiftCss(planeShift(t0, t1, -SLAB, [BOARD_X - 8, BOARD_Y - 81]));
+    pawnEls.forEach((e) => leanPawn(e, live));
+    // Le reflet des billes glisse un peu avec le regard.
+    pawnLayer.style.setProperty('--hx', rest ? '0%' : r1(x * 9) + '%');
+    pawnLayer.style.setProperty('--hy', rest ? '0%' : r1(-y * 8) + '%');
+    const avs = planeAvs();
+    for (let s = 0; s < N; s++) {
+      if (!live) { avEls[s].root.style.translate = ''; continue; }
+      const [ax, ay] = avs[armOf(N, me, s)], [x0, y0] = proj.at(ax, ay), [x1, y1] = live.at(ax, ay);
+      // Un perso collé au bord de l'écran y reste : il ne sort pas du cadre en suivant le plateau.
+      const left = parseFloat(avEls[s].root.style.left) || 0, lo = 3 - BOARD_X - left, hi = 360 + BOARD_X - Z.av - 3 - left;
+      avEls[s].root.style.translate = `${r1(Math.min(Math.max(hi, 0), Math.max(Math.min(lo, 0), x1 - x0)))}px ${r1(y1 - y0)}px`;
+    }
+  };
+  // Pas sur l'écran de table : posé à plat au milieu des joueurs, il ne bouge pas.
+  const tilt3d = watching ? null : relief(applyLean);
+  tilt3d?.sync();
 
   // ---------- Toast, émotes, choix ----------
   const toastBox = h('div');

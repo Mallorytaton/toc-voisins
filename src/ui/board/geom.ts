@@ -115,6 +115,8 @@ export interface Tilt {
   deg: number;
   dist: number;
   k: number;
+  /** Regard tourné vers la gauche (positif) ou la droite, en degrés : le plateau en relief (src/ui/board/relief.ts) */
+  yaw?: number;
 }
 /** Vue de dessus (écran de table, réglage « à plat ») */
 export const FLAT: Tilt = { deg: 0, dist: 1400, k: 1 };
@@ -124,27 +126,81 @@ export const FLAT: Tilt = { deg: 0, dist: 1400, k: 1 };
  */
 export const SEATED: Tilt = { deg: 40, dist: 820, k: 0.876 };
 
+const RAD = Math.PI / 180;
+
 /**
  * Passe du plan du plateau à l'écran, dans le même repère 360 × 360 (centre commun).
  * C'est exactement ce que fait le navigateur avec `css` posé sur le plan : les billes, les persos et les effets,
  * eux, restent debout et sont placés avec `at`.
  */
 export function projector(t: Tilt, c = 180) {
-  const th = (t.deg * Math.PI) / 180, cos = Math.cos(th), sin = Math.sin(th);
-  /** Point du plan → [x, y] à l'écran et grossissement à cet endroit (proche : plus gros). */
-  const at = (x: number, y: number): [number, number, number] => {
-    const X = (x - c) * t.k, Y = (y - c) * t.k;
-    const s = t.dist / (t.dist - Y * sin);
-    return [c + X * s, c + Y * cos * s, s * t.k];
+  const cos = Math.cos(t.deg * RAD), sin = Math.sin(t.deg * RAD);
+  const cy = Math.cos((t.yaw ?? 0) * RAD), sy = Math.sin((t.yaw ?? 0) * RAD);
+  /** Point du plan (z : hauteur au-dessus du bois) → [x, y] à l'écran et grossissement à cet endroit (proche : plus gros). */
+  const at = (x: number, y: number, z = 0): [number, number, number] => {
+    const X = (x - c) * t.k, Y = (y - c) * t.k, Z = z * t.k;
+    // Le plan bascule vers l'arrière (rotateX), puis la scène tourne autour de la verticale de l'écran (rotateY).
+    const Y1 = Y * cos - Z * sin, Z1 = Y * sin + Z * cos;
+    const X2 = X * cy + Z1 * sy, Z2 = -X * sy + Z1 * cy;
+    const s = t.dist / (t.dist - Z2);
+    return [c + X2 * s, c + Y1 * s, s * t.k];
   };
-  /** Grossissement d'un objet posé sur le plateau à la hauteur d'écran `y`. */
+  /** Grossissement d'un objet posé sur le plateau à la hauteur d'écran `y` (regard droit devant). */
   const scaleAtY = (y: number) => {
     const Yp = y - c;
     const Y = (Yp * t.dist) / (t.dist * cos + Yp * sin);
     return (t.dist / (t.dist - Y * sin)) * t.k;
   };
-  return { at, scaleAtY, css: t.deg ? `perspective(${t.dist}px) rotateX(${t.deg}deg) scale(${t.k})` : t.k === 1 ? 'none' : `scale(${t.k})` };
+  const css = t.deg || t.yaw ? `perspective(${t.dist}px)${t.yaw ? ` rotateY(${r3(t.yaw)}deg)` : ''} rotateX(${r3(t.deg)}deg) scale(${t.k})` : t.k === 1 ? 'none' : `scale(${t.k})`;
+  return { at, scaleAtY, css };
 }
+const r3 = (n: number) => Math.round(n * 1000) / 1000;
+
+type M3 = [number, number, number, number, number, number, number, number, number];
+/** La projection des points du plan situés à la hauteur z, en matrice 3 × 3 (ligne par ligne) : (x, y, 1) → (u, v, w), l'écran étant (u / w, v / w). */
+function planeMatrix(t: Tilt, z: number, c: number): M3 {
+  const cos = Math.cos(t.deg * RAD), sin = Math.sin(t.deg * RAD);
+  const cy = Math.cos((t.yaw ?? 0) * RAD), sy = Math.sin((t.yaw ?? 0) * RAD);
+  const col = (x: number, y: number, one: number): [number, number, number] => {
+    const X = (x - c * one) * t.k, Y = (y - c * one) * t.k, Z = z * t.k * one;
+    const Y1 = Y * cos - Z * sin, Z1 = Y * sin + Z * cos;
+    const X2 = X * cy + Z1 * sy, Z2 = -X * sy + Z1 * cy;
+    const w = one - Z2 / t.dist;
+    return [c * w + X2, c * w + Y1, w];
+  };
+  const a = col(1, 0, 0), b = col(0, 1, 0), d = col(0, 0, 1);
+  return [a[0], b[0], d[0], a[1], b[1], d[1], a[2], b[2], d[2]];
+}
+const mul3 = (a: M3, b: M3): M3 => [0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
+  const r = Math.floor(i / 3) * 3, k = i % 3;
+  return a[r] * b[k] + a[r + 1] * b[k + 3] + a[r + 2] * b[k + 6];
+}) as M3;
+function inv3(m: M3): M3 {
+  const [a, b, c, d, e, f, g, h, i] = m;
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g;
+  const det = a * A + b * B + c * C;
+  return [A / det, -(b * i - c * h) / det, (b * f - c * e) / det, B / det, (a * i - c * g) / det, -(a * f - c * d) / det, C / det, -(a * h - b * g) / det, (a * e - b * d) / det];
+}
+
+/**
+ * Ce que deviennent, vues avec l'inclinaison `to`, les images posées à plat sur le plateau (à la hauteur z) telles qu'on
+ * les voyait avec l'inclinaison `from` : une homographie, ligne par ligne. `origin` : où se trouve le coin du cadre du
+ * plateau dans le repère du calque à déformer.
+ */
+export function planeShift(from: Tilt, to: Tilt, z = 0, origin: Pt = [0, 0], c = 180): M3 {
+  const h = mul3(planeMatrix(to, z, c), inv3(planeMatrix(from, z, c)));
+  const [ox, oy] = origin;
+  const go: M3 = [1, 0, ox, 0, 1, oy, 0, 0, 1], back: M3 = [1, 0, -ox, 0, 1, -oy, 0, 0, 1];
+  const m = mul3(go, mul3(h, back));
+  return m.map((v) => v / m[8]) as M3;
+}
+/** Applique une homographie à un point. */
+export function shiftPoint(m: number[], x: number, y: number): Pt {
+  const w = m[6] * x + m[7] * y + m[8];
+  return [(m[0] * x + m[1] * y + m[2]) / w, (m[3] * x + m[4] * y + m[5]) / w];
+}
+/** L'homographie en transformation CSS (à poser avec transform-origin: 0 0). */
+export const shiftCss = (m: number[]) => `matrix3d(${[m[0], m[3], 0, m[6], m[1], m[4], 0, m[7], 0, 0, 1, 0, m[2], m[5], 0, m[8]].map((v) => +v.toFixed(6)).join(',')})`;
 
 /**
  * Où se tiennent les persos quand le plateau est vu de sa place (à 4), comme sur la maquette : le partenaire en face,

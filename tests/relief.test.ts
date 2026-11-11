@@ -37,7 +37,7 @@ describe('plateau en relief', () => {
 
   it('tenu immobile dans sa nouvelle position, le plateau revient à plat tout seul', () => {
     const rest = leanStep({ base: null }, { beta: 50, gamma: 0 }, 16).state;
-    const soon = hold(rest, 50, 10, 300), later = hold(rest, 50, 10, 15_000);
+    const soon = hold(rest, 50, 10, 300), later = hold(rest, 50, 10, 25_000);
     expect(soon.x).toBeGreaterThan(0.6);
     expect(later.x).toBe(0);
   });

@@ -15,13 +15,12 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 /* Décor : trames de points, et la case de BD derrière le plateau */
 .g-dots { position: absolute; z-index: 0; width: 400px; height: 400px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(255, 255, 255, .13) 2px, rgba(255, 255, 255, 0) 2.6px) 0 0 / 11px 11px; }
 .g-case { position: absolute; z-index: 0; left: 5px; top: 78px; width: 383px; height: 310px; border: 3px solid var(--ink); border-radius: 18px; background: var(--bleu); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; }
-.g-case > i { position: absolute; inset: -70px; background: repeating-conic-gradient(from 4deg at 50% 54%, rgba(255, 255, 255, .13) 0deg 5deg, rgba(255, 255, 255, 0) 5deg 13deg); }
-.g-case::before, .g-case::after { content: ''; position: absolute; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(22, 19, 31, .3) 2px, rgba(22, 19, 31, 0) 2.6px) 0 0 / 10px 10px; }
-.g-case::before { left: -70px; bottom: -80px; }
-/* Plateau en relief : le décor glisse derrière le plateau (les rayons au fond, les trames un peu moins loin) */
-.g-case > i { translate: calc(var(--rx, 0) * -8px) calc(var(--ry, 0) * 6px); }
-.g-case::before, .g-case::after { translate: calc(var(--rx, 0) * -5px) calc(var(--ry, 0) * 4px); }
-.g-case::after { right: -80px; top: -90px; }
+/* Le sol sur lequel le plateau est posé : rayons et trames suivent le plateau en relief (une déformation, depuis le coin de la case) */
+.g-case__sol { position: absolute; inset: 0; transform-origin: 0 0; }
+.g-case__sol > i { position: absolute; inset: -70px; background: repeating-conic-gradient(from 4deg at 50% 54%, rgba(255, 255, 255, .13) 0deg 5deg, rgba(255, 255, 255, 0) 5deg 13deg); }
+.g-case__sol > b { position: absolute; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(22, 19, 31, .3) 2px, rgba(22, 19, 31, 0) 2.6px) 0 0 / 10px 10px; }
+.g-case__sol > b:first-of-type { left: -70px; bottom: -80px; }
+.g-case__sol > b:last-of-type { right: -80px; top: -90px; }
 
 /* Pliants : les deux volets, et un fondu quand on plie ou déplie. */
 .game[data-layout='flex'] .game__frame + .game__frame, .game[data-layout='book'] .game__frame + .game__frame,
@@ -93,6 +92,8 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
   box-shadow: 3px 4px 0 var(--ink); font: 900 11px/1 var(--text); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; rotate: -2.5deg; cursor: pointer;
 }
 .g-round[aria-expanded='true'] { background: #fff; }
+/* Vue de dessus, plateau peint : les persos sont dans les coins du plateau ; le récitatif remonte juste au-dessus de la case */
+.game--coins .g-round { top: 52px; }
 .game--manette .g-round, .game[data-layout='table'] .g-round { display: none; }
 /* ---- Le plateau ----
    Un cadre de 360 × 360 ; le plan (bois, feutre, trous, pioche) y est incliné d'un bloc, comme vu de sa place.
@@ -105,18 +106,50 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 /* La dalle : un aplat de bois cerné d'encre, son épaisseur (plus foncée) et son ombre dure sur la table */
 .board__wood {
   position: absolute; inset: 0; border: 3px solid var(--ink); border-radius: 40px; background: #f6b25f;
-  /* Plateau en relief (src/ui/board/relief.ts) : la tranche et l'ombre suivent le regard, de -1 à 1 (--rx, --ry) */
-  --sx: calc(var(--rx, 0) * -5px); --sy: calc(13px + var(--ry, 0) * 4px);
-  box-shadow: var(--sx) var(--sy) 0 0 #c8762b, var(--sx) var(--sy) 0 3px var(--ink), calc(9px + var(--rx, 0) * -9px) calc(30px + var(--ry, 0) * 7px) 0 3px rgba(22, 19, 31, .3);
 }
+/* La dalle en volume, vue de sa place : des couches de bois empilées sous le plan (sa tranche), son contour d'encre et son
+   ombre sur le sol. Chacune reprend la perspective du plan (posée par game.ts), un peu plus bas : la tranche se découvre
+   vraiment quand le regard tourne (plateau en relief). */
+.board__cam { --pitch: 40deg; --yaw: 0deg; --k: .876; --dist: 820px; }
+.board__slab, .board__deck { position: absolute; inset: 0; pointer-events: none; }
+.board__slab > i, .board__deck > i {
+  position: absolute; inset: 0; transform-origin: 50% 50%;
+  transform: perspective(var(--dist)) rotateY(var(--yaw)) rotateX(var(--pitch)) scale(var(--k)) translateZ(calc(var(--j) * -1px));
+  transition: transform .7s cubic-bezier(.3, .8, .3, 1);
+}
+.board__slab > i { border-radius: 40px; background: #c8762b; }
+.board__slab > .board__slab-encre { inset: -3px; border-radius: 43px; background: var(--ink); }
+.board__slab > .board__slab-ombre {
+  inset: -3px; border-radius: 43px; background: rgba(22, 19, 31, .3);
+  transform: perspective(var(--dist)) rotateY(var(--yaw)) rotateX(var(--pitch)) scale(var(--k)) translateZ(calc(var(--j) * -1px)) translate(7px, 21px);
+}
+.board--painted .board__slab > i { border-radius: 8px; background: #a0703f; }
+.board--painted .board__slab > .board__slab-encre { border-radius: 11px; background: var(--ink); }
+.board--painted .board__slab > .board__slab-ombre { border-radius: 11px; background: rgba(22, 19, 31, .3); }
+/* Vue de dessus : pas de tranche visible, la dalle garde son épaisseur dessinée */
+.board--flat .board__slab { display: none; }
+/* Plateau en relief, en mouvement : le plan et sa tranche suivent le capteur image par image, sans transition */
+.board--live .board__plane, .board--live .board__slab > i, .board--live .board__deck > i { transition: none; }
+/* La pioche en volume : chaque couche est une carte posée un peu plus haut au-dessus du bois (sa tranche blanche cernée d'encre) */
+.board__deck > i { transform: perspective(var(--dist)) rotateY(var(--yaw)) rotateX(var(--pitch)) scale(var(--k)) translateZ(calc(var(--j) * 1px)); }
+.pback-tranche, .pback-ombre { position: absolute; left: 119px; top: 142px; width: 54px; height: 76px; border-radius: 9px; rotate: -7deg; }
+.pback-tranche { box-sizing: border-box; border: 2.5px solid var(--ink); background: #fff; }
+.pback-ombre { translate: 5px 9px; background: rgba(22, 19, 31, .34); }
+.board__deck .pback::before { display: none; }
+/* Les ombres des billes, à plat sur le bois */
+.board__shades { position: absolute; inset: 0; pointer-events: none; }
+.pawn-shade { position: absolute; border-radius: 50%; background: rgba(22, 19, 31, .26); }
+/* Le reflet des billes glisse un peu avec le regard (--hx, --hy posés sur le calque des billes) */
+.pawn > .bille { --shine: radial-gradient(circle at calc(31% + var(--hx, 0%)) calc(27% + var(--hy, 0%)), #fff 0 13%, rgba(255, 255, 255, 0) 14%); }
 /* Trame de points sur le fond du plateau : il s'éloigne */
 .board__wood::before { content: ''; position: absolute; inset: 0 0 70% 0; border-radius: 37px 37px 0 0; background: radial-gradient(circle, rgba(120, 60, 10, .26) 1.4px, rgba(120, 60, 10, 0) 1.9px) 0 0 / 8px 8px; }
-.board--flat .board__wood { --sy: calc(8px + var(--ry, 0) * 3px); box-shadow: var(--sx) var(--sy) 0 0 #c8762b, var(--sx) var(--sy) 0 3px var(--ink), calc(6px + var(--rx, 0) * -7px) calc(18px + var(--ry, 0) * 5px) 0 3px rgba(22, 19, 31, .3); }
+.board--flat .board__wood { box-shadow: 0 8px 0 0 #c8762b, 0 8px 0 3px var(--ink), 6px 18px 0 3px rgba(22, 19, 31, .3); }
 .board--flat .board__wood::before { display: none; }
 .board__center { position: absolute; border: 3px solid var(--ink); border-radius: 50%; background: #2b2880; box-shadow: inset 0 6px 0 rgba(0, 0, 0, .22); }
 /* Plateau peint (kiosque) : la photo remplace le bois, les trous et les fonds colorés */
 .board--painted .board__wood, .board--painted .board__center, .board--painted .pad, .board--painted .hole { display: none; }
-.board__photo { position: absolute; inset: 0; border: 3px solid var(--ink); border-radius: 8px; background: center / 100% 100% no-repeat; --sx: calc(var(--rx, 0) * -5px); --sy: calc(10px + var(--ry, 0) * 4px); box-shadow: var(--sx) var(--sy) 0 0 #a0703f, var(--sx) var(--sy) 0 3px var(--ink), calc(9px + var(--rx, 0) * -9px) calc(28px + var(--ry, 0) * 7px) 0 3px rgba(22, 19, 31, .3); }
+.board__photo { position: absolute; inset: 0; border: 3px solid var(--ink); border-radius: 8px; background: center / 100% 100% no-repeat; }
+.board--flat .board__photo { box-shadow: 0 10px 0 0 #a0703f, 0 10px 0 3px var(--ink), 9px 28px 0 3px rgba(22, 19, 31, .3); }
 .board--painted .pile { scale: .82; }
 /* Maison et réserve de chaque joueur : un aplat à sa couleur */
 .pad { position: absolute; border: 2px solid var(--ink); }
@@ -196,6 +229,8 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .seat-av[data-side='over'] .seat-av__tags { left: 50%; translate: -50% 0; align-items: center; }
 .seat-av[data-side='over-start'] .seat-av__tags { left: 2px; rotate: -3deg; }
 .seat-av[data-side='over-end'] .seat-av__tags { right: 2px; rotate: 3deg; align-items: flex-end; }
+/* Vue de dessus : l'étiquette à droite du perso du coin remonte, pour ne pas toucher sa réserve */
+.board--flat .seat-av[data-side='right'] .seat-av__tags { top: calc(50% - 22px); }
 /* Vue de dessus : les persos tiennent dans les coins du plateau */
 .board--flat .seat-av > .avatar { scale: .8; }
 .seat-av--wait { filter: saturate(.75); }

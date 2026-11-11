@@ -1,7 +1,7 @@
-// Le plateau en relief : quand on incline le téléphone, le plateau bascule légèrement, la tranche de la dalle se
-// découvre et le décor de la case glisse derrière lui, comme un objet posé devant son fond.
-// Tout le plateau bascule d'un bloc (bois, trous, billes, persos) : rien ne se décale, les touchers restent justes.
-// L'effet est léger et revient tout seul à plat : la position de repos suit la façon dont on tient le téléphone.
+// Le plateau en relief : quand on incline le téléphone, on regarde le plateau d'un peu plus à gauche, à droite, de plus
+// haut ou de plus bas, comme un objet posé derrière une vitre. Ce fichier lit le capteur d'orientation et en tire le
+// regard (de -1 à 1 sur chaque axe) ; l'écran de partie recalcule alors la perspective du plateau (src/ui/screens/game.ts).
+// Le regard revient tout seul droit devant : la position de repos suit la façon dont on tient le téléphone.
 
 /** L'inclinaison lue par le capteur, en degrés, dans le repère de l'écran : avant/arrière (beta) et gauche/droite (gamma). */
 export interface Lean { beta: number; gamma: number }
@@ -10,8 +10,8 @@ export interface ReliefState { base: Lean | null }
 
 /** Degrés d'inclinaison qui donnent l'effet complet */
 const FULL = 14;
-/** La position de repos rattrape la tenue du téléphone en quelques secondes : tenu immobile, le plateau revient à plat */
-const REST_MS = 4500;
+/** La position de repos rattrape la tenue du téléphone en quelques secondes : tenu immobile, le regard revient droit devant */
+const REST_MS = 7000;
 /** Au-delà, ce n'est plus un petit mouvement (téléphone posé, repris, retourné) : on repart de cette position */
 const JUMP = 50;
 /** En dessous, on ne bouge pas : les tremblements de la main et du capteur ne font pas frémir le plateau */
@@ -42,8 +42,6 @@ export function toScreen(beta: number, gamma: number, angle: number): Lean {
 
 // ---------- Le capteur et l'affichage ----------
 
-/** Ce qui bouge : le cadre du plateau, sa dalle (bois ou photo) et la case de BD derrière lui. */
-export interface ReliefParts { board: HTMLElement; slab: HTMLElement | null; scene: HTMLElement | null }
 
 const KEY = 'toc.relief';
 type Asking = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<'granted' | 'denied'> };
@@ -80,28 +78,21 @@ export async function askRelief(): Promise<boolean> {
   }
 }
 
-/** Branche le relief sur un plateau. `sync` relit le réglage du joueur ; `stop` débranche tout. */
-export function relief(parts: ReliefParts): { sync: () => void; stop: () => void } {
+/**
+ * Branche le relief : `look(x, y)` reçoit le regard à chaque image où il change (0, 0 : droit devant).
+ * `sync` relit le réglage du joueur ; `stop` débranche tout.
+ */
+export function relief(look: (x: number, y: number) => void): { sync: () => void; stop: () => void } {
   let state: ReliefState = { base: null };
   let tx = 0, ty = 0, cx = 0, cy = 0, last = 0, raf = 0, listening = false;
   let waiting: (() => void) | null = null;
 
-  const show = (x: number, y: number) => {
-    const flat = !x && !y;
-    // À plat, plus aucune transformation : le plateau et ses étiquettes restent parfaitement nets.
-    parts.board.style.transform = flat ? '' : `perspective(900px) rotateX(${(y * 3.2).toFixed(2)}deg) rotateY(${(x * 4).toFixed(2)}deg) translate(${(x * 3).toFixed(1)}px, ${(-y * 2).toFixed(1)}px)`;
-    for (const el of [parts.slab, parts.scene]) {
-      if (!el) continue;
-      el.style.setProperty('--rx', flat ? '0' : x.toFixed(3));
-      el.style.setProperty('--ry', flat ? '0' : y.toFixed(3));
-    }
-  };
   const paint = () => {
     raf = 0;
     cx += (tx - cx) * 0.14;
     cy += (ty - cy) * 0.14;
     if (Math.abs(tx) < 0.004 && Math.abs(ty) < 0.004 && Math.abs(cx) < 0.006 && Math.abs(cy) < 0.006) cx = cy = 0;
-    show(cx, cy);
+    look(cx, cy);
     if (Math.abs(tx - cx) > 0.003 || Math.abs(ty - cy) > 0.003) raf = requestAnimationFrame(paint);
   };
   const onLean = (e: DeviceOrientationEvent) => {
@@ -141,7 +132,7 @@ export function relief(parts: ReliefParts): { sync: () => void; stop: () => void
     raf = 0;
     tx = ty = cx = cy = last = 0;
     reset();
-    show(0, 0);
+    look(0, 0);
   };
   const sync = () => {
     if (!reliefAvailable() || choice() === 'non') return unlisten();
