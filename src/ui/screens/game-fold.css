@@ -75,6 +75,9 @@
 .pli .g-score > div > b, .pv .g-score > div > b { font-size: 36px; }
 .pli .g-round { position: absolute; left: auto; right: 0; top: 9px; padding: 7px 12px 6px; font-size: 12px; letter-spacing: .09em; rotate: 2deg; }
 .pli .g-round[aria-expanded='true'] { background: #fff; }
+/* Trois équipes : le score prend la place de l'étiquette de la manche (le fil des coups reste à portée, dans la table) */
+.pli .g-top--six .g-score > div:nth-child(n + 2) { min-width: 0; }
+.pli[data-tenue='open']:not([data-forme='trio']) .g-top--six + .g-round { display: none; }
 
 /* ---- Les bavards : la table (messages et réactions), sous le pouce gauche ---- */
 .pli__onglets { display: flex; align-items: center; gap: 8px; min-height: 37px; }
