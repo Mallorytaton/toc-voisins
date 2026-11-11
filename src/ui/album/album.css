@@ -1,0 +1,199 @@
+/* ==== La double page, hors partie (pliants, tablettes) : l'album ouvert (maquette « TOC sur pliants ») ====
+   Deux pages de part et d'autre de la reliure : la page de gauche liste, la page de droite répond. Quatre marque-pages
+   au bas de la page de gauche remplacent la barre d'onglets. spread.ts pose l'échelle (zoom), la tenue (data-tenue),
+   la forme (data-forme) et, en livre, les bords de la pliure (--pa, --pb). Chaque page défile si l'écran est court. */
+.livre {
+  position: fixed; inset: 0; overflow: hidden; background: var(--app); color: var(--ink); font-family: var(--text);
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+/* Le décor de la rubrique : deux trames de points dans les coins */
+.livre::before, .livre::after { content: ''; position: absolute; z-index: 0; width: 420px; height: 420px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(255, 255, 255, .4) 2.2px, rgba(255, 255, 255, 0) 2.8px) 0 0 / 12px 12px; }
+.livre::before { left: -150px; bottom: -60px; }
+.livre::after { right: -170px; top: -170px; }
+.livre[data-tone='nuit']::before, .livre[data-tone='nuit']::after, .livre[data-tone='bleu']::before, .livre[data-tone='bleu']::after { background-image: radial-gradient(circle, rgba(255, 255, 255, .14) 2px, rgba(255, 255, 255, 0) 2.6px); }
+/* La reliure : un pointillé sur la pliure */
+.livre__reliure { position: absolute; z-index: 0; top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; pointer-events: none; background: repeating-linear-gradient(to bottom, rgba(22, 19, 31, .3) 0 6px, rgba(22, 19, 31, 0) 6px 14px); }
+.livre[data-tone='nuit'] .livre__reliure, .livre[data-tone='bleu'] .livre__reliure { background-image: repeating-linear-gradient(to bottom, rgba(255, 255, 255, .22) 0 6px, rgba(255, 255, 255, 0) 6px 14px); }
+.livre__page { position: relative; z-index: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 0; }
+.livre__page--d { padding-bottom: 14px; }
+/* Le corps d'une page défile à l'intérieur de la page (sans couper les ombres de ses cartes) */
+.livre__corps { flex: 1; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: none; display: flex; flex-direction: column; gap: 12px; margin: 0 -8px 0 -4px; padding: 4px 8px 12px 4px; }
+.livre__corps::-webkit-scrollbar { display: none; }
+.livre__corps > * { flex: none; }
+/* En livre : chaque page tient de son côté de la pliure, qui garde son ombre */
+.livre[data-tenue='book'] { grid-template-columns: var(--pa) calc(100% - var(--pb)); justify-content: space-between; }
+.livre[data-tenue='book'] .livre__reliure { left: calc((var(--pa) + var(--pb)) / 2); background: rgba(255, 255, 255, .2); }
+.livre[data-tenue='book'] .livre__reliure::before { content: ''; position: absolute; top: 0; bottom: 0; left: -23px; width: 48px; background: linear-gradient(90deg, rgba(10, 8, 30, 0), rgba(10, 8, 30, .28) 40%, rgba(10, 8, 30, .5) 50%, rgba(10, 8, 30, .28) 60%, rgba(10, 8, 30, 0)); }
+.livre[data-tenue='book'] .livre__page--g { padding-right: 22px; }
+.livre[data-tenue='book'] .livre__page--d { padding-left: 22px; }
+
+/* ---- Les marque-pages : la rubrique en cours est blanche et dépasse des autres ---- */
+.signets { flex: none; display: flex; align-items: flex-end; gap: 8px; height: 60px; margin-top: auto; }
+.signet { position: relative; flex: 1 1 0; min-width: 0; height: 46px; padding: 6px 2px 0; border: 3px solid var(--ink); border-bottom: 0; border-radius: 12px 12px 0 0; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; font: 900 10px/1 var(--text); letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; cursor: pointer; }
+.signet--home { background: var(--rouge); }
+.signet--friends { background: var(--bleu); }
+.signet--albums { background: #ff7ab8; color: var(--ink); }
+.signet--shop { background: var(--turq); color: var(--ink); }
+.signet[aria-current='page'] { height: 58px; padding-top: 10px; background: #fff; color: var(--ink); }
+.signet__dot { position: absolute; top: -9px; right: 6px; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border: 2.5px solid var(--ink); border-radius: 10px; background: var(--jaune); color: var(--ink); font: 900 10px/15px var(--text); letter-spacing: 0; }
+
+/* ---- Les boutons de la double page ---- */
+.livre__go { height: 70px; padding: 4px 10px 0; border: 3px solid var(--ink); border-radius: 18px; background: var(--rouge); color: #fff; box-shadow: 0 7px 0 var(--ink); font: italic 400 42px/1 var(--fx); letter-spacing: .02em; text-transform: uppercase; text-shadow: var(--stroke-3), 5px 6px 0 var(--ink); white-space: nowrap; rotate: -1deg; cursor: pointer; }
+.livre__go:active { transform: translateY(5px); box-shadow: 0 2px 0 var(--ink); }
+.livre__go:disabled { background: #cfcbe0; color: var(--ink-2); text-shadow: none; box-shadow: 0 4px 0 var(--ink); cursor: default; }
+.livre__duo { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; }
+.livre__btn { min-width: 0; min-height: 54px; padding: 2px 14px 0; border: 3px solid var(--ink); border-radius: 16px; background: #fff; color: var(--ink); box-shadow: 0 5px 0 var(--ink); font: 900 15px/1.1 var(--text); cursor: pointer; }
+.livre__btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--ink); }
+.livre__btn--jaune { background: var(--jaune); }
+.livre__btn--turq { background: var(--turq); }
+.livre__btn--large { align-self: stretch; }
+.livre__btn:disabled { opacity: .55; cursor: default; }
+
+/* ==== La une ==== */
+.une2__tete { flex: none; display: flex; align-items: center; gap: 12px; height: 56px; }
+.une2__tete > .tag { rotate: 1.5deg; white-space: nowrap; }
+.une2__tete--d > .tag { margin-right: auto; padding: 6px 8px 5px; font-size: 10px; letter-spacing: .05em; rotate: -1.5deg; }
+.une2__tete .une-logo { margin-right: 0; }
+/* La couverture du jour : toi, Toc, et ce qu'il raconte */
+.une2__couv { position: relative; height: 300px; margin-top: 10px; }
+.une2__date { position: absolute; z-index: 2; left: 12px; top: -15px; rotate: -2deg; }
+.une2__bulle { position: absolute; z-index: 2; right: 14px; top: 20px; max-width: 208px; box-sizing: border-box; padding: 10px 13px 9px; border: 3px solid var(--ink); border-radius: 16px 16px 16px 4px; background: #fff; box-shadow: 4px 5px 0 var(--ink); font: 800 14px/1.25 var(--text); text-wrap: pretty; rotate: 1.5deg; }
+.une2__bulle .une-toc__t { font: inherit; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.une2__moi { position: absolute; z-index: 1; left: 22px; bottom: 6px; pointer-events: none; }
+.une2__toc { position: absolute; z-index: 1; right: 6px; bottom: 0; pointer-events: none; }
+/* L'épisode qui t'attend */
+.une2__suite { display: flex; align-items: stretch; border: 3px solid var(--ink); border-radius: 20px; background: var(--paper); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; }
+.une2__suite[hidden] { display: none; }
+.une2__mini { flex: none; width: 112px; background: var(--nuit); display: grid; place-items: center; }
+.une2__mini > i { width: 80px; height: 80px; border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 5px 0 #c8762b, 0 5px 0 3px var(--ink);
+  background: radial-gradient(circle at 50% 50%, #2b2880 0 21%, var(--ink) 21.5% 24%, rgba(0, 0, 0, 0) 24.5%), radial-gradient(circle, #3a1e0c 2.2px, rgba(0, 0, 0, 0) 2.8px) 3px 3px / 12px 12px, #f6b25f; }
+.une2__suite > div { flex: 1; min-width: 0; padding: 10px 12px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.une2__suite > div > .tag { rotate: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.une2__suite b { max-width: 100%; font: italic 400 26px/1.05 var(--fx); letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 4px; }
+.une2__suite > div > span:not(.tag) { font: 600 13.5px/1.25 var(--text); }
+.une2__suite-a { align-self: stretch; display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.une2__suite-a > .livre__btn { flex: 1; min-height: 44px; }
+.une2__lien { min-height: 44px; padding: 0 4px; border: 0; background: none; color: inherit; font: 800 14px/1 var(--text); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+/* Ta bande */
+.une2__bande { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; border-radius: 20px; }
+.une2__bande > .livre__btn { min-height: 46px; }
+.une2__bande-t { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.une2__bande-t > b { font: italic 400 28px/1 var(--fx); letter-spacing: .02em; text-transform: uppercase; }
+.une2__pastille { padding: 5px 10px 4px; border: 2.5px solid var(--ink); border-radius: 10px; background: var(--turq); font: 900 11px/1 var(--text); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.une2__amis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.une2__ami { min-width: 0; padding: 0; border: 0; background: none; color: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+button.une2__ami { cursor: pointer; }
+.une2__ami > b { max-width: 100%; margin-top: 4px; font: 900 14px/1.1 var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.une2__etat { max-width: 100%; font: 700 12.5px/1.15 var(--text); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.une2__etat--on { color: #0b7f68; }
+.une2__etat--game { color: var(--rouge-txt); }
+.une2__vide { font: 600 14px/1.35 var(--text); color: var(--ink-2); }
+/* Ton album */
+.une2__album { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 14px 14px; border: 3px solid var(--ink); border-radius: 20px; background: #ff7ab8; box-shadow: 5px 6px 0 var(--ink); overflow: hidden; }
+.une2__album > .tag { rotate: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.une2__score { align-self: stretch; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.une2__score > div { height: 42px; padding: 0 12px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; border: 3px solid var(--ink); border-radius: 10px; }
+.une2__score span { font: 900 11px/1 var(--text); letter-spacing: .09em; text-transform: uppercase; }
+.une2__score b { font: 400 32px/1 var(--fx); padding-top: 2px; }
+.une2__album-t { font: 800 14.5px/1.3 var(--text); text-wrap: pretty; }
+.une2__album > .livre__btn { min-width: 150px; min-height: 44px; }
+/* La nouveauté du kiosque */
+.une2__kiosque { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 20px; }
+.une2__kiosque[hidden] { display: none; }
+.une2__kiosque-b { flex: none; width: 66px; height: 66px; display: grid; place-items: center; }
+.une2__kiosque > div { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.une2__kiosque > div > .tag { rotate: none; padding: 5px 7px 4px; font-size: 9.5px; letter-spacing: .05em; white-space: nowrap; }
+.une2__kiosque b { max-width: 100%; font: italic 400 24px/1.05 var(--fx); letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 4px; }
+.une2__prix { display: flex; align-items: center; gap: 7px; font: 900 15px/1 var(--text); }
+.une2__prix > i { width: 20px; height: 20px; box-sizing: border-box; border: 2.5px solid var(--ink); border-radius: 50%; background: var(--jaune); }
+.une2__kiosque > .livre__btn { flex: none; min-height: 44px; padding: 2px 12px 0; }
+/* Le classement de la bande */
+.une2__rang { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 6px; border: 3px solid var(--ink); border-radius: 20px; background: var(--bleu); color: #fff; box-shadow: 5px 6px 0 var(--ink); }
+.une2__rang[hidden] { display: none; }
+.une2__rang-t { font: italic 400 26px/1 var(--fx); letter-spacing: .02em; text-transform: uppercase; text-shadow: 2px 3px 0 var(--ink); }
+.une2__rang-l { height: 40px; padding: 0 14px 0 12px; display: flex; align-items: center; gap: 12px; border: 3px solid var(--ink); border-radius: 12px; background: #fff; color: var(--ink); font: 900 15px/1 var(--text); }
+.une2__rang-l--moi { background: var(--jaune); }
+.une2__rang-l > b { width: 18px; font: italic 400 26px/1 var(--fx); padding-top: 2px; }
+.une2__rang-l > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.une2__rang-l > em { font-style: normal; }
+.une2__rang > .une2__lien { align-self: center; min-height: 30px; font-size: 13px; }
+
+/* ==== Un écran du téléphone posé dans une page ====
+   Ta bande, Albums et la fiche de héros gardent leur contenu : la page lui retire sa barre d'onglets (les marque-pages
+   la remplacent) et son fond (celui de la double page). À droite, l'écran qui répond est une grande case de BD. */
+.livre__ecran.screen { flex: 1; min-height: 0; width: auto; max-width: none; margin: 0; padding: 0 !important; background: none; color: var(--ink); overflow: visible; --safe-top: 0px; --safe-bottom: 0px; }
+.livre__ecran.screen::before, .livre__ecran.screen::after { display: none; }
+.livre__ecran .tabbar { display: none; }
+.livre__ecran .scroll-y { scrollbar-width: none; }
+/* La page est un peu plus étroite qu'un téléphone : l'heure de la soirée garde sa place */
+.livre__ecran .soiree > .soiree__when { font-size: 20px; top: 32px; right: 78px; }
+.livre__ecran .scroll-y::-webkit-scrollbar { display: none; }
+/* La page de droite répond : la fiche de héros, l'album */
+.livre__page--d > .livre__ecran.heros, .livre__page--d .livre__attente-boite > .livre__ecran.heros { padding: 8px 12px 0 !important; border: 3px solid var(--ink); border-radius: 22px; background: var(--rouge); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; }
+.livre__page--d > .livre__ecran.album { padding: 12px 0 12px !important; border: 3px solid var(--ink); border-radius: 22px; background: var(--turq); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; }
+/* Sur la page, on ne revient pas en arrière : la liste est juste à côté */
+.livre__ecran.heros .heros__head > .btn-round:first-child { visibility: hidden; }
+.livre__attente-boite.screen { display: flex; flex-direction: column; }
+.livre__attente.screen { align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px !important; }
+.livre__attente .t-title { color: var(--ink); text-shadow: none; }
+.livre__attente .t-body { max-width: 30ch; }
+/* Ta bande et Albums, à gauche : la liste défile entre son titre et les marque-pages */
+.livre__page--g > .livre__ecran.albums .scroll-y, .livre__page--g > .livre__ecran.bande .scroll-y { margin: 0 -8px 0 -4px !important; padding: 4px 8px 12px 4px !important; }
+
+/* ==== Le kiosque en double page : les rayons à gauche, la cabine d'essayage à droite ==== */
+.livre__ecran.shop .shop__top, .livre__ecran.shop .shop__pills { padding-left: 0; padding-right: 0; }
+.livre__ecran.shop .shop__list { margin: 0 -8px 0 -4px; padding: 6px 8px 12px 4px; scrollbar-width: none; }
+.livre__ecran.shop .shop__list::-webkit-scrollbar { display: none; }
+/* L'objet passé en cabine : sa tuile se détache */
+.shop__tile--choisi { background: var(--bleu); color: #fff; box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink), 0 9px 0 5px var(--ink); }
+.cabine__tete { flex: none; display: flex; align-items: center; height: 56px; }
+.cabine__tete > .tag { rotate: -1.5deg; }
+.cabine { gap: 14px; }
+/* La scène : l'objet en grand, Toc et son avis */
+.cabine__scene { position: relative; height: 300px; border: 3px solid var(--ink); border-radius: 22px; background: var(--nuit); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; isolation: isolate; display: grid; place-items: center; }
+.cabine__scene > .rays { --rx: 50%; --ry: 42%; z-index: 0; }
+.cabine__scene > :not(.rays):not(.cabine__toc):not(.cabine__bulle) { position: relative; z-index: 1; scale: 1.5; margin-bottom: 40px; }
+.cabine__toc { position: absolute; z-index: 2; left: 10px; bottom: -6px; pointer-events: none; }
+.cabine__bulle { position: absolute; z-index: 3; left: 96px; bottom: 96px; padding: 7px 12px 6px; border: 2.5px solid var(--ink); border-radius: 14px 14px 14px 4px; background: #fff; box-shadow: 3px 4px 0 var(--ink); font: 800 14px/1.2 var(--text); white-space: nowrap; rotate: -3deg; }
+.cabine__fiche { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 20px; }
+.cabine__fiche > b { font: italic 400 40px/1 var(--fx); letter-spacing: .02em; text-transform: uppercase; }
+.cabine__fiche > span { font: 600 15px/1.3 var(--text); text-wrap: pretty; }
+.cabine__prix { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+.cabine__prix > em { font: 800 13px/1.2 var(--text); font-style: normal; color: var(--ink-2); text-align: right; }
+.cabine__aide { font: 800 14px/1.3 var(--text); text-wrap: pretty; padding: 0 2px; }
+.kiosque2 .livre__go { flex: none; margin-bottom: 6px; }
+
+/* ==== L'affiche en double page : les équipes à gauche, les coulisses à droite ==== */
+.affiche2 { color: var(--ink); }
+.aff2__tete { margin: 0; height: 56px; }
+.aff2__tete > .aff-code { margin-left: auto; }
+/* L'affiche : une grande case, aux cotes du téléphone (390 de large) ramenées à la largeur de la page */
+.aff2__affiche { position: relative; width: 390px; height: 566px; zoom: .875; border: 3px solid var(--ink); border-radius: 24px; box-shadow: 6px 7px 0 var(--ink); overflow: hidden; isolation: isolate; }
+.aff2__affiche > .aff-title { margin-top: 6px; }
+.affiche2 .aff-recit { margin: 4px 0 0 4px; width: auto; max-width: 320px; }
+.affiche2 .aff-recit--blanc { background: #fff; }
+/* Les coulisses */
+.aff2__qr { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 20px; }
+.aff2__qr > :first-child { flex: none; }
+.aff2__qr > div:last-child { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.aff2__qr .tag { rotate: none; }
+.aff2__qr b { font: italic 400 58px/1 var(--fx); letter-spacing: .03em; }
+.aff2__qr span:not(.tag) { font: 600 14px/1.25 var(--text); color: var(--ink-2); }
+.aff2__qr .livre__btn { align-self: stretch; min-height: 46px; margin-top: 2px; }
+.aff2__bande { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; border-radius: 20px; }
+.aff2__bande[hidden] { display: none; }
+.aff2__bande > .t-label { color: var(--ink-2); }
+.aff2__ami { display: flex; align-items: center; gap: 10px; min-height: 46px; font: 600 15px/1.2 var(--text); }
+.aff2__ami > .avatar { flex: none; }
+.aff2__ami > span:not(.avatar) { flex: 1; min-width: 0; }
+.aff2__ami b { font: 900 16px/1.2 var(--text); }
+.aff2__ami em { font-style: normal; }
+.aff2__ami > small { font: 800 13px/1.2 var(--text); color: var(--ink-2); }
+.aff2__ami > .livre__btn { flex: none; min-height: 44px; }
+.aff2__reglages { display: flex; flex-direction: column; gap: 10px; }
+.affiche2 .aff-mini, .affiche2 .aff-link { flex: none; align-self: center; }
+.affiche2 .aff-link { color: #fff; }
+.affiche2 .livre__go.aff-go { flex: none; align-self: stretch; width: auto; margin: 0 0 4px; }
+.affiche2 .livre__go.aff-go--off { background: #cfcbe0; color: var(--ink-2); text-shadow: none; font-size: 30px; }
+.affiche2 > .count-overlay { zoom: 1; }

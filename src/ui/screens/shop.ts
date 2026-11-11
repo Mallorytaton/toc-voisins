@@ -9,6 +9,8 @@ import { playFx } from '../board/fx';
 import { h, toast } from '../dom';
 import { COL } from '../kit/data';
 import { bille, billeSkin, button, tabbar } from '../kit/kit';
+import { inPage, signets, spread } from '../album/spread';
+import { mascot } from '../mascot';
 
 type Rayon = 'bille' | 'cri' | 'plateau' | 'titre';
 const RAYONS: [Rayon, string][] = [['bille', 'Billes'], ['cri', 'Cris'], ['plateau', 'Plateaux'], ['titre', 'Titres']];
@@ -31,7 +33,8 @@ const CRI_BURST = wobBurst(13, 39, 4, 0.1);
 /** Petite étoile à quatre branches (décor de la bannière) */
 const STAR = wobBurst(4, 17, 0, 0);
 
-export function shopScreen(): { el: HTMLElement; cleanup: () => void } {
+/** wide : le kiosque en double page (pliants, tablettes), les rayons à gauche et la cabine d'essayage à droite. */
+export function shopScreen(o: { wide?: boolean } = {}): { el: HTMLElement; cleanup: () => void } {
   const coinsN = h('span');
   const coins = h('div', { class: 'tokens', role: 'img' }, h('i'), coinsN);
   const list = h('div', { class: 'scroll-y shop__list' });
@@ -62,8 +65,40 @@ export function shopScreen(): { el: HTMLElement; cleanup: () => void } {
     cri: 'Le mot qui claque quand tu fais BOUM.', titre: 'Sous ton nom, sur l’affiche et sur ta fiche de héros.', plateau: 'Ton plateau de jeu, sur ton écran (parties à 4).',
   };
 
+  // ---------- Pliants : la cabine d'essayage, sur la page de droite (maquette « TOC sur pliants ») ----------
+  // L'objet touché à gauche passe aussitôt en cabine : on le voit en grand, Toc donne son avis, et on l'achète ou on le
+  // porte sans changer de page.
+  let chosen: ShopItem | undefined;
+  const cabin = h('div', { class: 'livre__corps cabine' });
+  const cabinBtn = h('button', { class: 'livre__go', type: 'button' }) as HTMLButtonElement;
+  const showCabin = (it: ShopItem) => {
+    chosen = it;
+    const miss = it.price - draftProfile().tokens, mine = owns(it.id), on = wears(it);
+    cabin.replaceChildren(
+      h('div', { class: 'cabine__scene' }, h('i', { class: 'rays' }), preview(it),
+        h('span', { class: 'cabine__toc' }, mascot(on ? 'vainqueur' : 'surpris', 118)),
+        h('span', { class: 'cabine__bulle' }, on ? 'Ça te va bien !' : 'Oh, la classe !')),
+      h('div', { class: 'card cabine__fiche' },
+        h('b', null, it.kind === 'bille' ? `Bille ${it.name}` : it.name),
+        h('span', null, WHERE[it.kind]),
+        h('div', { class: 'cabine__prix' },
+          on ? h('span', { class: 'shop__tag shop__tag--on' }, it.kind === 'bille' ? 'Portée' : 'Porté') : mine ? h('span', { class: 'shop__tag shop__tag--mine' }, 'À toi') : h('span', { class: 'une2__prix' }, h('i'), fmt(it.price)),
+          !mine && miss <= 0 ? h('em', null, `Il te restera ${fmt(-miss)} pièces.`) : null)),
+      h('span', { class: 'cabine__aide' }, 'Touche un autre objet à gauche : la cabine le passe aussitôt, sans changer de page.'));
+    cabinBtn.disabled = on || (!mine && miss > 0);
+    cabinBtn.textContent = on ? (it.kind === 'bille' ? 'Portée' : 'Porté') : mine ? 'Porter' : miss > 0 ? `Il manque ${fmt(miss)}` : `Acheter · ${fmt(it.price)}`;
+    cabinBtn.onclick = () => {
+      if (!buy(it)) return toast('Pas assez de pièces.');
+      save();
+      toast(mine ? `${it.name} : c’est ce que tu portes.` : `${it.name} : à toi !`);
+      showCabin(it);
+    };
+    draw();
+  };
+
   /** La feuille d'un objet : on le voit en grand, puis on l'achète ou on le porte. */
   const openItem = (it: ShopItem) => {
+    if (o.wide) return showCabin(it);
     const close = () => wrap.remove();
     const miss = it.price - draftProfile().tokens;
     const act = wears(it) ? button(it.kind === 'bille' ? '✓ Portée' : '✓ Porté', 'off', undefined, { size: 'md', block: true, disabled: true })
@@ -96,7 +131,7 @@ export function shopScreen(): { el: HTMLElement; cleanup: () => void } {
 
   // ---------- Les rayons ----------
   /** Une tuile de la grille : l'objet, son nom, son prix. */
-  const tile = (it: ShopItem, visual: HTMLElement, cls = '') => h('button', { class: 'shop__tile' + (wears(it) ? ' shop__tile--on' : '') + cls, type: 'button', 'aria-label': label(it), onclick: () => openItem(it) },
+  const tile = (it: ShopItem, visual: HTMLElement, cls = '') => h('button', { class: 'shop__tile' + (wears(it) ? ' shop__tile--on' : '') + (chosen === it ? ' shop__tile--choisi' : '') + cls, type: 'button', 'aria-label': label(it), 'aria-pressed': o.wide ? String(chosen === it) : undefined, onclick: () => openItem(it) },
     visual, h('span', { class: 'shop__name' }, it.name), priceTag(it));
   const head = (title: string, sub: string) => h('div', { class: 'shop__head' }, h('span', { class: 'shop__h' }, title), h('span', { class: 'shop__sub' }, sub));
   const sections: Partial<Record<Rayon, HTMLElement>> = {};
@@ -166,9 +201,17 @@ export function shopScreen(): { el: HTMLElement; cleanup: () => void } {
   list.addEventListener('scroll', light, { passive: true });
   draw();
 
+  const top = h('div', { class: 'shop__top' }, h('h1', { class: 't-screen shop__title' }, 'Le kiosque'), coins);
+  const rayons = h('div', { class: 'shop__pills', role: 'group', 'aria-label': 'Les rayons du kiosque' }, ...pills);
+  if (o.wide) {
+    const sp = spread({ tone: 'jaune', cls: 'kiosque2' });
+    sp.left.append(inPage(h('div', { class: 'screen shop', 'data-tone': 'rose', style: { gap: 0 } }, top, rayons, list)), signets('shop'));
+    sp.right.append(h('div', { class: 'cabine__tete' }, h('span', { class: 'tag' }, 'La cabine d’essayage')), cabin, cabinBtn);
+    const first = newest() ?? of('bille')[0];
+    if (first) showCabin(first);
+    return { el: sp.el, cleanup: () => sp.dispose() };
+  }
   const el = h('div', { class: 'screen screen--tabs shop', 'data-fit': 'tabs', 'data-tone': 'rose', style: { gap: 0, paddingTop: 'calc(var(--safe-top) + 2px)' } },
-    h('div', { class: 'shop__top' }, h('h1', { class: 't-screen shop__title' }, 'Le kiosque'), coins),
-    h('div', { class: 'shop__pills', role: 'group', 'aria-label': 'Les rayons du kiosque' }, ...pills),
-    list, tabbar('shop'));
+    top, rayons, list, tabbar('shop'));
   return { el, cleanup: () => {} };
 }

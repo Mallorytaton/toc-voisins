@@ -9,20 +9,22 @@ import { getProfile } from './app/profile';
 import { type GameSource, LocalGame } from './app/game-source';
 import { LocalRoom, type RoomSnapshot } from './app/room';
 import { RoomSession } from './net/session';
-import { announceLeagueGame, getLeagueOnce, recordLeagueGame, watchMyLeagues } from './net/league';
+import { announceLeagueGame, getLeagueOnce, recordLeagueGame } from './net/league';
 import { ensureAuth } from './net/firebase';
 import { type Recovered, inviteFriend, setInGame, startPresence, syncProfile, watchInvites } from './net/social';
 import { DEMO } from './ui/demo';
 import { h, toast } from './ui/dom';
 import { fitScreen } from './ui/fit';
-import { pose, watchFold } from './ui/fold';
+import { pose, spread as doublePage, watchFold } from './ui/fold';
 import { blockZoom, lockPortrait } from './ui/orientation';
 import { maybeOfferInstall, watchInstall } from './ui/install';
-import { button } from './ui/kit/kit';
+import { type Tab, button } from './ui/kit/kit';
+import { inPage, signets, spread } from './ui/album/spread';
 import { ROUTES, go, rememberLink } from './ui/nav';
 import { gameScreen } from './ui/screens/game';
 import './ui/screens/game.css';
 import './ui/screens/game-fold.css';
+import './ui/album/album.css';
 import { homeScreen, savedMode } from './ui/screens/home';
 import { albumsScreen, leagueScreen, newLeagueScreen } from './ui/screens/league';
 import { onboardScreen, pickScreen, splashScreen } from './ui/screens/intro';
@@ -106,88 +108,54 @@ let cleanup: (() => void) | null = null;
 
 type View = HTMLElement | { el: HTMLElement; cleanup: () => void };
 
-// ---------- Pliant ouvert : la liste à gauche, le détail à droite ----------
-/** Pliant ouvert, à moitié plié en livre, ou tablette : deux colonnes. Les téléphones gardent un seul écran. */
-function wideFold() {
-  if (matchMedia('(horizontal-viewport-segments: 2)').matches) return true;
-  const W = innerWidth, H = innerHeight;
-  return matchMedia('(pointer: coarse)').matches && Math.min(W, H) >= 560 && W / H >= 0.6 && W / H <= 1.8;
-}
-type ListKind = 'home' | 'friends' | 'ranking';
-let lastList: ListKind = 'home';
-let split: { el: HTMLElement; kind: ListKind; rightPane: HTMLElement; rightOff: () => void } | null = null;
-
-/** Un écran prêt à poser (mis à l'échelle de son conteneur s'il le demande). */
-function mount(v: View): { el: HTMLElement; off: () => void } {
-  const { el, cleanup: c } = v instanceof HTMLElement ? { el: v, cleanup: null } : v;
-  if (el.classList.contains('screen') && el.dataset.fit !== 'scroll') {
-    // Un volet est souvent plus étroit qu'un téléphone : le contenu s'y réorganise, à taille normale.
-    const f = fitScreen(el, el.dataset.fit === 'tabs' ? 'tabs' : 'fit', { minW: 320 });
-    return { el: f.el, off: () => { f.dispose(); c?.(); } };
-  }
-  return { el, off: () => c?.() };
-}
-
-/** Deux volets : la liste (gardée telle quelle si elle ne change pas) et le détail. */
-function setSplit(kind: ListKind, list: () => View, detail: View) {
-  lastList = kind;
-  const right = mount(detail);
-  if (split && split.kind === kind && app.firstChild === split.el) {
-    split.rightOff();
-    split.rightPane.replaceChildren(right.el);
-    split.rightOff = right.off;
-    return;
-  }
+// ---------- Pliants : la double page (src/ui/album/spread.ts) ----------
+// Hors partie, un pliant ouvert (ou une tablette) est un album de BD ouvert : la page de gauche liste, avec les
+// marque-pages, et la page de droite répond. La une, le kiosque et l'affiche composent leur double page eux-mêmes ;
+// Ta bande et Albums posent deux de leurs écrans côte à côte.
+/** Le volet de Ta bande d'où l'on a ouvert une fiche de joueur : sa liste reste sur la page de gauche. */
+let lastVolet: 'amis' | 'classement' = 'amis';
+const parts = (v: View) => (v instanceof HTMLElement ? { el: v, off: () => {} } : { el: v.el, off: v.cleanup });
+/** Deux écrans dans la double page : celui de gauche liste, celui de droite répond. */
+function setAlbum(tab: Tab, left: View, right: View) {
   cleanup?.();
-  const left = mount(list());
-  const rightPane = h('div', { class: 'split__pane split__pane--detail' }, right.el);
-  const el = h('div', { class: 'split' }, h('div', { class: 'split__pane' }, left.el), rightPane);
-  const s = { el, kind, rightPane, rightOff: right.off };
-  split = s;
-  cleanup = () => { left.off(); s.rightOff(); if (split === s) split = null; };
-  app.replaceChildren(el);
+  const sp = spread({ tone: 'jaune' });
+  const L = parts(left), R = parts(right);
+  sp.left.append(inPage(L.el), signets(tab));
+  sp.right.append(inPage(R.el));
+  cleanup = () => { sp.dispose(); L.off(); R.off(); };
+  app.replaceChildren(sp.el);
+  window.scrollTo(0, 0);
 }
-
-/** Volet de droite vide : on dit quoi toucher à gauche. */
-const pickHint = (text: string, action?: [string, () => void]) => h('div', { class: 'split__empty' },
-  mascot('content', 140), h('span', { class: 't-title' }, 'Le détail s’affiche ici'), h('span', { class: 't-body' }, text),
-  action && button(action[0], 'primary', action[1], { size: 'md' }));
-
-/** Volet de droite par défaut : un écran choisi dès que ses données arrivent (l'indication en attendant). */
-function lazyPane(hint: HTMLElement, pick: (show: (v: View) => void) => () => void): View {
-  const box = h('div', { class: 'split__auto' }, hint);
+/** Page de droite en attendant un choix à gauche : Toc dit quoi toucher. */
+const pickHint = (title: string, text: string, action?: [string, () => void]) => h('div', { class: 'screen livre__attente' },
+  mascot('content', 150), h('span', { class: 't-title' }, title), h('span', { class: 't-body' }, text),
+  action ? button(action[0], 'primary', action[1], { size: 'md' }) : null);
+/** Page de droite qui se remplit dès que ses données arrivent (l'indication en attendant). */
+function lazyPage(hint: HTMLElement, pick: (show: (v: View) => void) => () => void): View {
+  const box = h('div', { class: 'screen livre__attente-boite' }, hint);
   let cur: (() => void) | null = null;
-  const stop = pick((v) => { cur?.(); const m = mount(v); cur = m.off; box.replaceChildren(m.el); });
+  const stop = pick((v) => { cur?.(); const m = parts(v); cur = m.off; box.replaceChildren(inPage(m.el)); });
   return { el: box, cleanup: () => { stop(); cur?.(); } };
 }
-/** Ta fiche de joueur (Amis, Classement), en attendant qu'on touche quelqu'un à gauche. */
-const myPane = (text: string) => lazyPane(pickHint(text), (show) => {
-  let alive = navigator.onLine;
-  if (alive) ensureAuth().then((uid) => { if (alive && uid) show(playerScreen(uid)); }).catch(() => undefined);
+/** Ta fiche de héros, en attendant qu'on touche quelqu'un à gauche. */
+const myPage = () => lazyPage(pickHint('Sa fiche s’affiche ici', 'Touche un voisin, à gauche : sa fiche de héros s’ouvre sur cette page.'), (show) => {
+  let alive = true;
+  if (!navigator.onLine || DEMO) show(playerScreen('moi'));
+  else ensureAuth().then((uid) => { if (alive) show(playerScreen(uid || 'moi')); }).catch(() => { if (alive) show(playerScreen('moi')); });
   return () => { alive = false; };
 });
-/** Ton tournoi le plus récent (Jouer), sinon de quoi en créer un. */
-const leaguePane = () => lazyPane(pickHint('Touche un de tes albums : sa prochaine soirée, son classement et son chat s’affichent ici.',
-  ['Créer un album', () => go('/tournoi/nouveau')]), (show) => {
-  if (!navigator.onLine) return () => {};
-  let done = false;
-  return watchMyLeagues((list) => { if (done || !list.length) return; done = true; show(leagueScreen(list[0].code)); });
-});
 
-// On plie ou déplie hors partie : l'écran se réorganise (la partie, elle, gère ses propres volets).
-let wasWide = wideFold();
-const onFold = () => {
-  const w = wideFold();
-  if (w === wasWide) return;
-  wasWide = w;
-  if (!/^#\/(partie|salle|table)/.test(location.hash)) router();
-};
-window.addEventListener('resize', onFold);
-matchMedia('(horizontal-viewport-segments: 2)').addEventListener?.('change', onFold);
+// On plie ou on déplie hors partie : l'écran se recompose (la partie suit la pliure toute seule).
+let wasDouble = doublePage();
+watchFold(() => {
+  const d = doublePage();
+  if (d === wasDouble) return;
+  wasDouble = d;
+  if (!/^#\/(partie|table)/.test(location.hash)) router();
+});
 
 function setView(v: View) {
   cleanup?.();
-  split = null;
   const { el, cleanup: c } = v instanceof HTMLElement ? { el: v, cleanup: null } : v;
   // Les écrans de la maquette tiennent dans le téléphone (la vitrine, elle, défile).
   if (el.classList.contains('screen') && el.dataset.fit !== 'scroll') {
@@ -250,16 +218,16 @@ function router() {
     // Hors ligne (ou en démo), la salle reste sur l'appareil, avec des robots.
     if (DEMO || !navigator.onLine) {
       const r = new LocalRoom(n, room[1] === 'nouvelle' ? undefined : room[1]);
-      return setView(roomScreen(r, () => startLocalGame(r.snapshot())));
+      return setView(roomScreen(r, () => startLocalGame(r.snapshot()), { wide: doublePage() }));
     }
     return void openOnlineRoom(room[1], n, params.get('ligue'));
   }
   if (path === '/tournoi/nouveau') return setView(newLeagueScreen());
-  if (path === '/boutique') return setView(shopScreen());
+  if (path === '/boutique') return setView(shopScreen({ wide: doublePage() }));
   // Ta fiche de héros (l'avatar de la une) : elle s'ouvre aussi hors ligne, avec ce que le téléphone sait de toi.
-  if (path === '/joueur/moi') return setView(playerScreen('moi'));
-  const pl = /^\/joueur\/([\w-]{6,128})$/.exec(path);
-  if (pl) return wideFold() ? setSplit(lastList, () => listView(lastList, params), playerScreen(pl[1])) : setView(playerScreen(pl[1]));
+  // Double page : la fiche répond sur la page de droite, la bande reste à gauche.
+  const pl = path === '/joueur/moi' ? ['', 'moi'] : /^\/joueur\/([\w-]{6,128})$/.exec(path);
+  if (pl) return doublePage() ? setAlbum('friends', friendsScreen(null, lastVolet), playerScreen(pl[1])) : setView(playerScreen(pl[1]));
   // Partie d'initiation : à 4, contre des robots, sur l'appareil (aussi hors ligne).
   if (path === '/initiation') {
     const r = new LocalRoom(4);
@@ -269,7 +237,8 @@ function router() {
   const lg = /^\/tournoi\/(\d{4})$/.exec(path);
   if (lg) {
     if (!navigator.onLine) return message('Pas de réseau', 'Les albums se jouent en ligne. Réessaie quand tu es connecté.');
-    return wideFold() ? setSplit('home', () => listView('home', params), leagueScreen(lg[1])) : setView(leagueScreen(lg[1]));
+    // Double page : tes albums à gauche, celui-ci à droite.
+    return doublePage() ? setAlbum('albums', albumsScreen(true), leagueScreen(lg[1])) : setView(leagueScreen(lg[1]));
   }
   if (path === '/partie') {
     if (!currentGame) return go(ROUTES.home);
@@ -287,29 +256,30 @@ function router() {
   }
   switch (path) {
     case ROUTES.friends:
-      if (wideFold()) return setSplit('friends', () => listView('friends', params), myPane('Touche un ami pour voir sa fiche de joueur.'));
+      lastVolet = 'amis';
+      if (doublePage()) return setAlbum('friends', friendsScreen(params.get('ajout')), myPage());
       return setView(friendsScreen(params.get('ajout')));
     case ROUTES.ranking:
-      if (wideFold()) return setSplit('ranking', () => listView('ranking', params), myPane('Touche un joueur pour voir sa fiche.'));
+      lastVolet = 'classement';
+      if (doublePage()) return setAlbum('friends', rankingScreen(), myPage());
       return setView(rankingScreen());
     case ROUTES.albums:
+      // Double page : la liste à gauche ; à droite, de quoi commencer (un seul album : il s'ouvre aussitôt à droite).
+      if (doublePage()) return setAlbum('albums', albumsScreen(params.has('liste')),
+        pickHint('Ton album s’ouvre ici', 'Touche un album, à gauche : son score, sa prochaine soirée et ses épisodes s’affichent sur cette page.', ['Créer un album', () => go('/tournoi/nouveau')]));
       return setView(albumsScreen(params.has('liste')));
     case ROUTES.home:
       // Sur un téléphone, dans le navigateur : on propose d'installer l'app.
       // (seulement si on est encore sur l'accueil : jamais au milieu d'une salle ou d'une partie)
       // Sinon (installée, ou déjà proposé), on propose les notifications.
       setTimeout(() => { if (location.hash.startsWith('#' + ROUTES.home) && !maybeOfferInstall()) maybeOfferPush(); }, 1500);
-      if (wideFold()) return setSplit('home', () => listView('home', params), leaguePane());
-      return setView(homeScreen());
+      // Pliant ouvert, tablette : la une en double page.
+      return setView(homeScreen({ wide: doublePage() }));
     default:
       return go(ROUTES.home);
   }
 }
 
-/** Liste du volet de gauche. */
-function listView(kind: ListKind, params: URLSearchParams): View {
-  return kind === 'friends' ? friendsScreen(params.get('ajout')) : kind === 'ranking' ? rankingScreen() : homeScreen();
-}
 
 function message(title: string, text: string) {
   setView(h('div', { class: 'screen', style: { justifyContent: 'center', textAlign: 'center', alignItems: 'center' } },
@@ -360,8 +330,9 @@ async function openOnlineRoom(code: string, n: 4 | 6, ligue: string | null = nul
     if (code === 'nouvelle') {
       history.replaceState(null, '', '#/salle/' + currentSession.code);
       // « Inviter » depuis Amis : la salle est créée, l'ami reçoit l'invitation.
-      const friend = new URLSearchParams(hash.split('?')[1] ?? '').get('invite');
-      if (friend) inviteFriend(friend, currentSession.code).catch((e) => console.warn('invitation', e));
+      // (la une en double page en invite deux d'un coup : leurs identifiants, séparés par une virgule)
+      const invited = new URLSearchParams(hash.split('?')[1] ?? '').get('invite');
+      for (const friend of invited ? invited.split(',').filter(Boolean) : []) inviteFriend(friend, currentSession.code).catch((e) => console.warn('invitation', e));
     }
   }
   const s = currentSession!;
@@ -371,7 +342,7 @@ async function openOnlineRoom(code: string, n: 4 | 6, ligue: string | null = nul
     s.rememberPartner();
     currentGame = s.game();
     go('/partie');
-  }));
+  }, { wide: doublePage() }));
 }
 
 window.addEventListener('hashchange', router);

@@ -5,14 +5,16 @@ import { lastTime, nemesis } from '../../app/rivaux';
 import { type League, liveGame, parseLeagueCode, refusedBy, watchMyLeagues } from '../../net/league';
 import { RoomSession, deleteRoom } from '../../net/session';
 import { type SlowGame, forgetGame, watchMyGames } from '../../net/slow';
-import { currentUid, watchFriends } from '../../net/social';
+import { type FriendView, currentUid, friendIds, topPlayers, watchFriends } from '../../net/social';
+import { SHOP, owns } from '../../app/shop';
+import { signets, spread } from '../album/spread';
 import { soireeLabel } from './league';
-import { DEMO, DEMO_FRIENDS, DEMO_LEAGUE, DEMO_UID, type Friend } from '../demo';
+import { DEMO, DEMO_FRIENDS, DEMO_LEAGUE, DEMO_RANKS, DEMO_UID, type Friend } from '../demo';
 import { type CharId, type ColorName, TEAM_BG, TEAM_INK, TEAM_NAMES } from '../kit/data';
 import { deNom, h, toast } from '../dom';
-import { ICONS, avatar, button, icon, tabbar } from '../kit/kit';
+import { ICONS, avatar, bille, billeSkin, button, icon, tabbar } from '../kit/kit';
 import { mascot } from '../mascot';
-import { go } from '../nav';
+import { ROUTES, go } from '../nav';
 import { confirmSheet } from '../confirm';
 import { nudgePlayers } from '../../net/push';
 import { openScanner } from '../qr';
@@ -73,7 +75,8 @@ interface Story {
 /** Les compères par défaut, quand on ne sait pas encore avec qui tu joues : ceux des parties contre les robots. */
 const MIMI: Face = { char: 'lunettes', color: 'yellow' }, BOSS: Face = { char: 'couronne', color: 'blue' }, COCO: Face = { char: 'casquette', color: 'teal' };
 
-export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
+/** wide : la une en double page (pliants, tablettes), le sommaire à gauche et « ce soir dans la bande » à droite. */
+export function homeScreen(o: { wide?: boolean } = {}): { el: HTMLElement; cleanup: () => void } {
   const p = draftProfile();
   const { level } = levelOf(p.xp);
   const fresh = !p.xp;
@@ -82,12 +85,11 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   const other = (f: Face): Face => (f.color === p.color ? { ...f, color: f.color === 'violet' ? 'rose' : 'violet' } : f);
 
   // ---------- En-tête : le titre du journal, tes pièces, ta fiche de héros ----------
-  const head = h('div', { class: 'une-head' },
-    h('span', { class: 'une-logo', 'aria-hidden': 'true' }, 'TOC !'),
-    // Les pièces ouvrent le kiosque.
-    h('button', { class: 'tokens', type: 'button', 'aria-label': `${p.tokens} pièces · ouvrir le kiosque`, onclick: () => go('/boutique') }, h('i'), h('span', null, fmt(p.tokens))),
-    h('button', { class: 'une-me', type: 'button', 'aria-label': `Ta fiche de héros, niveau ${level}`, onclick: () => go('/joueur/moi') },
-      avatar(p.char, p.color, 52), h('span', { class: 'badge-count' }, level)));
+  // Les pièces ouvrent le kiosque.
+  const tokensBtn = h('button', { class: 'tokens', type: 'button', 'aria-label': `${p.tokens} pièces · ouvrir le kiosque`, onclick: () => go('/boutique') }, h('i'), h('span', null, fmt(p.tokens)));
+  const meBtn = h('button', { class: 'une-me', type: 'button', 'aria-label': `Ta fiche de héros, niveau ${level}`, onclick: () => go('/joueur/moi') },
+    avatar(p.char, p.color, 52), h('span', { class: 'badge-count' }, level));
+  const head = h('div', { class: 'une-head' }, h('span', { class: 'une-logo', 'aria-hidden': 'true' }, 'TOC !'), ...(o.wide ? [] : [tokensBtn, meBtn]));
 
   // ---------- Nouvelle partie, rejoindre ----------
   const create = (m: 4 | 6) => {
@@ -112,6 +114,12 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
       button('Partie d’initiation, contre des robots', 'white', () => go('/initiation'), { size: 'sm', block: true }),
       button('Annuler', 'text', () => close()));
   };
+  const canScan = !!navigator.mediaDevices?.getUserMedia;
+  const scan = () => openScanner('Rejoindre une partie', 'Vise le QR code affiché sur le téléphone de celui qui t’invite.', 'Ce QR code n’est pas une invitation TOC.', (text) => {
+    const to = routeFromScan(text);
+    if (to) go(to);
+    return !!to;
+  });
   const openJoin = () => {
     const code = h('input', {
       class: 'field field--big', placeholder: 'TOC-4821', 'aria-label': 'Code de salle ou d’album',
@@ -131,14 +139,7 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
       code,
       button('Rejoindre', 'primary', join, { size: 'md', block: true }),
       // Le QR code affiché sur le téléphone de celui qui invite.
-      !!navigator.mediaDevices?.getUserMedia && button('Scanner un QR code', 'white', () => {
-        close();
-        openScanner('Rejoindre une partie', 'Vise le QR code affiché sur le téléphone de celui qui t’invite.', 'Ce QR code n’est pas une invitation TOC.', (text) => {
-          const to = routeFromScan(text);
-          if (to) go(to);
-          return !!to;
-        });
-      }, { size: 'sm', block: true }),
+      canScan && button('Scanner un QR code', 'white', () => { close(); scan(); }, { size: 'sm', block: true }),
       button('Annuler', 'text', () => close()));
     setTimeout(() => code.focus(), 60);
   };
@@ -306,6 +307,8 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   };
 
   let tabs = tabbar('home');
+  /** La double page se redessine avec le reste (posée plus bas, quand elle est demandée). */
+  let drawWide: (albums: number) => void = () => {};
   const draw = () => {
     drawHero(story());
     drawSlow();
@@ -315,12 +318,15 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
     const next = tabbar('home', n ? { albums: n } : {});
     tabs.replaceWith(next);
     tabs = next;
+    drawWide(n);
   };
 
+  /** Toute ta bande (la double page la montre, en ligne ou pas). */
+  let friends: (Omit<FriendView, 'uid'> & { uid?: string })[] = DEMO ? DEMO_FRIENDS : [];
   online = DEMO ? DEMO_FRIENDS.filter((f) => f.presence !== 'off') : [];
-  if (demo === 'album') leagues = [DEMO_LEAGUE];
+  if (demo === 'album' || (DEMO && o.wide)) leagues = [DEMO_LEAGUE];
   const live = !DEMO && navigator.onLine;
-  const stopFriends = live ? watchFriends((all) => { online = all.filter((f) => f.presence !== 'off'); draw(); }) : () => {};
+  const stopFriends = live ? watchFriends((all) => { friends = all; online = all.filter((f) => f.presence !== 'off'); draw(); }) : () => {};
   const stopLeagues = live ? watchMyLeagues((list) => { leagues = list; draw(); }) : () => {};
   const stopSlow = live ? watchMyGames((list) => { slow = list; draw(); }) : () => {};
   // Partie en ligne interrompue (app fermée) : on propose de la reprendre.
@@ -332,6 +338,108 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
       resume = ok ? { host: !!ok.host } : null;
       draw();
     }).catch(() => undefined);
+
+  // ---------- Pliants : la une en double page (maquette « TOC sur pliants ») ----------
+  // À gauche, le sommaire : la couverture du jour (toi, Toc et ce qu'il raconte), « Nouvelle partie », « Rejoindre », et
+  // l'épisode qui t'attend. À droite, ce soir dans la bande : qui est là, ton album, la nouveauté du kiosque, le classement.
+  if (o.wide) {
+    const sp = spread({ tone: 'jaune', cls: 'une2' });
+    const day = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+    const cover = h('div', { class: 'une2__couv' },
+      h('div', { class: 'une-hero__bg', 'aria-hidden': 'true' }, h('i', { class: 'rays' }), h('i', { class: 'une-hero__dots' })),
+      h('span', { class: 'tag une2__date' }, day),
+      h('div', { class: 'une2__bulle' }, tocText),
+      h('span', { class: 'une2__moi' }, avatar(p.char, p.color, 204, 'joie', { ombre: true })),
+      h('span', { class: 'une2__toc' }, mascot('content', 150)));
+    const suite = h('div', { class: 'une2__suite', hidden: true });
+    let marks = signets('home');
+    sp.left.append(
+      h('div', { class: 'une2__tete' }, h('span', { class: 'une-logo', 'aria-hidden': 'true' }, 'TOC !'), h('span', { class: 'tag tag--dark' }, 'Le sommaire')),
+      h('div', { class: 'livre__corps' }, cover,
+        h('button', { class: 'livre__go', type: 'button', onclick: openNew }, 'Nouvelle partie'),
+        h('div', { class: 'livre__duo' },
+          h('button', { class: 'livre__btn', type: 'button', onclick: openJoin }, 'Rejoindre'),
+          canScan ? h('button', { class: 'livre__btn', type: 'button', onclick: scan }, 'Scanner un code') : null),
+        suite, slowCard),
+      marks);
+    const bande = h('div', { class: 'card une2__bande' }), album = h('div', { class: 'une2__album' }), kiosque = h('div', { class: 'card une2__kiosque' }), rang = h('div', { class: 'une2__rang', hidden: true });
+    sp.right.append(
+      h('div', { class: 'une2__tete une2__tete--d' }, h('span', { class: 'tag' }, 'Ce soir dans la bande'), tokensBtn, meBtn),
+      h('div', { class: 'livre__corps' }, bande, album, kiosque, rang));
+
+    // Le classement de la bande : les trois premiers, et ta place.
+    type Row = { name: string; pts: number; char: CharId; color: ColorName; me: boolean };
+    const drawRank = (rows: Row[]) => {
+      const mine = rows.findIndex((r) => r.me);
+      rang.hidden = rows.length < 2;
+      rang.replaceChildren(
+        h('span', { class: 'une2__rang-t' }, mine < 0 ? 'Le classement de la bande' : mine === 0 ? 'Tu es en tête de la bande' : `Tu es ${mine + 1}ᵉ de la bande`),
+        ...rows.slice(0, 3).map((r, k) => h('div', { class: 'une2__rang-l' + (r.me ? ' une2__rang-l--moi' : '') },
+          h('b', null, k + 1), avatar(r.char, r.color, 34, k === 0 ? 'joie' : 'content'), h('span', null, r.me ? 'Toi' : r.name), h('em', null, fmt(r.pts)))),
+        h('button', { class: 'une2__lien', type: 'button', onclick: () => go(ROUTES.ranking) }, 'Tout le classement'));
+    };
+    if (DEMO) drawRank([...DEMO_RANKS.amis.slice(0, 1).map((r) => ({ ...r, me: false })), { name: 'Toi', pts: 1840, char: p.char, color: p.color, me: true }, ...DEMO_RANKS.amis.slice(2, 3).map((r) => ({ ...r, pts: 1620, me: false }))]);
+    else if (live)
+      Promise.all([topPlayers(), friendIds()]).then(([all, ids]) => {
+        if (!alive) return;
+        const uid = currentUid(), mates = new Set(ids);
+        drawRank(all.filter((e) => mates.has(e.uid) || e.uid === uid).map((e) => ({ name: e.nick, pts: e.points, char: e.char, color: e.color, me: e.uid === uid })));
+      }).catch(() => undefined);
+
+    // La nouveauté du kiosque : la plus belle bille que tu n'as pas encore.
+    const novelty = SHOP.filter((x) => x.kind === 'bille' && !owns(x.id)).sort((a, b) => b.price - a.price)[0];
+    kiosque.hidden = !novelty;
+    if (novelty) kiosque.append(
+      h('span', { class: 'une2__kiosque-b' }, billeSkin(bille(p.color, { size: 62 }), novelty.id)),
+      h('div', null, h('span', { class: 'tag tag--dark' }, 'Nouveau au kiosque'), h('b', null, `Bille ${novelty.name}`), h('span', { class: 'une2__prix' }, h('i'), fmt(novelty.price))),
+      h('button', { class: 'livre__btn livre__btn--turq', type: 'button', onclick: () => go('/boutique') }, 'Essayer'));
+
+    drawWide = (albums) => {
+      // L'épisode qui t'attend (partie à reprendre, table qui se lance, ton tour, prochain épisode de l'album).
+      const s = story();
+      suite.hidden = s.go === openNew;
+      if (!suite.hidden) suite.replaceChildren(
+        h('span', { class: 'une2__mini', 'aria-hidden': 'true' }, h('i')),
+        h('div', null, h('span', { class: 'tag tag--dark' }, s.tag), h('b', null, s.title), h('span', null, s.chip),
+          h('div', { class: 'une2__suite-a' },
+            h('button', { class: 'livre__btn livre__btn--jaune', type: 'button', onclick: s.go }, s.cta.replace(/ !$/, '')),
+            s.del ? h('button', { class: 'une2__lien', type: 'button', onclick: s.del }, 'Supprimer') : null)));
+      // Ta bande : qui est là ce soir.
+      const here = friends.filter((f) => f.presence === 'on'), shown = [...friends].sort((a, b) => Number(b.presence !== 'off') - Number(a.presence !== 'off')).slice(0, 4);
+      const invite = here.slice(0, 2);
+      bande.replaceChildren(
+        h('div', { class: 'une2__bande-t' }, h('b', null, 'Ta bande'), online.length ? h('span', { class: 'une2__pastille' }, `${online.length} en ligne`) : null),
+        ...(shown.length ? [h('div', { class: 'une2__amis' }, ...shown.map((f) => h(f.uid ? 'button' : 'div', { class: 'une2__ami', ...(f.uid ? { type: 'button', onclick: () => go('/joueur/' + f.uid) } : {}) },
+          avatar(f.char, f.color, 52, f.presence === 'off' ? 'content' : 'joie'), h('b', null, f.name),
+          h('span', { class: 'une2__etat une2__etat--' + f.presence }, f.presence === 'on' ? 'en ligne' : f.presence === 'game' ? 'en partie' : f.status.toLowerCase()))))]
+          : [h('span', { class: 'une2__vide' }, 'Pas encore de voisins dans ta bande. Partage ton code ami, ou ajoute celui d’un voisin.')]),
+        invite.length
+          ? h('button', { class: 'livre__btn livre__btn--jaune livre__btn--large', type: 'button', onclick: () => {
+            const ids = invite.map((f) => f.uid).filter(Boolean);
+            if (ids.length) go(`/salle/nouvelle?n=${savedMode()}&invite=${ids.join(',')}`);
+            else toast('Démonstration : personne à inviter pour de vrai.');
+          } }, `Inviter ${invite.map((f) => f.name).join(' et ')}`)
+          : h('button', { class: 'livre__btn livre__btn--large', type: 'button', onclick: () => go(ROUTES.friends) }, shown.length ? 'Voir ta bande' : 'Ajouter un voisin'));
+      // Ton album : son score, sa prochaine soirée.
+      const l = leagues[0];
+      album.replaceChildren(...(l ? [
+        h('span', { class: 'tag tag--dark' }, `Ton album · ${l.name}`),
+        h('div', { class: 'une2__score', role: 'img', 'aria-label': l.wins.map((w, t) => `${TEAM_NAMES[t]} ${w}`).join(', ') },
+          ...l.wins.map((w, t) => h('div', { style: { background: TEAM_BG[t], color: TEAM_INK[t], flexDirection: t ? 'row-reverse' : 'row' } }, h('span', null, TEAM_NAMES[t]), h('b', null, w)))),
+        h('span', { class: 'une2__album-t' }, l.soiree ? `Prochaine soirée : ${soireeLabel(l.soiree.at).toLowerCase()}.` : `Épisode ${l.games.length + 1} : qui lance la partie ?`),
+        h('button', { class: 'livre__btn', type: 'button', onclick: () => go('/tournoi/' + l.code) }, 'Ouvrir l’album'),
+      ] : [
+        h('span', { class: 'tag tag--dark' }, 'Ton album'),
+        h('span', { class: 'une2__album-t' }, 'Un album, c’est ta bande et ses soirées : mêmes équipes à chaque partie, et les victoires s’additionnent.'),
+        h('button', { class: 'livre__btn', type: 'button', onclick: () => go('/tournoi/nouveau') }, 'Créer un album'),
+      ]));
+      const next = signets('home', albums ? { albums } : {});
+      marks.replaceWith(next);
+      marks = next;
+    };
+    draw();
+    return { el: sp.el, cleanup: () => { sp.dispose(); alive = false; stopFriends(); stopLeagues(); stopSlow(); } };
+  }
 
   // Le milieu défile si besoin (parties à ton rythme) ; l'en-tête et les onglets restent en place.
   const el = h('div', { class: 'screen screen--tabs une', 'data-fit': 'tabs', 'data-tone': 'jaune', style: { gap: 0, paddingTop: 'calc(var(--safe-top) + 6px)' } },

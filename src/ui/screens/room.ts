@@ -15,6 +15,10 @@ import type { Humeur } from '../kit/perso';
 import { ROUTES, go } from '../nav';
 import { burstEl } from '../planche';
 import { openTableSheet } from '../table-invite';
+import { type FriendView, inviteFriend, watchFriends } from '../../net/social';
+import { spread } from '../album/spread';
+import { DEMO_FRIENDS } from '../demo';
+import { qrCard } from '../qr';
 import { variantsCard, variantsSummary, withDefaults } from './rules';
 
 async function shareInvite(room: Room) {
@@ -93,7 +97,8 @@ function previously(me: string, foes: string[]): string | null {
   return `${me} et ${r.name} se sont renvoyés ${r.on} fois chacun à la réserve. Qui prend l’avantage ?`;
 }
 
-export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; cleanup: () => void } {
+/** wide : l'affiche en double page (pliants, tablettes), les équipes à gauche et les coulisses à droite. */
+export function roomScreen(room: Room, onStart: () => void, o: { wide?: boolean } = {}): { el: HTMLElement; cleanup: () => void } {
   const s0 = room.snapshot();
   const n = s0.n, half = n / 2;
   const myName = draftProfile().nick || 'Toi';
@@ -243,6 +248,8 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
   settingsLink.addEventListener('click', openSettings);
 
   const overlay = h('div', { class: 'count-overlay', hidden: true }, h('span', null, 'La partie commence'));
+  /** Ce qui porte la couleur de l'équipe du bas : tout l'écran sur téléphone, l'affiche seule sur la double page. */
+  let poster: HTMLElement = overlay;
   let counting = false;
   let decorKey = '';
 
@@ -287,8 +294,8 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     const full = joined === s.n;
     const host = !!s.seats[s.mySeat]?.host;
     const bottom = teams[teams.length - 1];
-    el.style.background = TEAM_BG[bottom];
-    el.style.setProperty('--bas', TEAM_INK[bottom]);
+    poster.style.background = TEAM_BG[bottom];
+    poster.style.setProperty('--bas', TEAM_INK[bottom]);
     recit.classList.toggle('aff-recit--blanc', bottom === 0);
     if (!s.title) setTitle('La table ' + deNom(s.seats.find((p) => p?.host)?.name ?? myName));
     // Le récitatif : l'état de la salle tant qu'on attend ; une fois tout le monde là, le résumé de vos rivalités.
@@ -312,6 +319,11 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     notifyAll.hidden = !s.league || s.status !== 'waiting' || !waitingFor().length;
     rules.refresh();
     settingsLink.textContent = `${variantsSummary(withDefaults(s.variants))} · ${rulesEditable() ? 'Modifier' : 'Voir'}`;
+    // Double page : les règles ont déjà leur carte dans les coulisses ; le lien ne reste que pour les autres réglages.
+    if (o.wide) {
+      settingsLink.textContent = 'Autres réglages de la salle';
+      settingsLink.hidden = !room.setSlow && !canTable && !(isHost() && room.remove);
+    }
     if (s.status === 'countdown' && !counting) countdown();
     // Partie déjà lancée (retour dans la salle, reconnexion) : direction le plateau.
     if (s.status === 'playing' && s.mySeat >= 0 && !counting) {
@@ -330,6 +342,55 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
     setTimeout(onStart, seq.length * 800 + 200);
   };
 
+  // ---------- Pliants : l'affiche en double page (maquette « TOC sur pliants ») ----------
+  // À gauche, l'affiche : le titre et les équipes face à face. À droite, les coulisses : le QR code et le code de la
+  // salle, la bande en ligne à inviter d'un toucher, les règles de la table, et « Lancer la partie ».
+  if (o.wide) {
+    const sp = spread({ tone: 'nuit', cls: 'affiche2' });
+    const panel = h('div', { class: 'aff2__affiche' }, h('div', { class: 'aff-title' }, kicker, title), ring);
+    poster = panel;
+    sp.left.append(
+      h('div', { class: 'aff-head aff2__tete' }, backButton(() => go(ROUTES.home)), codeBtn),
+      h('div', { class: 'livre__corps' }, panel, recit));
+    // Le QR code : le voisin le scanne avec son téléphone (pas pour une partie d'album, dont les membres sont prévenus).
+    const scanCard = s0.league ? null : h('div', { class: 'card aff2__qr' },
+      qrCard(room.link(), 132),
+      h('div', null, h('span', { class: 'tag tag--dark' }, 'À scanner'), h('b', null, s0.code), h('span', null, 'Montre cette page à ton voisin.'),
+        h('button', { class: 'livre__btn livre__btn--jaune', type: 'button', onclick: () => shareInvite(room) }, 'Envoyer le lien')));
+    // La bande en ligne : on l'invite d'un toucher, sans quitter l'affiche.
+    const invited = new Set<string>();
+    const bandCard = h('div', { class: 'card aff2__bande', hidden: !!s0.league });
+    const drawBand = (list: (Omit<FriendView, 'uid'> & { uid?: string })[]) => {
+      const here = list.filter((f) => f.presence !== 'off').slice(0, 4);
+      bandCard.replaceChildren(h('span', { class: 't-label' }, 'La bande en ligne'),
+        ...(here.length ? here.map((f) => {
+          const key = f.uid ?? f.name;
+          return h('div', { class: 'aff2__ami' }, avatar(f.char, f.color, 40, 'content'),
+            h('span', null, h('b', null, f.name), ' ', h('em', { class: 'une2__etat une2__etat--' + f.presence }, f.presence === 'game' ? 'en partie' : 'en ligne')),
+            f.presence === 'game' ? h('small', null, 'libre dans un instant')
+              : h('button', { class: 'livre__btn' + (invited.has(key) ? '' : ' livre__btn--turq'), type: 'button', disabled: invited.has(key), onclick: () => {
+                invited.add(key);
+                if (f.uid && room.snapshot().code) inviteFriend(f.uid, room.snapshot().code).catch(() => toast('Invitation non envoyée. Réessaie.'));
+                toast(`${f.name} est invité·e à ta table.`);
+                drawBand(list);
+              } }, invited.has(key) ? 'Invité·e' : 'Inviter'));
+        }) : [h('span', { class: 'une2__vide' }, 'Personne de ta bande n’est en ligne pour l’instant. Envoie le lien de la salle !')]));
+    };
+    let stopBand = () => {};
+    if (DEMO) drawBand(DEMO_FRIENDS);
+    else if (navigator.onLine && !s0.league) stopBand = watchFriends(drawBand);
+    else bandCard.hidden = true;
+    launch.classList.add('livre__go');
+    sp.right.append(
+      h('div', { class: 'cabine__tete' }, h('span', { class: 'tag tag--jaune' }, 'Les coulisses')),
+      h('div', { class: 'livre__corps' }, scanCard, bandCard, h('div', { class: 'aff2__reglages' }, rules.el, pace)),
+      bots, notifyAll, launch, settingsLink);
+    sp.el.append(overlay);
+    const unsubWide = room.subscribe(draw);
+    draw();
+    return { el: sp.el, cleanup: () => { unsubWide(); stopBand(); sp.dispose(); room.leave(); } };
+  }
+
   const el: HTMLElement = h('div', { class: 'screen affiche', 'data-tone': 'bleu' },
     h('div', { class: 'aff' },
       h('div', { class: 'aff-head' },
@@ -342,6 +403,7 @@ export function roomScreen(room: Room, onStart: () => void): { el: HTMLElement; 
       h('div', { class: 'spacer' }),
       bots, notifyAll, launch, settingsLink),
     overlay);
+  poster = el;
   const unsub = room.subscribe(draw);
   draw();
   return { el, cleanup: () => { unsub(); room.leave(); } };
