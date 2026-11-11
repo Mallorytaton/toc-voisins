@@ -42,6 +42,15 @@ function load(): Profile | null {
   }
 }
 
+const OWNER_KEY = 'toc.profile.uid';
+/** Le compte en ligne dont ce profil a été rapproché en dernier ('' : jamais, ou profil tout neuf). */
+export function profileOwner(): string {
+  try { return localStorage.getItem(OWNER_KEY) ?? ''; } catch { return ''; }
+}
+export function setProfileOwner(uid: string) {
+  try { localStorage.setItem(OWNER_KEY, uid); } catch { /* sans stockage : on rapprochera de nouveau la prochaine fois */ }
+}
+
 /** Profil enregistré, ou null tant que le joueur n'a pas choisi son perso. */
 export function getProfile(): Profile | null {
   return current;

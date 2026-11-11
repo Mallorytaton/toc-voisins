@@ -11,7 +11,7 @@ import { LocalRoom, type RoomSnapshot } from './app/room';
 import { RoomSession } from './net/session';
 import { announceLeagueGame, getLeagueOnce, recordLeagueGame, watchMyLeagues } from './net/league';
 import { ensureAuth } from './net/firebase';
-import { inviteFriend, setInGame, startPresence, syncProfile, watchInvites } from './net/social';
+import { type Recovered, inviteFriend, setInGame, startPresence, syncProfile, watchInvites } from './net/social';
 import { DEMO } from './ui/demo';
 import { h, toast } from './ui/dom';
 import { fitScreen } from './ui/fit';
@@ -362,4 +362,11 @@ async function openOnlineRoom(code: string, n: 4 | 6, ligue: string | null = nul
 }
 
 window.addEventListener('hashchange', router);
+// Progression retrouvée en rapprochant le profil du compte en ligne : on le dit, et l'accueil reprend les bons chiffres.
+window.addEventListener('toc:progression', (e) => {
+  const { xp, tokens } = (e as CustomEvent<Recovered>).detail;
+  const parts = [xp > 0 && `${xp.toLocaleString('fr-FR')} XP`, tokens > 0 && `${tokens.toLocaleString('fr-FR')} pièces`].filter(Boolean);
+  toast(`Progression retrouvée sur ton compte : ${parts.join(' et ')}.`, 4200);
+  if (location.hash.startsWith('#' + ROUTES.home)) router();
+});
 router();

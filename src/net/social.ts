@@ -9,7 +9,8 @@
 import {
   get, limitToLast, onDisconnect, onValue, orderByChild, push, query, ref, remove, runTransaction, serverTimestamp, set, update,
 } from 'firebase/database';
-import { type Profile, draftProfile, getProfile, saveProfile } from '../app/profile';
+import { type Profile, draftProfile, getProfile, profileOwner, saveProfile, setProfileOwner } from '../app/profile';
+import { GAINS, type OnlineProfile, mergeProfile, sameProgress } from '../app/progress';
 import type { CharId, ColorName } from '../ui/kit/data';
 import { database, ensureAuth, node, serverNow } from './firebase';
 import { notifyPlayers } from './push';
@@ -54,9 +55,26 @@ export const currentUid = () => myUid;
 
 const codeKey = (code: string) => code.replace('#', '-');
 
-/** Envoie le profil public et réserve le code ami (une seule fois). */
-export async function syncProfile(p: Profile = draftProfile()) {
+/** Ce que le rapprochement avec le compte a rendu au joueur (XP et pièces en plus sur ce téléphone). */
+export interface Recovered { xp: number; tokens: number }
+
+/**
+ * Rapproche le profil du téléphone de celui du compte, envoie le résultat et réserve le code ami (une seule fois).
+ * Le compte est lu avant d'être écrit : le profil du téléphone ne doit jamais écraser une progression déjà en ligne
+ * (voir app/progress.ts). Si la lecture échoue, rien n'est écrit. Renvoie ce que le joueur a retrouvé, ou null.
+ * mine : ce profil vient d'être rapproché de ce compte (second passage, après un code ami déjà pris).
+ */
+export async function syncProfile(p: Profile = draftProfile(), mine = false): Promise<Recovered | null> {
   const me = await uid();
+  const online = (await get(node('users', me))).val() as OnlineProfile | null;
+  // Le profil a pu changer pendant la lecture (un achat, une fin de partie) : on repart de celui du moment.
+  const before = getProfile() ?? p;
+  p = mergeProfile(before, online, mine || profileOwner() === me);
+  const back = p.xp > before.xp || p.tokens > before.tokens ? { xp: Math.max(0, p.xp - before.xp), tokens: Math.max(0, p.tokens - before.tokens) } : null;
+  if (getProfile() && !sameProgress(p, before)) p = saveProfile(p);
+  setProfileOwner(me);
+  // L'écran déjà affiché montre encore les anciens chiffres : main.ts le prévient.
+  if (back && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent<Recovered>('toc:progression', { detail: back }));
   // Profil créé avant les codes amis : on lui en donne un.
   if (!p.friendCode && getProfile()) p = saveProfile(p);
   if (p.friendCode) {
@@ -65,7 +83,8 @@ export async function syncProfile(p: Profile = draftProfile()) {
     if (owner && owner !== me) {
       // Code déjà pris par quelqu'un d'autre : on en tire un nouveau.
       p = saveProfile({ ...p, friendCode: undefined });
-      return syncProfile(p);
+      // Second passage avec le nouveau code : sans « mine », le code du compte (déjà pris) reviendrait sans fin.
+      return (await syncProfile(p, true)) ?? back;
     }
     if (!owner) await set(node('codes', k), me);
   }
@@ -73,6 +92,7 @@ export async function syncProfile(p: Profile = draftProfile()) {
     nick: p.nick, char: p.char, color: p.color, xp: p.xp, tokens: p.tokens, points: p.points ?? 0,
     city: p.city ?? '', qc: !!p.qc, code: p.friendCode ?? '', owned: p.owned ?? [], look: p.look ?? {}, updatedAt: serverTimestamp(),
   });
+  return back;
 }
 
 /** Présence globale : en ligne tant que l'app est ouverte, « en partie » pendant une partie. */
@@ -286,11 +306,8 @@ export async function awardGame(key: string, won: boolean) {
     if (localStorage.getItem('toc.awarded') === key) return;
     localStorage.setItem('toc.awarded', key);
   } catch { /* sans stockage, on accorde quand même */ }
-  saveProfile({
-    xp: p.xp + (won ? 150 : 60),
-    tokens: p.tokens + (won ? 100 : 20),
-    points: Math.max(0, (p.points ?? 0) + (won ? 30 : 5)),
-  });
+  const gain = won ? GAINS.win : GAINS.loss;
+  saveProfile({ xp: p.xp + gain.xp, tokens: p.tokens + gain.tokens, points: Math.max(0, (p.points ?? 0) + gain.points) });
   await syncProfile().catch(() => undefined);
 }
 

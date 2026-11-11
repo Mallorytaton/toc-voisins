@@ -4,7 +4,7 @@ import {
   type AuthError, GoogleAuthProvider, type User, getAuth, linkWithPopup, signInWithCredential, signInWithPopup,
 } from 'firebase/auth';
 import { get } from 'firebase/database';
-import { type Profile, draftProfile, saveProfile } from '../app/profile';
+import { type Profile, draftProfile, saveProfile, setProfileOwner } from '../app/profile';
 import { ensureAuth, firebaseApp, node, resetAuthCache } from './firebase';
 import type { PublicProfile } from './social';
 
@@ -71,7 +71,11 @@ export async function signInWithGoogle(): Promise<SignInResult> {
     resetAuthCache();
     const uid = await ensureAuth();
     const p = await onlineProfile(uid);
-    if (p) saveProfile({ ...draftProfile(), ...p });
+    if (p) {
+      saveProfile({ ...draftProfile(), ...p });
+      // Ce profil est celui de ce compte : au prochain lancement, il sera rapproché du compte sans rien écraser.
+      setProfileOwner(uid);
+    }
     return { ok: true, restored: !!p };
   } catch (e) {
     console.warn('google', e);
