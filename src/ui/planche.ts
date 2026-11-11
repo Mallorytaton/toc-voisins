@@ -36,6 +36,9 @@ export interface Planche {
   reward?: { n: string; label: string };
   /** Message qui accompagne l'image partagée */
   text: string;
+  /** Double page (pliants) : les perdants, et le verdict (« Soleil gagne 8 à 5. ») */
+  rivals?: PlancheActor[];
+  verdict?: string;
 }
 
 const INK = '#16131f';
@@ -99,6 +102,39 @@ export function plancheEl(p: Planche): HTMLElement {
     fin,
     h('span', { class: 'planche__foot' }, p.foot),
     p.reward && h('div', { class: 'victory__reward' }, ...burstEl('#ffcf1f', 12, 40, 8), h('span', null, p.reward.n, h('small', null, p.reward.label))));
+}
+
+/**
+ * La planche en double page (pliants, maquette « La planche ») : une rangée de petites cases (les coups marquants,
+ * puis la bille qui rentre), et la grande case de la victoire sur toute la largeur.
+ */
+export function plancheDouble(p: Planche): HTMLElement {
+  const bgs = caseBgs(p);
+  const small = p.cases.map((c, k) => h('div', { class: 'case' + (k === 0 ? ' case--first' : ''), style: { '--kc': bgs[k] } },
+    h('i'),
+    h('div', { class: 'case__burst' }, ...burstEl(burstOn(bgs[k], c))),
+    c.by && h('span', { class: 'case__who case__who--by' }, perso(c.by.char, c.by.color, 62, c.by.humeur)),
+    ...c.hits.slice(0, 2).map((x) => h('span', { class: 'case__who case__who--hit' }, perso(x.char, x.color, 46, x.humeur, { flip: true }))),
+    h('span', { class: 'case__cap' }, c.cap),
+    h('span', { class: 'case__fx' + (c.fx.length > 8 ? ' case__fx--long' : '') }, c.fx)));
+  const t = COL[p.fin.color];
+  const rentre = h('div', { class: 'case case--rentre', style: { '--kc': finBg(p) } },
+    h('i'),
+    h('span', { class: 'case__cap' }, p.fin.cap),
+    h('span', { class: 'case__fx' }, 'Toc !'),
+    h('div', { class: 'case__lane', style: { '--d': t.d } },
+      ...[0, 1, 2, 3].map(() => h('div', { class: 'bille', style: { '--c': t.c, '--d': t.d, '--s': '20' } }))));
+  const rivals = (p.rivals ?? []).slice(0, 2);
+  const une = h('div', { class: 'case case--une' + (p.won ? '' : ' case--perdu') },
+    h('i'),
+    h('b', { class: 'case__trame' }),
+    h('span', { class: 'case__mot' + (p.title.length > 10 ? ' case__mot--long' : '') }, p.title),
+    ...rivals.map((x, k) => h('span', { class: 'case__rival case__rival--' + k }, perso(x.char, x.color, 78, x.humeur, { flip: k === 1 }))),
+    rivals.length ? h('span', { class: 'case__grr' }, 'Grrr…') : null,
+    h('span', { class: 'case__duo' }, ...p.duo.map((a, k) => perso(a.char, a.color, k ? 150 : 166, a.humeur, { flip: k === 1, ombre: true }))),
+    p.verdict ? h('span', { class: 'case__cap case__verdict' }, p.verdict) : null);
+  return h('div', { class: 'planche planche--double', role: 'img', 'aria-label': `La planche de la partie. ${p.story}. ${[...p.cases.map((c) => c.cap), p.fin.cap].join(' ')} ${p.foot}` },
+    h('div', { class: 'planche__rang' }, ...small, rentre), une);
 }
 
 // ---------- L'image à partager ----------

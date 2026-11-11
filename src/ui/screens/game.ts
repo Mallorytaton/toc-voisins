@@ -22,7 +22,8 @@ import { type MascotMood, mascot } from '../mascot';
 import { openTableSheet } from '../table-invite';
 import { allowLandscape } from '../orientation';
 import { type Pose, type Shape, closedFoldable, noteOpened, panes as foldPanes, pose as foldPose, shapeOf, watchFold } from '../fold';
-import { type Planche, type PlancheActor, type PlancheCase, burstEl, plancheEl, sharePlanche } from '../planche';
+import { type Planche, type PlancheActor, type PlancheCase, burstEl, plancheDouble, plancheEl, sharePlanche } from '../planche';
+import { GAINS } from '../../app/progress';
 
 const REPLIES = ['Aïe !', 'Tu vas voir…', 'Hahaha', 'Pas mal du tout', 'Sérieux ?'];
 const TURN_MS = 30_000;
@@ -227,7 +228,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const kind = P?.kind ?? 'phone';
     if (kind !== layout) {
       // Plier, déplier, tourner : les éléments changent de place, la partie continue (carte choisie comprise).
+      const ended = !!victoryEl && layout !== '';
+      if (ended) closeVictory();
       if (isFold(kind) !== isFold(layout)) foldUi?.mount(isFold(kind));
+      // L'écran de fin se remontre à la nouvelle taille.
+      if (ended) requestAnimationFrame(() => { if (!disposed && lastEnd && !victoryEl && view.phase === 'over') showVictory(lastEnd.st, lastEnd.won); });
       if (!isFold(kind)) (P?.b ? stage2 : stage).append(...lowEls);
       frame2.hidden = !P?.b;
       root.dataset.layout = kind;
@@ -454,12 +459,21 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     rematchUi.who.replaceChildren(...votes.map((x) =>
       h('span', { class: 'victory__vote' + (x.ok ? ' victory__vote--ok' : '') }, `${x.ok ? '✓' : '…'} ${x.me ? 'Toi' : x.name}`)));
   };
+  /** L'écran de fin en double page est affiché : il a emprunté la table (messages, réactions) à la grille de la partie. */
+  let victorySpread = false;
+  /** La dernière fin de partie montrée, pour la remontrer à la bonne taille si on plie ou déplie devant elle. */
+  let lastEnd: { st: GameState; won: boolean } | null = null;
   const closeVictory = () => {
     rematchUi = null;
     closeEndChat();
     victoryEl?.remove();
     victoryEl = null;
     victoryInner = null;
+    if (victorySpread) {
+      victorySpread = false;
+      // La table retourne à sa place dans la grille de la partie.
+      if (fold) requestAnimationFrame(() => { if (!disposed) fit(); });
+    }
     if (themeMeta && themeBefore !== null) themeMeta.content = themeBefore;
     themeBefore = null;
   };
@@ -776,8 +790,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const vTop = vv?.offsetTop ?? 0, vH = vv?.height ?? innerHeight;
     const kbd = on && vH < innerHeight - 60;
     root.classList.toggle('game--ecrit', kbd);
-    pli.style.top = kbd ? `${Math.round(vTop)}px` : '';
-    pli.style.height = kbd ? `${Math.round(vH)}px` : '';
+    // (l'écran de fin en double page suit la même règle)
+    for (const box of [pli, victorySpread ? victoryInner : null]) {
+      if (!box) continue;
+      box.style.top = kbd ? `${Math.round(vTop)}px` : '';
+      box.style.height = kbd ? `${Math.round(vH)}px` : '';
+    }
     fit();
   };
   const placeTyping = () => {
@@ -1166,8 +1184,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (p !== 'flip') noteOpened();
     // Plié : chaque volet a sa place de part et d'autre de la pliure, rien d'important dessus.
     const two = foldPanes(p);
-    pli.style.setProperty('--pa', two ? `${Math.round(p === 'book' ? two[0].x + two[0].w : two[0].y + two[0].h)}px` : '50%');
-    pli.style.setProperty('--pb', two ? `${Math.round(p === 'book' ? two[1].x : two[1].y)}px` : '50%');
+    root.style.setProperty('--pa', two ? `${Math.round(p === 'book' ? two[0].x + two[0].w : two[0].y + two[0].h)}px` : '50%');
+    root.style.setProperty('--pb', two ? `${Math.round(p === 'book' ? two[1].x : two[1].y)}px` : '50%');
     const filHome = p === 'open' && shape === 'duo' ? pliBoite : p === 'open' && shape === 'trio' ? pliMain : pli;
     if (pliFil.parentElement !== filHome) {
       if (filHome === pliMain) pliMain.insertBefore(pliFil, pliActions);
@@ -1175,9 +1193,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
     // Chevalet : les réactions, le dernier message et le champ de saisie rejoignent la main, dans le volet du bas ;
     // le bouton rond s'y range au bout du dernier message.
+    // (Tant que l'écran de fin en double page est affiché, la table y reste.)
     const low = p === 'tent' ? pliMain : pliBavards;
-    if (pliBoite.parentElement !== low) low.append(pliBoite, pliPuces, pliSaisie);
-    const btnHome = p === 'tent' ? pliBoite : pliPuces;
+    if (!victorySpread && pliBoite.parentElement !== low) low.append(pliBoite, pliPuces, pliSaisie);
+    const btnHome = p === 'tent' && !victorySpread ? pliBoite : pliPuces;
     if (!src.initiation && emoteBtn.parentElement !== btnHome) btnHome.append(emoteBtn, emotePop);
     if (changed) filOpen = false;
     syncFoldTab();
@@ -2895,7 +2914,62 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       // Gains : seulement pour les parties en ligne (comme awardGame).
       reward: src.local || watching ? undefined : { n: won ? '+100' : '+20', label: 'pièces' },
       text: won ? 'On a gagné au TOC !' : 'Belle partie de TOC !',
+      // La grande case de la double page : les perdants dans les coins, et le verdict (les billes rentrées de chaque équipe).
+      rivals: Array.from({ length: N }, (_, s) => s).filter((s) => teamOf(N, s) !== t).map((s, k) => actor(s, k % 2 ? 'ko' : 'furieux')),
+      verdict: `${TEAM_NAMES[t]} gagne ${homeCount(st, t)} à ${Array.from({ length: N / 2 }, (_, k) => k).filter((k) => k !== t).map((k) => homeCount(st, k)).join(' et ')}.`,
     };
+  };
+  /** Les billes rentrées d'une équipe. */
+  const homeCount = (st: GameState, t: number) => [t, t + N / 2].reduce((a, s) => a + st.pawns[s].filter((pw) => inHome(N, pw.p)).length, 0);
+  /**
+   * L'écran de fin en double page (pliants, maquette « La planche ») : la planche sur toute la largeur ; dessous, la table
+   * d'après partie sous le pouce gauche, et sous le pouce droit les gains, les moments forts, la revanche et le retour.
+   */
+  const showVictorySpread = (st: GameState, won: boolean, p: Planche) => {
+    const myTeam = teamOf(N, me);
+    const teams = [myTeam, ...Array.from({ length: N / 2 }, (_, t) => t).filter((t) => t !== myTeam)];
+    const score = h('div', { class: 'g-score', role: 'img', 'aria-label': 'Billes rentrées : ' + teams.map((t) => `${TEAM_NAMES[t]} ${homeCount(st, t)}`).join(', ') },
+      ...teams.map((t, k) => h('div', { class: k ? 'g-score__rev' : undefined, style: { background: TEAM_BG[t], color: TEAM_INK[t] } }, h('span', null, TEAM_NAMES[t]), h('b', null, homeCount(st, t)))));
+    const mins = st.startedAt ? Math.max(1, Math.round((Date.now() - st.startedAt) / 60_000)) : 0;
+    const coups = st.log.filter((e) => e.card).length;
+    const gain = won ? GAINS.win : GAINS.loss;
+    const shareBtn = h('button', { class: 'pv__btn', type: 'button', onclick: () => shareEnd(p, shareBtn) }, 'Partager la planche') as HTMLButtonElement;
+    const rematch = watching ? button('Fermer', 'white', closeVictory, { size: 'md', block: true })
+      // En ligne, la revanche part quand tout le monde a dit oui.
+      : src.voteRematch ? rematchBox()
+        : h('div', { class: 'victory__rematch' }, button('Revanche !', 'primary', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }));
+    // Sur la double page, « Revanche ! » est le grand bouton rouge, comme « Jouer ! ».
+    rematchUi?.btn.classList.replace('btn--yellow', 'btn--primary');
+    const table = h('div', { class: 'pv__table' }, h('span', { class: 'pv__tag' }, 'La table, après la partie'));
+    victoryInner = h('div', { class: 'pv__in', 'data-pli': '1', 'data-tenue': fold, 'data-forme': foldShape },
+      h('div', { class: 'pv__tete' },
+        // Court : l'étiquette tient à gauche du score (l'équipe et ses joueurs sont dans la grande case).
+        h('span', { class: 'pv__tag pv__tag--blanc' }, src.album?.episode ? `Épisode ${src.album.episode} · La planche` : 'La planche'),
+        score,
+        mins ? h('span', { class: 'pv__duree' }, `${mins} min · ${coups} coups`) : null),
+      plancheDouble(p),
+      table,
+      h('div', { class: 'pv__gains' },
+        src.local || watching ? null : h('div', { class: 'pv__pastilles' },
+          h('span', null, `+${gain.xp} XP`), h('span', null, h('i'), `+${gain.tokens} pièces`), h('span', null, `+${gain.points} points`)),
+        watching ? null : h('div', { class: 'pv__duo' },
+          highlights.length ? h('button', { class: 'pv__btn', type: 'button', onclick: () => replayHighlights(st, won) }, 'Les moments forts') : null,
+          shareBtn),
+        rematch,
+        watching ? null : h('button', { class: 'pv__retour', type: 'button', onclick: () => { closeVictory(); o.onQuit(); } }, 'Retour à la une')));
+    victoryEl = h('div', { class: 'victory pv' + (p.won ? '' : ' pv--perdu'), role: 'dialog', 'aria-label': p.won ? 'Victoire' : 'Partie perdue', 'data-tenue': fold, 'data-forme': foldShape },
+      h('i', { class: 'pli__pliure', 'aria-hidden': 'true' }), victoryInner);
+    root.append(victoryEl);
+    // La table d'après partie : le fil des messages et des réactions, emprunté à la grille de la partie.
+    victorySpread = true;
+    foldTab = 'table';
+    filOpen = false;
+    syncFoldTab();
+    table.append(pliBoite, pliPuces, pliSaisie);
+    if (!src.initiation) pliPuces.append(emoteBtn, emotePop);
+    pliFeed.scrollTop = pliFeed.scrollHeight;
+    renderRematch();
+    setTheme('#241f63');
   };
   /** Fin de partie : la planche en image, à envoyer aux copains. */
   const shareEnd = async (p: Planche, btn: HTMLButtonElement) => {
@@ -2907,7 +2981,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const showVictory = (st: GameState, won: boolean) => {
     closeVictory();
+    lastEnd = { st, won };
     const p = plancheOf(st, won);
+    // Pliant (sauf à clapet, qui garde l'écran du téléphone) : la fin de partie en double page.
+    if (fold && fold !== 'flip') return showVictorySpread(st, won, p);
     const confetti = Array.from({ length: 18 }, (_, i) => h('i', { style: {
       left: `${(i * 37) % 100}%`, background: ['#ffcf1f', '#fff', '#19c6a4', '#3b5bff', '#ff7ab8'][i % 5],
       animationDelay: `-${((i * 0.37) % 2.6).toFixed(2)}s`, animationDuration: `${(2.2 + (i % 4) * 0.3).toFixed(1)}s`,

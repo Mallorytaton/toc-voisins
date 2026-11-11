@@ -158,6 +158,30 @@ export class LocalGame implements GameSource {
   leave() {
     clearTimeout(this.timer);
     this.subs.clear();
+    this.talkSubs.clear();
+  }
+
+  // Essais (?debug&chat) : un chat de table tenu sur l'appareil, pour voir et essayer le chat sans réseau.
+  chat?: (t: string) => void;
+  onChat?: (cb: (lines: TableMsg[], fresh: TableMsg[]) => void) => () => void;
+  private talk: TableMsg[] = [];
+  private talkSubs = new Set<(lines: TableMsg[], fresh: TableMsg[]) => void>();
+  /** Active le chat d'essai : tes messages s'y rangent, et un robot te répond. */
+  testChat() {
+    const say = (seat: number, t: string) => {
+      const m: TableMsg = { id: `m${this.talk.length}`, seat, name: this.players[seat].name, t, at: Date.now(), mine: seat === this.mySeat };
+      this.talk.push(m);
+      this.talkSubs.forEach((cb) => cb(this.talk, m.mine ? [] : [m]));
+    };
+    this.chat = (t) => {
+      say(this.mySeat, t);
+      setTimeout(() => say(1 + (this.talk.length % (this.players.length - 1)), ['Ah oui ?', 'On verra bien…', 'Joue, au lieu de causer !'][this.talk.length % 3]), 900);
+    };
+    this.onChat = (cb) => {
+      this.talkSubs.add(cb);
+      cb(this.talk, []);
+      return () => this.talkSubs.delete(cb);
+    };
   }
 
   private dealNow() {

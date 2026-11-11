@@ -11,7 +11,7 @@
 .pli {
   position: absolute; inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   box-sizing: border-box; padding: 12px 16px 16px; display: grid; gap: 10px 24px; color: var(--ink); font-family: var(--text);
-  --ch: 118px; --pa: 50%; --pb: 50%;
+  --ch: 118px;
 }
 .pli[hidden] { display: none; }
 /* Le décor : deux trames de points dans les coins, comme sur le téléphone */
@@ -66,13 +66,13 @@
 /* ---- L'en-tête : la pause, le score de part et d'autre de la pliure, la manche ---- */
 .pli .g-top { position: absolute; inset: 0; left: 0; right: 0; top: 0; height: auto; }
 .pli .g-top .btn-round { position: absolute; left: 0; top: 1px; }
-.pli .g-score { position: absolute; left: calc(50% - 162px); top: 0; height: 46px; gap: 24px; border: 0; border-radius: 0; overflow: visible; box-shadow: none; rotate: none; }
-.pli .g-score > div { box-sizing: border-box; height: 46px; padding: 0 12px; gap: 10px; border: 3px solid var(--ink); border-radius: 4px 12px 12px 4px; box-shadow: 0 5px 0 var(--ink); rotate: 1.5deg; }
-.pli .g-score > div:first-child { width: 150px; justify-content: flex-end; border-radius: 12px 4px 4px 12px; rotate: -1.5deg; }
-.pli .g-score > div:nth-child(2) { min-width: 150px; }
-.pli .g-score > div:nth-child(3) { margin-left: -14px; }
-.pli .g-score > div > span { font-size: 12px; letter-spacing: .09em; }
-.pli .g-score > div > b { font-size: 36px; }
+.pli .g-score, .pv .g-score { position: absolute; left: calc(50% - 162px); top: 0; height: 46px; gap: 24px; border: 0; border-radius: 0; overflow: visible; box-shadow: none; rotate: none; }
+.pli .g-score > div, .pv .g-score > div { box-sizing: border-box; height: 46px; padding: 0 12px; gap: 10px; border: 3px solid var(--ink); border-radius: 4px 12px 12px 4px; box-shadow: 0 5px 0 var(--ink); rotate: 1.5deg; }
+.pli .g-score > div:first-child, .pv .g-score > div:first-child { width: 150px; justify-content: flex-end; border-radius: 12px 4px 4px 12px; rotate: -1.5deg; }
+.pli .g-score > div:nth-child(2), .pv .g-score > div:nth-child(2) { min-width: 150px; }
+.pli .g-score > div:nth-child(3), .pv .g-score > div:nth-child(3) { margin-left: -14px; }
+.pli .g-score > div > span, .pv .g-score > div > span { font-size: 12px; letter-spacing: .09em; }
+.pli .g-score > div > b, .pv .g-score > div > b { font-size: 36px; }
 .pli .g-round { position: absolute; left: auto; right: 0; top: 9px; padding: 7px 12px 6px; font-size: 12px; letter-spacing: .09em; rotate: 2deg; }
 .pli .g-round[aria-expanded='true'] { background: #fff; }
 
@@ -197,6 +197,8 @@
 .pli[data-forme='trio'] .g-timer { margin: 0 48px 0 22px; }
 .pli[data-forme='trio'] .pli__main > .pli__fil { flex: 1 1 0; height: 0; min-height: 0; padding: 10px; border: 3px solid var(--ink); border-radius: 16px; background: var(--paper); box-shadow: 4px 5px 0 var(--ink); overflow: hidden; }
 .pli[data-forme='trio'] .pli__actions { margin-top: 0; }
+/* Le volet est étroit : les réactions passent à la ligne plutôt que de pousser le bouton rond hors du volet */
+.pli[data-forme='trio'] .pli__puces, .pv__in[data-forme='trio'] .pli__puces { flex-wrap: wrap; row-gap: 8px; }
 .pli[data-forme='trio'] .pli__actions > .g-play { min-width: 150px; font-size: 30px; }
 
 /* ==== Entrouvert comme un livre : une page de chaque côté, rien sur la pliure ==== */
@@ -362,3 +364,91 @@ html[data-pli='open'] .sheet, html[data-pli='book'] .sheet {
   box-shadow: 6px 7px 0 var(--ink); max-height: 100%; box-sizing: border-box;
 }
 html[data-pli='tent'] .sheet { max-width: 560px; max-height: 50%; }
+
+/* ==== La fin de partie en double page (pliants, maquette « La planche ») ====
+   La planche sur toute la largeur : une rangée de petites cases (les coups marquants, la bille qui rentre), puis la
+   grande case de la victoire. Dessous : la table d'après partie sous le pouce gauche ; sous le pouce droit, les gains,
+   les moments forts, la revanche et le retour à la une. */
+.pv { background: var(--nuit); text-align: left; color: var(--ink); }
+.pv::before, .pv::after { content: ''; position: absolute; width: 400px; height: 400px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(255, 255, 255, .13) 2px, rgba(255, 255, 255, 0) 2.6px) 0 0 / 12px 12px; }
+.pv::before { left: -150px; bottom: -40px; }
+.pv::after { right: -170px; top: -150px; }
+.pv__in {
+  position: absolute; inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); z-index: 1;
+  box-sizing: border-box; padding: 12px 16px 16px; display: grid; gap: 14px 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: 48px minmax(0, 1fr) minmax(0, 296px); grid-template-areas: 'tete tete' 'planche planche' 'table gains';
+}
+.pv__tete { grid-area: tete; position: relative; min-width: 0; }
+.pv__tag { align-self: flex-start; max-width: 100%; box-sizing: border-box; padding: 7px 12px 6px; border: 3px solid var(--ink); border-radius: 6px; background: var(--jaune); box-shadow: 3px 4px 0 var(--ink); font: 900 12px/1 var(--text); letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; rotate: -1.5deg; }
+.pv__tag--blanc { background: #fff; }
+.pv__tete > .pv__tag { position: absolute; left: 0; top: 8px; max-width: calc(50% - 178px); rotate: -2deg; }
+.pv__duree { position: absolute; right: 0; top: 17px; font: 900 12px/1 var(--text); letter-spacing: .09em; text-transform: uppercase; color: #fff; white-space: nowrap; }
+/* La planche */
+.planche--double { grid-area: planche; align-self: stretch; min-height: 0; rotate: none; border-radius: 16px; padding: 10px; gap: 10px; box-shadow: 6px 7px 0 var(--ink); }
+.planche__rang { flex: none; height: 156px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; }
+.planche--double .case { height: auto; min-width: 0; border-radius: 8px; }
+.planche--double .case--first > .case__cap { max-width: 100%; }
+.case--rentre .case__fx { margin-top: 12px; }
+.case--rentre .case__lane { left: 50%; translate: -50% 0; bottom: 10px; height: 34px; padding: 0 8px; gap: 5px; }
+/* La grande case : le mot de la fin, les gagnants au milieu, les perdants dans les coins */
+.planche--double .case--une { flex: 1; min-height: 0; padding: 0; background: var(--jaune); container-type: size; }
+.case--une > i { inset: -90px; background: repeating-conic-gradient(from 0deg at 50% 82%, rgba(255, 255, 255, .5) 0deg 5deg, rgba(255, 255, 255, 0) 5deg 13deg); }
+.case__trame { position: absolute; left: -60px; bottom: -110px; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle, rgba(22, 19, 31, .2) 2.2px, rgba(22, 19, 31, 0) 2.8px) 0 0 / 11px 11px; }
+.case__mot { position: absolute; z-index: 1; left: 0; right: 0; top: 9%; text-align: center; font: italic 400 min(18cqw, 46cqh) / 1 var(--fx); letter-spacing: .01em; color: var(--rouge); white-space: nowrap; rotate: -6deg;
+  text-shadow: -4px -4px 0 var(--ink), 4px -4px 0 var(--ink), -4px 4px 0 var(--ink), 4px 4px 0 var(--ink), 0 -4px 0 var(--ink), 0 4px 0 var(--ink), -4px 0 0 var(--ink), 4px 0 0 var(--ink), 9px 11px 0 var(--ink); }
+.case__mot--long { font-size: min(15cqw, 42cqh); }
+.case__duo { position: absolute; z-index: 2; left: 50%; bottom: -10px; translate: -50% 0; display: flex; align-items: flex-end; }
+.case__duo > :last-child { margin-left: -14px; }
+.case__rival { position: absolute; z-index: 2; bottom: 4px; }
+.case__rival--0 { left: 7%; rotate: -4deg; }
+.case__rival--1 { right: 4%; rotate: 8deg; }
+.case__grr { position: absolute; z-index: 3; left: calc(7% + 74px); bottom: 84px; padding: 6px 11px 5px; border: 2.5px solid var(--ink); border-radius: 14px 14px 14px 4px; background: #fff; box-shadow: 3px 4px 0 var(--ink); font: 800 13px/1.2 var(--text); white-space: nowrap; rotate: -5deg; }
+.planche--double .case__verdict { position: absolute; z-index: 3; right: calc(4% + 82px); bottom: 12px; padding: 6px 10px 5px; font: 800 13px/1.2 var(--text); white-space: nowrap; rotate: 2deg; }
+.case--perdu.case--une { background: #a6a2c8; }
+.case--perdu .case__mot { color: #fff; }
+/* La table d'après partie */
+.pv__table { grid-area: table; position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+/* Les gains, les moments forts, la revanche */
+.pv__gains { grid-area: gains; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.pv__pastilles { display: flex; flex-wrap: wrap; gap: 8px; }
+.pv__pastilles > span { height: 40px; box-sizing: border-box; padding: 1px 14px 0; display: inline-flex; align-items: center; gap: 7px; border: 3px solid var(--ink); border-radius: 20px; background: #fff; box-shadow: 0 4px 0 var(--ink); font: 900 14px/1 var(--text); white-space: nowrap; }
+.pv__pastilles i { width: 18px; height: 18px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 50%; background: var(--jaune); }
+.pv__duo { display: flex; gap: 12px; }
+.pv__btn { flex: 1 1 0; min-width: 0; height: 52px; padding: 1px 8px 0; border: 3px solid var(--ink); border-radius: 16px; background: #fff; color: var(--ink); box-shadow: 0 5px 0 var(--ink); font: 900 14px/1.1 var(--text); cursor: pointer; }
+.pv__btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--ink); }
+.pv__btn:disabled { opacity: .6; }
+.pv .victory__rematch { flex: none; margin-top: auto; flex-direction: column-reverse; gap: 10px; }
+.pv .victory__rematch > .btn { height: 64px; border-radius: 18px; font-size: 38px; letter-spacing: .04em; rotate: -1.5deg; box-shadow: 0 7px 0 var(--ink); }
+.pv .victory__rematch > .btn:disabled { font-size: 24px; }
+.pv .victory__votes { justify-content: flex-start; }
+.pv .victory__vote { background: rgba(255, 255, 255, .85); }
+.pv__gains > .btn { flex: none; margin-top: auto; }
+.pv__retour { align-self: center; min-height: 44px; padding: 0 6px; border: 0; background: none; color: #fff; font: 800 14px/1 var(--text); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+
+/* Nettement plus large que haut : la planche à gauche, la table et les gains à droite */
+.pv__in[data-forme='wide'] { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); grid-template-rows: 48px minmax(0, 1fr) auto; grid-template-areas: 'tete tete' 'planche table' 'planche gains'; gap: 12px 20px; }
+.pv__in[data-forme='wide'] .pv__duo { gap: 8px; }
+.pv__in[data-forme='wide'] .pv__btn { height: 46px; font-size: 13px; }
+.pv__in[data-forme='wide'] .victory__rematch > .btn { height: 56px; font-size: 32px; }
+/* Trois volets : la table à gauche, la planche au milieu, les gains à droite */
+.pv__in[data-forme='trio'] { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); grid-template-rows: 48px minmax(0, 1fr); grid-template-areas: 'tete tete tete' 'table planche gains'; }
+.pv__in[data-forme='trio'] .pv__duo { flex-direction: column; }
+.pv__in[data-forme='trio'] .pv__btn { flex: none; }
+.pv[data-forme='trio'] > .pli__pliure { display: none; }
+/* En livre : la planche sur la page de gauche, les gains et la table sur celle de droite */
+.pv__in[data-tenue='book'] { padding: 12px 12px 16px; column-gap: 0; justify-content: space-between; grid-template-columns: calc(var(--pa) - 24px) calc(100% - var(--pb) - 12px); grid-template-rows: 48px auto minmax(0, 1fr); grid-template-areas: 'tete gains' 'planche gains' 'planche table'; }
+.pv__in[data-tenue='book'] .pv__tete > .pv__tag, .pv__in[data-tenue='book'] .pv__duree { display: none; }
+.pv__in[data-tenue='book'] .g-score { left: 0; gap: 6px; }
+.pv__in[data-tenue='book'] .g-score > div:first-child { width: 132px; }
+.pv__in[data-tenue='book'] .g-score > div:nth-child(2) { min-width: 0; }
+.pv__in[data-tenue='book'] .planche__rang { height: auto; grid-auto-flow: row; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-auto-rows: 138px; }
+.pv__in[data-tenue='book'] .case__mot { font-size: min(22cqw, 40cqh); top: 6%; }
+.pv__in[data-tenue='book'] .case__rival, .pv__in[data-tenue='book'] .case__grr { display: none; }
+.pv__in[data-tenue='book'] .planche--double .case__verdict { right: 8px; left: 8px; bottom: 8px; text-align: center; white-space: normal; z-index: 4; }
+.pv__in[data-tenue='book'] .case__duo { bottom: 30px; scale: .8; transform-origin: 50% 100%; }
+.pv[data-tenue='book'] > .pli__pliure { left: calc((var(--pa) + var(--pb)) / 2); background: rgba(255, 255, 255, .15); }
+/* En chevalet : la planche dans le volet du haut (les petites cases à gauche, la grande à droite), le reste en bas */
+.pv__in[data-tenue='tent'] { padding: 10px 16px 14px; gap: 0 24px; grid-template-rows: 46px calc(var(--pa) - 78px) calc(var(--pb) - var(--pa) + 34px) minmax(0, 1fr); grid-template-areas: 'tete tete' 'planche planche' '. .' 'table gains'; }
+.pv__in[data-tenue='tent'] .planche--double { flex-direction: row; margin-top: 8px; }
+.pv__in[data-tenue='tent'] .planche__rang { flex: 0 0 44%; height: auto; grid-auto-flow: row; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-auto-rows: minmax(0, 1fr); }
+.pv[data-tenue='tent'] > .pli__pliure { left: 0; right: 0; width: auto; margin: 0; top: calc((var(--pa) + var(--pb)) / 2); bottom: auto; height: 2px; background: rgba(255, 255, 255, .15); }

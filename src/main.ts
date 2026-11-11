@@ -95,6 +95,9 @@ function startLocalGame(s: RoomSnapshot, initiation = false) {
   currentGame = new LocalGame(s.code, s.seats.map((x, k) => k === s.mySeat
     ? { name: p.nick, char: p.char, color: p.color, bot: false, online: true }
     : { name: x!.name, char: x!.char, color: x!.color, bot: true, online: false }), initiation ? DEFAULT_VARIANTS : s.variants, initiation);
+  // Essais automatisés (?debug&chat) : la partie contre les robots a un chat de table, comme une partie en ligne.
+  const search = new URLSearchParams(location.search);
+  if (search.has('debug') && search.has('chat')) (currentGame as LocalGame).testChat();
   go('/partie');
 }
 
