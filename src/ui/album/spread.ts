@@ -3,7 +3,7 @@
 // de la page de gauche remplacent la barre d'onglets. Les pages se règlent sur la forme de l'écran et la place de la
 // pliure (src/ui/fold.ts), jamais sur un modèle de téléphone.
 import { h } from '../dom';
-import { noteOpened, panes, pose, shapeOf, watchFold } from '../fold';
+import { noteOpened, panes, pose, shapeOf, viewSize, watchFold } from '../fold';
 import { type Tab, icon } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 
@@ -48,7 +48,8 @@ export function spread(o: { tone: string; cls?: string }): Spread {
   const right = h('div', { class: 'livre__page livre__page--d' });
   const el = h('div', { class: 'livre' + (o.cls ? ' ' + o.cls : ''), 'data-tone': o.tone }, h('i', { class: 'livre__reliure', 'aria-hidden': 'true' }), left, right);
   const fit = () => {
-    const p = pose(), W = innerWidth, H = innerHeight;
+    // (clavier rentré : les pages ne changent pas d'échelle pendant qu'on écrit)
+    const p = pose(), { w: W, h: H } = viewSize();
     // L'échelle : les pages gardent des cotes de lecture, du pliant étroit à la tablette.
     const k = Math.min(1.5, Math.max(0.9, Math.min(W / REF_W, H / REF_H)));
     el.style.zoom = k.toFixed(3);

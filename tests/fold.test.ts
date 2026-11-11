@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type Reading, poseOf, shapeOf } from '../src/ui/fold';
+import { type Reading, poseOf, shapeOf, steadySize } from '../src/ui/fold';
 
 /** Un écran tactile à plat, sans pliure annoncée. */
 const flat = (w: number, h: number, more: Partial<Reading> = {}): Reading => ({ w, h, coarse: true, cols: 1, rows: 1, folded: null, ...more });
@@ -48,6 +48,35 @@ describe('pliants : la tenue suit la forme de l’écran et la pliure, jamais un
 
   it('un clapet couché sur le côté reste un téléphone (mode manette)', () => {
     expect(poseOf(flat(840, 360, { cols: 2 }))).toBe('phone');
+  });
+});
+
+describe('pliants : le clavier à l’écran ne change pas la tenue', () => {
+  const ipad = { w: 820, h: 1180 };
+  it('hors saisie, la taille lue est celle de la fenêtre', () => {
+    expect(steadySize({ w: 1180, h: 420 }, { w: 1180, h: 820 }, false, ipad)).toEqual({ w: 1180, h: 420 });
+  });
+  it('iPad tenu en largeur : le clavier rabote la hauteur, la double page reste', () => {
+    const held = steadySize({ w: 1180, h: 420 }, { w: 1180, h: 820 }, true, ipad);
+    expect(held).toEqual({ w: 1180, h: 820 });
+    expect(poseOf({ ...held, coarse: true, cols: 1, rows: 1, folded: null })).toBe('open');
+    // Sans cette règle, l'app retombait sur l'écran du téléphone au milieu d'un message.
+    expect(poseOf({ w: 1180, h: 420, coarse: true, cols: 1, rows: 1, folded: null })).toBe('phone');
+  });
+  it('pliant ouvert : la forme ne bascule pas non plus pendant qu’on écrit', () => {
+    const held = steadySize({ w: 752, h: 520 }, { w: 752, h: 832 }, true, { w: 752, h: 832 });
+    expect(shapeOf(held.w, held.h)).toBe('duo');
+  });
+  it('clavier rentré pendant la saisie (clavier matériel) : rien ne change', () => {
+    expect(steadySize({ w: 820, h: 1180 }, { w: 820, h: 1180 }, true, ipad)).toEqual({ w: 820, h: 1180 });
+  });
+  it('l’écran tourne clavier sorti : sa hauteur est l’autre côté de l’écran', () => {
+    expect(steadySize({ w: 1180, h: 400 }, { w: 820, h: 1180 }, true, ipad)).toEqual({ w: 1180, h: 820 });
+    expect(steadySize({ w: 820, h: 800 }, { w: 1180, h: 820 }, true, ipad)).toEqual({ w: 820, h: 1180 });
+  });
+  it('un téléphone reste un téléphone, clavier sorti ou non', () => {
+    const held = steadySize({ w: 393, h: 480 }, { w: 393, h: 852 }, true, { w: 393, h: 852 });
+    expect(poseOf({ ...held, coarse: true, cols: 1, rows: 1, folded: null })).toBe('phone');
   });
 });
 

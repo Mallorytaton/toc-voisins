@@ -64,10 +64,41 @@ function ask() {
 }
 const postureApi = () => (navigator as Navigator & { devicePosture?: PostureApi }).devicePosture;
 
+/**
+ * La taille de l'écran à retenir pendant qu'on écrit. Sur une tablette, le clavier à l'écran rabote la hauteur de la
+ * fenêtre : sans cette règle, une tablette tenue en largeur ne serait plus « assez grande » pour la double page dès
+ * qu'on ouvre le chat, et l'app retomberait sur l'écran du téléphone au milieu d'un message.
+ * À largeur égale, on garde la hauteur d'avant la saisie (rest). Si l'écran a tourné clavier sorti, sa hauteur est le
+ * côté de l'écran (scr) qui n'est pas sa largeur.
+ */
+export function steadySize(now: { w: number; h: number }, rest: { w: number; h: number }, writing: boolean, scr?: { w: number; h: number }): { w: number; h: number } {
+  if (!writing) return now;
+  if (rest.w === now.w) return rest.h > now.h ? rest : now;
+  if (!scr) return now;
+  const other = Math.abs(scr.w - now.w) <= Math.abs(scr.h - now.w) ? scr.h : scr.w;
+  return other > now.h ? { w: now.w, h: other } : now;
+}
+/** Un champ de texte a la main : le clavier à l'écran est sans doute sorti. */
+function writing(): boolean {
+  const a = document.activeElement as HTMLElement | null;
+  if (!a) return false;
+  if (a.tagName === 'TEXTAREA' || a.isContentEditable) return true;
+  return a.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit|reset|file|color|image)$/.test((a as HTMLInputElement).type);
+}
+/** La dernière taille lue hors saisie. */
+let rest = { w: 0, h: 0 };
+/** La taille de l'écran, clavier rentré : celle qui décide de la tenue et de l'échelle des pages. */
+export function viewSize(): { w: number; h: number } {
+  const now = { w: innerWidth, h: innerHeight };
+  const held = steadySize(now, rest, writing(), { w: screen.width, h: screen.height });
+  if (held === now) rest = now;
+  return held;
+}
+
 export function reading(): Reading {
-  const p = postureApi()?.type, q = ask();
+  const p = postureApi()?.type, q = ask(), { w, h } = viewSize();
   return {
-    w: innerWidth, h: innerHeight, coarse: q.coarse.matches,
+    w, h, coarse: q.coarse.matches,
     cols: q.cols.matches ? 2 : 1, rows: q.rows.matches ? 2 : 1,
     folded: p === 'folded' ? true : p === 'continuous' ? false : null,
   };

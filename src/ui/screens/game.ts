@@ -21,7 +21,7 @@ import { type Haptic, canTick, haptic, tickUnder } from '../haptics';
 import { type MascotMood, mascot } from '../mascot';
 import { openTableSheet } from '../table-invite';
 import { allowLandscape } from '../orientation';
-import { type Pose, type Shape, closedFoldable, noteOpened, panes as foldPanes, pose as foldPose, shapeOf, watchFold } from '../fold';
+import { type Pose, type Shape, closedFoldable, noteOpened, panes as foldPanes, pose as foldPose, shapeOf, viewSize, watchFold } from '../fold';
 import { type Planche, type PlancheActor, type PlancheCase, burstEl, plancheDouble, plancheEl, sharePlanche } from '../planche';
 import { GAINS } from '../../app/progress';
 
@@ -1172,7 +1172,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     retilt();
   };
   const fitFold = (p: Exclude<Pose, 'phone'>) => {
-    const shape: Shape = p === 'open' ? shapeOf(root.clientWidth, root.clientHeight) : 'duo';
+    // La forme se lit clavier rentré : écrire à la table ne fait pas basculer la double page d'une forme à l'autre.
+    const view = viewSize();
+    const shape: Shape = p === 'open' ? shapeOf(view.w, view.h) : 'duo';
     const changed = p !== fold || shape !== foldShape;
     fold = p;
     foldShape = shape;

@@ -108,6 +108,17 @@
 .game--plume .pli__saisie { display: block; }
 .game--plume .pli__puces { position: absolute; right: 0; bottom: 0; min-height: 0; }
 .game--plume .pli__puce { display: none; }
+/* Grand ouvert, clapet : pendant qu'on écrit, toutes les réactions défilent sur une ligne au-dessus du champ.
+   Le fil de la table reste lisible, clavier sorti compris (la grille des réactions ne le recouvre plus). */
+.game--plume .pli[data-tenue='open'] .pli__puces, .game--plume .pli[data-tenue='flip'] .pli__puces { position: relative; right: auto; bottom: auto; min-height: 50px; }
+.game--plume .pli[data-tenue='open'] .pli__saisie, .game--plume .pli[data-tenue='flip'] .pli__saisie { margin-right: 0; }
+.game--plume .pli[data-tenue='open'] .pli__puces > .pop--emotes, .game--plume .pli[data-tenue='flip'] .pli__puces > .pop--emotes {
+  position: static; flex: 1 1 0; min-width: 0; width: auto; display: flex; gap: 8px; padding: 0 2px 4px; border: 0; border-radius: 0; background: none; box-shadow: none;
+  overflow-x: auto; overscroll-behavior: contain; scrollbar-width: none; animation: none;
+}
+.game--plume .pli[data-tenue='open'] .pop--emotes::-webkit-scrollbar, .game--plume .pli[data-tenue='flip'] .pop--emotes::-webkit-scrollbar { display: none; }
+.game--plume .pli[data-tenue='open'] .pop--emotes > button, .game--plume .pli[data-tenue='flip'] .pop--emotes > button { flex: none; height: 46px; padding: 0 13px; border-radius: 23px; box-shadow: 0 4px 0 var(--ink); font: 800 13px/1 var(--text); white-space: nowrap; }
+.game--plume .pli[data-tenue='open'] .pop--emotes > .pop__emoji, .game--plume .pli[data-tenue='flip'] .pop--emotes > .pop__emoji { font-size: 20px; }
 
 /* ---- La main, sous le pouce droit : la consigne, la mèche, les cartes, « Jouer ! » ---- */
 /* La consigne tient sur une ou deux lignes : sa place est réservée, rien ne bouge quand elle change */
@@ -455,3 +466,5 @@ html[data-pli='tent'] .sheet { max-width: 560px; max-height: 50%; }
 .pv__in[data-tenue='tent'] .planche--double { flex-direction: row; margin-top: 8px; }
 .pv__in[data-tenue='tent'] .planche__rang { flex: 0 0 44%; height: auto; grid-auto-flow: row; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-auto-rows: minmax(0, 1fr); }
 .pv[data-tenue='tent'] > .pli__pliure { left: 0; right: 0; width: auto; margin: 0; top: calc((var(--pa) + var(--pb)) / 2); bottom: auto; height: 2px; background: rgba(255, 255, 255, .15); }
+/* Le bouton rond reste au bout de la ligne, sous le pouce */
+.game--plume .pli[data-tenue='open'] .pli__puces > .emote-btn, .game--plume .pli[data-tenue='flip'] .pli__puces > .emote-btn { order: 2; margin-left: 0; }
