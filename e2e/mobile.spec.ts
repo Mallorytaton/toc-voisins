@@ -8,6 +8,9 @@ test.beforeEach(async ({ page }) => {
   // La proposition d'installation ne doit pas couvrir l'écran pendant les tests.
   await page.addInitScript(() => localStorage.setItem('toc.install.later', String(Date.now())));
   await page.route(/(googleapis\.com|firebasedatabase\.app|firebaseio\.com)/, (r) => r.abort());
+  // La base parle aussi par une connexion directe (WebSocket), que la règle ci-dessus ne voit pas : on la ferme aussitôt.
+  // Sans cela, elle pouvait s'ouvrir vers la vraie base avant la coupure du réseau, ou échouer bruyamment juste après.
+  await page.routeWebSocket(/(firebasedatabase\.app|firebaseio\.com)/, (ws) => ws.close());
 });
 
 function watchErrors(page: Page) {
