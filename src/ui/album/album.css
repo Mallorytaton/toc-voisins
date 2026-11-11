@@ -56,7 +56,8 @@
 .une2__tete--d > .tag { margin-right: auto; padding: 6px 8px 5px; font-size: 10px; letter-spacing: .05em; rotate: -1.5deg; }
 .une2__tete .une-logo { margin-right: 0; }
 /* La couverture du jour : toi, Toc, et ce qu'il raconte */
-.une2__couv { position: relative; height: 300px; margin-top: 10px; }
+/* Sur un écran haut (tablette tenue en hauteur), la couverture prend la place qui reste */
+.livre__corps > .une2__couv { position: relative; flex: 1 0 300px; max-height: 460px; margin-top: 10px; }
 .une2__date { position: absolute; z-index: 2; left: 12px; top: -15px; rotate: -2deg; }
 .une2__bulle { position: absolute; z-index: 2; right: 14px; top: 20px; max-width: 208px; box-sizing: border-box; padding: 10px 13px 9px; border: 3px solid var(--ink); border-radius: 16px 16px 16px 4px; background: #fff; box-shadow: 4px 5px 0 var(--ink); font: 800 14px/1.25 var(--text); text-wrap: pretty; rotate: 1.5deg; }
 .une2__bulle .une-toc__t { font: inherit; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
@@ -123,6 +124,9 @@ button.une2__ami { cursor: pointer; }
    Ta bande, Albums et la fiche de héros gardent leur contenu : la page lui retire sa barre d'onglets (les marque-pages
    la remplacent) et son fond (celui de la double page). À droite, l'écran qui répond est une grande case de BD. */
 .livre__ecran.screen { flex: 1; min-height: 0; width: auto; max-width: none; margin: 0; padding: 0 !important; background: none; color: var(--ink); overflow: visible; --safe-top: 0px; --safe-bottom: 0px; }
+/* Ces écrans sont dessinés pour la largeur d'un téléphone (357 de contenu) : à gauche, ils la retrouvent en mordant un peu
+   sur la marge de la page ; à droite, dans leur case, ils sont réduits d'autant. Aucun texte ne sort de son cadre. */
+.livre__page--g > .livre__ecran.screen { margin: 0 -6px; }
 .livre__ecran.screen::before, .livre__ecran.screen::after { display: none; }
 .livre__ecran .tabbar { display: none; }
 .livre__ecran .scroll-y { scrollbar-width: none; }
@@ -130,8 +134,8 @@ button.une2__ami { cursor: pointer; }
 .livre__ecran .soiree > .soiree__when { font-size: 20px; top: 32px; right: 78px; }
 .livre__ecran .scroll-y::-webkit-scrollbar { display: none; }
 /* La page de droite répond : la fiche de héros, l'album */
-.livre__page--d > .livre__ecran.heros, .livre__page--d .livre__attente-boite > .livre__ecran.heros { padding: 8px 12px 0 !important; border: 3px solid var(--ink); border-radius: 22px; background: var(--rouge); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; }
-.livre__page--d > .livre__ecran.album { padding: 12px 0 12px !important; border: 3px solid var(--ink); border-radius: 22px; background: var(--turq); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; }
+.livre__page--d > .livre__ecran.heros, .livre__page--d .livre__attente-boite > .livre__ecran.heros { padding: 8px 12px 0 !important; border: 3.4px solid var(--ink); border-radius: 24px; background: var(--rouge); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; zoom: .885; }
+.livre__page--d > .livre__ecran.album { padding: 12px 0 12px !important; border: 3.4px solid var(--ink); border-radius: 24px; background: var(--turq); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; zoom: .86; }
 /* Sur la page, on ne revient pas en arrière : la liste est juste à côté */
 .livre__ecran.heros .heros__head > .btn-round:first-child { visibility: hidden; }
 .livre__attente-boite.screen { display: flex; flex-direction: column; }
@@ -151,7 +155,7 @@ button.une2__ami { cursor: pointer; }
 .cabine__tete > .tag { rotate: -1.5deg; }
 .cabine { gap: 14px; }
 /* La scène : l'objet en grand, Toc et son avis */
-.cabine__scene { position: relative; height: 300px; border: 3px solid var(--ink); border-radius: 22px; background: var(--nuit); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; isolation: isolate; display: grid; place-items: center; }
+.livre__corps > .cabine__scene { position: relative; flex: 1 0 300px; max-height: 480px; border: 3px solid var(--ink); border-radius: 22px; background: var(--nuit); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; isolation: isolate; display: grid; place-items: center; }
 .cabine__scene > .rays { --rx: 50%; --ry: 42%; z-index: 0; }
 .cabine__scene > :not(.rays):not(.cabine__toc):not(.cabine__bulle) { position: relative; z-index: 1; scale: 1.5; margin-bottom: 40px; }
 .cabine__toc { position: absolute; z-index: 2; left: 10px; bottom: -6px; pointer-events: none; }
@@ -197,3 +201,5 @@ button.une2__ami { cursor: pointer; }
 .affiche2 .livre__go.aff-go { flex: none; align-self: stretch; width: auto; margin: 0 0 4px; }
 .affiche2 .livre__go.aff-go--off { background: #cfcbe0; color: var(--ink-2); text-shadow: none; font-size: 30px; }
 .affiche2 > .count-overlay { zoom: 1; }
+/* Dans sa case, le graphique des semaines est un peu plus serré : ses étiquettes rapetissent d'un rien */
+.livre__ecran .stats-week__label { font-size: 8.5px; letter-spacing: -.01em; }
