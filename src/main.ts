@@ -243,6 +243,8 @@ function router() {
   }
   if (path === '/tournoi/nouveau') return setView(newLeagueScreen());
   if (path === '/boutique') return setView(shopScreen());
+  // Ta fiche de héros (l'avatar de la une) : elle s'ouvre aussi hors ligne, avec ce que le téléphone sait de toi.
+  if (path === '/joueur/moi') return setView(playerScreen('moi'));
   const pl = /^\/joueur\/([\w-]{6,128})$/.exec(path);
   if (pl) return wideFold() ? setSplit(lastList, () => listView(lastList, params), playerScreen(pl[1])) : setView(playerScreen(pl[1]));
   // Partie d'initiation : à 4, contre des robots, sur l'appareil (aussi hors ligne).

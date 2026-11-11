@@ -8,7 +8,7 @@ import {
 import { type FriendView, currentUid, inviteToLeague, watchFriends } from '../../net/social';
 import { DEMO, DEMO_LEAGUE, DEMO_UID } from '../demo';
 import { deNom, h, toast } from '../dom';
-import { COL, SEAT_COLORS, TEAM_NAMES } from '../kit/data';
+import { COL, SEAT_COLORS, TEAM_BG, TEAM_INK, TEAM_NAMES } from '../kit/data';
 import { ICONS, avatar, avatarRing, backButton, button, duo, icon, segmented, tabbar } from '../kit/kit';
 import { ROUTES, go } from '../nav';
 import { savedMode } from './home';
@@ -500,9 +500,6 @@ async function shareLeague(l: League) {
 /** Toi, dans les données de l'album (un joueur fictif en démonstration). */
 const myUid = () => (DEMO ? DEMO_UID : currentUid());
 
-/** Le fond d'une équipe (comme sur l'affiche) et la couleur du texte posé dessus. */
-const TEAM_BG = ['var(--jaune)', 'var(--bleu)', '#ff8fc4'];
-const TEAM_INK = ['var(--ink)', '#fff', 'var(--ink)'];
 
 /** « En tête » : les équipes, leurs joueurs, et leurs victoires en gros chiffres. */
 function scoreCard(l: League, me: string): HTMLElement {

@@ -25,7 +25,7 @@ import { toast } from '../ui/dom';
 import { DEMO_GUESTS } from '../ui/demo';
 import { type CharId, type ColorName, SEAT_COLORS } from '../ui/kit/data';
 import { WEEK, arr, database, ensureAuth, list, node, serverNow } from './firebase';
-import { recordLeagueGame } from './league';
+import { getLeagueOnce, recordLeagueGame } from './league';
 import { awardGame, recordPlayerStats } from './social';
 import { notifyPlayers } from './push';
 
@@ -742,8 +742,19 @@ export class OnlineGame implements GameSource {
     return this.idle;
   }
 
+  /** Partie d'album : son nom et le numéro de l'épisode, pour la planche de fin. */
+  album?: { title: string; episode?: number };
+
   constructor(private s: RoomSession) {
     this.state = this.view();
+    const meta = s.room?.meta;
+    if (meta?.league && meta.title) {
+      const album: { title: string; episode?: number } = { title: meta.title };
+      this.album = album;
+      // L'épisode en cours : une fois la partie finie, elle est déjà comptée dans l'album.
+      const over = this.state.phase === 'over';
+      getLeagueOnce(meta.league).then((l) => { if (l) album.episode = l.games.length + (over ? 0 : 1); }).catch(() => undefined);
+    }
     for (const [k, e] of Object.entries(s.room?.emotes ?? {})) this.seenEmote[k] = e.at;
     const lines = this.chatLines;
     this.chatKey = lines.map((m) => m.id).join();

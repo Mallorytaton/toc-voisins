@@ -55,7 +55,7 @@ export function tableScreen(code: string): { el: HTMLElement; cleanup: () => voi
       'Le plateau s’affichera ici dès que l’hôte lancera la partie. Chacun joue sur son téléphone.',
       snap.seats.map((p, k) => (p
         ? h('div', { class: 'table-wait__seat' }, avatar(p.char, p.color, 54), h('span', null, p.name))
-        : h('div', { class: 'table-wait__seat table-wait__seat--empty' }, h('span', { class: 'aff-slot__chair', style: { width: 50, height: 50 } }, '+'), h('span', null, 'Place libre')))));
+        : h('div', { class: 'table-wait__seat table-wait__seat--empty' }, h('span', { class: 'aff-chair', style: { width: 50, height: 50 } }, '+'), h('span', null, 'Place libre')))));
   };
 
   waiting('Connexion à la salle…', 'Un instant.');

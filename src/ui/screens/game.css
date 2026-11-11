@@ -14,8 +14,8 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 
 /* Décor : trames de points, et la case de BD derrière le plateau */
 .g-dots { position: absolute; z-index: 0; width: 400px; height: 400px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(255, 255, 255, .13) 2px, rgba(255, 255, 255, 0) 2.6px) 0 0 / 11px 11px; }
-.g-case { position: absolute; z-index: 0; left: 5px; top: 58px; width: 383px; height: 326px; border: 3px solid var(--ink); border-radius: 18px; background: var(--bleu); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; }
-.g-case > i { position: absolute; inset: -70px; background: repeating-conic-gradient(from 4deg at 50% 62%, rgba(255, 255, 255, .13) 0deg 5deg, rgba(255, 255, 255, 0) 5deg 13deg); }
+.g-case { position: absolute; z-index: 0; left: 5px; top: 78px; width: 383px; height: 310px; border: 3px solid var(--ink); border-radius: 18px; background: var(--bleu); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; }
+.g-case > i { position: absolute; inset: -70px; background: repeating-conic-gradient(from 4deg at 50% 54%, rgba(255, 255, 255, .13) 0deg 5deg, rgba(255, 255, 255, 0) 5deg 13deg); }
 .g-case::before, .g-case::after { content: ''; position: absolute; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(22, 19, 31, .3) 2px, rgba(22, 19, 31, 0) 2.6px) 0 0 / 10px 10px; }
 .g-case::before { left: -70px; bottom: -80px; }
 .g-case::after { right: -80px; top: -90px; }
@@ -28,7 +28,6 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .game[data-layout='wide-side'] .chat-drawer { display: none; }
 .game__stage.lowrow { width: 786px; }
 .lowrow .g-actions { right: auto; width: 369px; }
-.lowrow .g-timer { right: auto; width: 339px; }
 .game .lowrow .hand { left: 393px; top: 414px; }
 .lowrow .chat-drawer__bar { top: 556px; right: auto; width: 369px; }
 /* Chat sur grand écran : colonne toujours ouverte, ou feuille par-dessus le bas du plateau */
@@ -68,31 +67,34 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .game[data-layout='table'] .g-top, .game[data-layout='table'] .g-journal-pop { display: none; }
 .game[data-layout='table'] .g-case { top: 30px; height: 432px; }
 
-/* ---- Barre du haut ---- */
-.g-top { position: absolute; z-index: 3; left: 12px; right: 12px; top: 4px; height: 48px; display: flex; align-items: center; gap: 6px; }
-.g-top .btn-round { width: 40px; height: 40px; box-shadow: 0 3px 0 var(--ink); }
-.g-top__mid { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #fff; }
-.g-top__round { font: 900 9.5px/1 var(--text); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.g-top__turn { font: 400 20px/1 var(--fx); letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 1px 2px 0; }
-/* Le score : une case par équipe, à ses couleurs (billes rentrées) */
-.g-score { flex: none; display: flex; align-items: stretch; height: 40px; border: 3px solid var(--ink); border-radius: 12px; overflow: hidden; box-shadow: 0 3px 0 var(--ink); rotate: 1.5deg; }
-.g-score > div { display: flex; align-items: center; gap: 5px; padding: 0 9px 0 7px; color: var(--ink); }
+/* ---- Barre du haut : la pause à gauche, le score des équipes à droite (maquette) ---- */
+.g-top { position: absolute; z-index: 3; left: 14px; right: 14px; top: 4px; height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.g-top .btn-round { width: 46px; height: 46px; box-shadow: 0 4px 0 var(--ink); }
+/* À qui le tour : lu par les lecteurs d'écran (à l'écran, la consigne et les persos le montrent) */
+.g-top__turn { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Le score : une case par équipe, à sa couleur (son nom, ses billes rentrées) */
+.g-score { flex: none; display: flex; align-items: stretch; height: 46px; border: 3px solid var(--ink); border-radius: 14px; overflow: hidden; box-shadow: 0 4px 0 var(--ink); rotate: 1.5deg; }
+.g-score > div { display: flex; align-items: center; gap: 7px; padding: 0 12px 0 10px; }
+.g-score > .g-score__rev { flex-direction: row-reverse; padding: 0 10px 0 12px; }
 .g-score > div + div { border-left: 3px solid var(--ink); }
-.g-score > div > span { width: 13px; height: 13px; border: 2px solid var(--ink); border-radius: 50%; box-sizing: border-box; }
-.g-score > div > b { font: 400 26px/1 var(--fx); padding-top: 3px; }
-/* Trois équipes : tout se resserre un peu pour laisser sa place au tour */
-.g-top--six { left: 8px; right: 8px; gap: 4px; }
-.g-top--six .btn-round { width: 38px; height: 38px; }
-.g-top--six .g-score > div { padding: 0 6px 0 5px; gap: 3px; }
-.g-top--six .g-score > div > span { width: 11px; height: 11px; }
-.g-top--six .g-score > div > b { font-size: 23px; }
-.g-top--six .g-top__turn { font-size: 18px; letter-spacing: .01em; }
-.g-top--six .g-top__round { font-size: 8.5px; letter-spacing: .04em; }
-
+.g-score > div > span { font: 900 10px/1 var(--text); letter-spacing: .08em; text-transform: uppercase; }
+.g-score > div > b { font: 400 30px/1 var(--fx); padding-top: 2px; }
+/* Trois équipes : les cases se resserrent */
+.g-top--six .g-score > div { gap: 5px; padding: 0 7px 0 6px; }
+.g-top--six .g-score > .g-score__rev { padding: 0 6px 0 7px; }
+.g-top--six .g-score > div > span { font-size: 8.5px; letter-spacing: .05em; }
+.g-top--six .g-score > div > b { font-size: 26px; }
+/* La manche et la donne : un récitatif jaune à cheval sur le coin de la case (le toucher montre les derniers coups) */
+.g-round {
+  position: absolute; z-index: 3; left: 22px; top: 66px; padding: 6px 11px 5px; border: 3px solid var(--ink); border-radius: 6px; background: var(--jaune); color: var(--ink);
+  box-shadow: 3px 4px 0 var(--ink); font: 900 11px/1 var(--text); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; rotate: -2.5deg; cursor: pointer;
+}
+.g-round[aria-expanded='true'] { background: #fff; }
+.game--manette .g-round, .game[data-layout='table'] .g-round { display: none; }
 /* ---- Le plateau ----
    Un cadre de 360 × 360 ; le plan (bois, feutre, trous, pioche) y est incliné d'un bloc, comme vu de sa place.
    Les billes, les persos et les effets restent debout, posés aux positions vues à l'écran. */
-.board { position: absolute; z-index: 1; left: 16px; top: 66px; width: 360px; height: 360px; pointer-events: none; transition: clip-path .5s cubic-bezier(.3, .8, .3, 1); }
+.board { position: absolute; z-index: 1; left: 16px; top: 70px; width: 360px; height: 360px; pointer-events: none; transition: clip-path .5s cubic-bezier(.3, .8, .3, 1); }
 .board--shake { animation: tocShake .45s ease-out; }
 .board__cam { position: absolute; inset: 0; transform-origin: 0 0; transition: transform .5s cubic-bezier(.3, .8, .3, 1); }
 .board__plane { position: absolute; inset: 0; transform-origin: 50% 50%; transition: transform .7s cubic-bezier(.3, .8, .3, 1); }
@@ -157,7 +159,7 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .bille--ko { animation: tocKo .73s cubic-bezier(.3, .6, .4, 1); }
 @keyframes tocKo { 0% { rotate: 0deg; scale: 1; } 45% { scale: 1.5; } 100% { rotate: 720deg; scale: 1; } }
 /* Fin de partie serrée : le cadre de la case rougit et bat au rythme du cœur de la musique (1,32 s). */
-.g-tense { position: absolute; z-index: 2; left: 5px; top: 58px; width: 383px; height: 326px; border-radius: 18px; pointer-events: none; opacity: 0; transition: opacity 1s; box-shadow: inset 0 0 0 7px var(--rouge), inset 0 0 0 10px var(--ink); }
+.g-tense { position: absolute; z-index: 2; left: 5px; top: 78px; width: 383px; height: 310px; border-radius: 18px; pointer-events: none; opacity: 0; transition: opacity 1s; box-shadow: inset 0 0 0 7px var(--rouge), inset 0 0 0 10px var(--ink); }
 .game--tense .g-tense { opacity: 1; animation: tocTense 1.32s ease-in-out infinite; }
 @keyframes tocTense { 0%, 100% { opacity: .55; } 12% { opacity: 1; } 30% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .bille--ko, .game--tense .g-tense, .pawn--cand > .bille { animation: none; } }
@@ -169,42 +171,33 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .seat-av__pulse, .seat-av__spin { position: absolute; z-index: 0; clip-path: polygon(50% 0, 59% 22%, 79% 7%, 76% 31%, 100% 30%, 83% 48%, 100% 65%, 77% 66%, 81% 91%, 60% 77%, 50% 100%, 40% 77%, 19% 91%, 23% 66%, 0 65%, 17% 48%, 0 30%, 24% 31%, 21% 7%, 41% 22%); animation: tocSpinSlow 8s linear infinite; }
 .seat-av__pulse { inset: -16px; background: var(--ink); }
 .seat-av__spin { inset: -12.5px; background: var(--jaune); }
-/* Nombre de cartes en main : une petite carte */
-.seat-av__cards {
-  position: absolute; z-index: 2; bottom: -6px; right: -9px; min-width: 17px; height: 22px; padding: 0 3px; border: 2px solid var(--ink); border-radius: 4px; background: var(--paper); color: var(--ink);
-  font: 900 11px/18px var(--text); text-align: center; box-sizing: border-box; rotate: 8deg;
-}
-.seat-av[data-side^='left'] .seat-av__cards, .seat-av[data-side='over-end'] .seat-av__cards, .seat-av[data-side^='right'] .seat-av__cards { right: auto; left: -9px; rotate: -8deg; }
+/* L'étiquette d'un joueur : son nom et ses cartes en main (« Mimi · 4 ») ; dessous, la pastille « Ensuite » ou « Commence » */
+.seat-av__tags { position: absolute; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
 .seat-av__name {
-  position: absolute; z-index: 2; white-space: nowrap; font: 900 10px/1 var(--text); letter-spacing: .05em; text-transform: uppercase; padding: 4px 6px 3px; border: 2px solid var(--ink); border-radius: 7px;
+  white-space: nowrap; font: 900 9px/1 var(--text); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px 3px; border: 2.5px solid var(--ink); border-radius: 7px;
   background: #fff; color: var(--ink);
 }
-.seat-av[data-side='right'] .seat-av__name { left: calc(100% + 7px); top: 50%; translate: 0 -50%; rotate: -3deg; }
-.seat-av[data-side='left'] .seat-av__name { right: calc(100% + 7px); top: 50%; translate: 0 -50%; rotate: 3deg; }
+.seat-av[data-side='right'] .seat-av__tags { left: calc(100% + 5px); top: calc(50% - 7px); rotate: -3deg; }
+.seat-av[data-side='left'] .seat-av__tags { right: calc(100% + 5px); top: calc(50% - 7px); rotate: -3deg; align-items: flex-end; }
 /* Coins proches : l'étiquette part sur le côté, descendue sous la dernière rangée de trous (hauteur calculée à l'écran) */
-.seat-av[data-side='right-low'] .seat-av__name { left: calc(100% + 7px); top: var(--tag-top, 50%); rotate: -2deg; }
-.seat-av[data-side='left-low'] .seat-av__name { right: calc(100% + 7px); top: var(--tag-top, 50%); rotate: 2deg; }
-/* Sous un perso du bord (à 6), la pastille « ensuite » passe sous le nom : l'étiquette reste étroite, loin des réserves */
-.seat-av[data-side^='under'] .seat-av__name { display: flex; flex-direction: column; gap: 2px; }
-.seat-av[data-side='under-start'] .seat-av__name { align-items: flex-start; }
-.seat-av[data-side='under-end'] .seat-av__name { align-items: flex-end; }
-.seat-av[data-side='under'] .seat-av__name { align-items: center; }
-.seat-av[data-side^='under'] .seat-av__chip { margin-left: 0; }
-.seat-av[data-side^='under'] .seat-av__name { top: calc(100% + 4px); }
-.seat-av[data-side='under'] .seat-av__name { left: 50%; translate: -50% 0; }
-/* Au bord de l'écran, le nom s'aligne sur le perso au lieu de se centrer : il ne sort jamais du cadre */
-.seat-av[data-side='under-start'] .seat-av__name { left: -8px; rotate: -2deg; }
-.seat-av[data-side='under-end'] .seat-av__name { right: -8px; rotate: 2deg; }
-.seat-av[data-side^='over'] .seat-av__name { bottom: calc(100% + 5px); }
-.seat-av[data-side='over'] .seat-av__name { left: 50%; translate: -50% 0; }
-.seat-av[data-side='over-start'] .seat-av__name { left: -6px; rotate: -3deg; }
-.seat-av[data-side='over-end'] .seat-av__name { right: -6px; rotate: 3deg; }
+.seat-av[data-side='right-low'] .seat-av__tags { left: calc(100% + 7px); top: var(--tag-top, 50%); rotate: -2deg; }
+.seat-av[data-side='left-low'] .seat-av__tags { right: calc(100% + 7px); top: var(--tag-top, 50%); rotate: 2deg; align-items: flex-end; }
+.seat-av[data-side^='under'] .seat-av__tags { top: calc(100% + 4px); }
+.seat-av[data-side='under'] .seat-av__tags { left: 50%; translate: -50% 0; align-items: center; }
+/* Au bord de l'écran, l'étiquette s'aligne sur le perso au lieu de se centrer : elle ne sort jamais du cadre */
+.seat-av[data-side='under-start'] .seat-av__tags { left: 2px; rotate: -3deg; }
+.seat-av[data-side='under-end'] .seat-av__tags { right: 2px; rotate: 3deg; align-items: flex-end; }
+.seat-av[data-side^='over'] .seat-av__tags { bottom: calc(100% + 4px); }
+.seat-av[data-side='over'] .seat-av__tags { left: 50%; translate: -50% 0; align-items: center; }
+.seat-av[data-side='over-start'] .seat-av__tags { left: 2px; rotate: -3deg; }
+.seat-av[data-side='over-end'] .seat-av__tags { right: 2px; rotate: 3deg; align-items: flex-end; }
+/* Vue de dessus : les persos tiennent dans les coins du plateau */
+.board--flat .seat-av > .avatar { scale: .8; }
 .seat-av--wait { filter: saturate(.75); }
-/* « Commence » (donne et échange) et « Ensuite » (le joueur suivant) : étiquette dans le nom */
+/* « Commence » (donne et échange) et « Ensuite » (le joueur suivant) : une pastille sous le nom */
 .seat-av--wait.seat-av--next { filter: none; }
-.seat-av__chip { font-style: normal; display: inline-block; margin-left: 5px; padding: 2px 4px 1px; border-radius: 4px; background: var(--ink); color: var(--jaune); font: 900 8.5px/1.1 var(--text); letter-spacing: .06em; vertical-align: 1px; }
-.seat-av__chip[hidden] { display: none; }
-.seat-av__chip--first { background: var(--rouge); color: var(--ink); }
+.seat-av__chip { font-style: normal; padding: 4px 7px 3px; border-radius: 7px; background: var(--ink); color: var(--jaune); font: 900 9px/1 var(--text); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.seat-av__chip--first { background: var(--rouge); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
 .seat-av--off { filter: grayscale(.9); opacity: .7; }
 .seat-av--turn .seat-av__name::after { content: '...'; display: inline-block; width: 0; overflow: hidden; vertical-align: bottom; animation: tocDots 1.2s steps(4) infinite; }
 @keyframes tocDots { to { width: 1.1em; } }
@@ -215,7 +208,7 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 
 /* ---- Bulles des joueurs ---- */
 /* Elles vivent dans le repère du plateau, mais au-dessus de lui et du panneau d'aide : jamais coupées, jamais sur un trou */
-.g-bubbles { position: absolute; z-index: 20; left: 16px; top: 66px; width: 0; height: 0; pointer-events: none; }
+.g-bubbles { position: absolute; z-index: 20; left: 16px; top: 70px; width: 0; height: 0; pointer-events: none; }
 .game--manette .g-bubbles { visibility: hidden; }
 .emote-bubble {
   position: absolute; z-index: 1000; white-space: nowrap; font: 800 13px/1.2 var(--text);
@@ -306,17 +299,16 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .emote-btn__badge { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 5px; border: 2.5px solid var(--ink); border-radius: 11px; background: var(--rouge); color: var(--ink); font: 900 11px/17px var(--text); text-align: center; box-sizing: border-box; }
 
 /* ---- Consigne et bouton ---- */
-.g-actions { position: absolute; z-index: 5; left: 12px; right: 12px; top: 424px; display: flex; align-items: center; gap: 9px; }
+.g-actions { position: absolute; z-index: 5; left: 14px; right: 12px; top: 422px; min-height: 60px; display: flex; align-items: center; gap: 10px; }
 /* La consigne : un récitatif de BD, jaune, légèrement penché */
 .g-hint {
-  flex: 1; min-width: 0; min-height: 56px; padding: 8px 11px 7px; border: 3px solid var(--ink); border-radius: 8px; background: var(--jaune); color: var(--ink);
-  display: flex; flex-direction: column; justify-content: center; gap: 2px; box-shadow: 4px 5px 0 var(--ink); rotate: -1deg;
+  flex: 1; min-width: 0; min-height: 58px; padding: 9px 12px 8px; border: 3px solid var(--ink); border-radius: 8px; background: var(--jaune); color: var(--ink);
+  display: flex; flex-direction: column; justify-content: center; gap: 3px; box-shadow: 4px 5px 0 var(--ink); rotate: -1.2deg;
 }
-.g-hint > b { font: 400 20px/1.05 var(--fx); letter-spacing: .03em; }
-.g-hint > span { font: 600 12.5px/1.25 var(--text); text-wrap: pretty; }
+.g-hint > b { font: 400 21px/1 var(--fx); letter-spacing: .03em; }
+.g-hint > span { font: 700 12.5px/1.25 var(--text); text-wrap: pretty; }
 .g-tip { align-self: flex-start; border: none; background: none; padding: 3px 0 0; min-height: 22px; cursor: pointer; font: 800 12px var(--text); color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
-.g-rules { font: 400 26px/1 var(--fx); padding: 3px 0 0; }
-.g-play { animation: tocPop .35s cubic-bezier(.3, 1.5, .5, 1) both; flex: none; height: 56px; padding: 4px 16px 0; font-size: 28px; border-radius: 16px; rotate: 2deg; }
+.g-play { animation: tocPop .35s cubic-bezier(.3, 1.5, .5, 1) both; flex: none; min-width: 110px; height: 56px; padding: 4px 12px 0; font-size: 29px; letter-spacing: .04em; border-radius: 16px; rotate: 2deg; }
 .emote-btn { position: relative; width: 48px; height: 48px; }
 .emote-btn[aria-expanded='true'] { background: var(--jaune); }
 /* Initiation : Toc tient la place du bouton des émotes */
@@ -325,22 +317,37 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 @media (prefers-reduced-motion: reduce) { .g-coach--pop { animation: none; } }
 
 /* ---- Minuteur : une mèche qui brûle vers la bombe ---- */
-.g-timer { position: absolute; z-index: 4; left: 40px; right: 18px; top: 491px; height: 6px; }
-.g-timer::before { content: ''; position: absolute; left: -26px; top: -8px; width: 22px; height: 22px; border: 3px solid var(--ink); border-radius: 50%; background: radial-gradient(circle at 34% 30%, #fff 0 16%, rgba(255, 255, 255, 0) 17%), #3a3566; box-sizing: border-box; }
-.g-timer > div { position: relative; width: 100%; height: 100%; border-radius: 3px; background: repeating-linear-gradient(90deg, #fff 0 7px, #c9c6e8 7px 12px); box-shadow: 0 0 0 2px var(--ink); }
-.g-timer__spark { position: absolute; right: -12px; top: -10px; width: 26px; height: 26px; background: radial-gradient(circle, #fff 0 20%, var(--jaune) 22% 60%, var(--rouge) 62%); clip-path: polygon(50% 0, 62% 30%, 93% 18%, 76% 46%, 100% 62%, 68% 66%, 68% 100%, 46% 76%, 20% 96%, 26% 64%, 0 52%, 28% 38%, 16% 8%, 42% 26%); animation: tocSpark .35s steps(2) infinite; }
+.g-timer { position: absolute; z-index: 4; left: 38px; top: 499px; width: 290px; height: 22px; }
+.g-timer::before { content: ''; position: absolute; left: -20px; top: 1px; width: 20px; height: 20px; border: 3px solid var(--ink); border-radius: 50%; background: radial-gradient(circle at 34% 30%, #fff 0 16%, rgba(255, 255, 255, 0) 17%), #3a3566; box-sizing: border-box; }
+.g-timer > div { position: absolute; left: 0; top: 9px; width: 100%; height: 5px; border-radius: 3px; background: repeating-linear-gradient(90deg, #fff 0 7px, #c9c6e8 7px 12px); box-shadow: 0 0 0 2px var(--ink); }
+.g-timer__spark { position: absolute; right: -15px; top: -13px; width: 30px; height: 30px; background: radial-gradient(circle, #fff 0 20%, var(--jaune) 22% 60%, var(--rouge) 62%); clip-path: polygon(50% 0, 62% 30%, 93% 18%, 76% 46%, 100% 62%, 68% 66%, 68% 100%, 46% 76%, 20% 96%, 26% 64%, 0 52%, 28% 38%, 16% 8%, 42% 26%); animation: tocSpark .35s steps(2) infinite; }
+/* Les secondes qui restent, au bout de la mèche */
+.g-timer__left { position: absolute; left: 100%; top: 5px; width: 44px; text-align: right; font: 900 12px/1 var(--text); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; color: #fff; }
 @keyframes tocBurn { from { width: 100%; } to { width: 0%; } }
 @keyframes tocSpark { 50% { rotate: 24deg; scale: 1.15; } }
 
 /* ---- La main ---- */
-.hand { position: absolute; z-index: 6; left: 0; top: 508px; width: 393px; height: 200px; }
-.hand .pcard { position: absolute; transform-origin: 50% 120%; }
+.hand { position: absolute; z-index: 6; left: 0; top: 538px; width: 393px; height: 200px; }
+/* Les cartes de la main, aux cotes de la maquette : 98 × 142, en éventail autour de leur centre */
+.hand .pcard { position: absolute; width: 98px; height: 142px; transform-origin: 50% 50%; }
+.hand .pcard__corner { top: 7px; left: 9px; }
+.hand .pcard__corner--end { left: auto; right: 9px; }
+.hand .pcard__rank { font-size: 38px; }
+.hand .pcard__rank--wide { font-size: 31px; }
+.hand .pcard__suit { width: 17px; height: 17px; }
+.hand .pcard__pip { top: 66px; width: 40px; height: 40px; margin-left: -20px; }
+.hand .pcard__badge { height: 30px; padding: 1px 7px 0; font-size: 10px; }
+/* Le pouvoir s'écrit du côté qui dépasse de l'éventail ; la carte choisie sort du rang, son bandeau passe au jaune */
+.hand .pcard[data-side='start'] .pcard__badge { justify-content: flex-start; }
+.hand .pcard[data-side='end'] .pcard__badge { justify-content: flex-end; }
+.hand .pcard[aria-pressed='true'] { box-shadow: 0 5px 0 var(--ink); }
+.hand .pcard[aria-pressed='true'] .pcard__badge { background: var(--jaune); }
 .hand .pcard--deal { animation: tocDeal .6s cubic-bezier(.2, 1.25, .4, 1) both; }
 /* Pas ton tour : les cartes passent en retrait, mais restent lisibles pour préparer ton coup */
 .hand .pcard--wait { filter: brightness(.82) saturate(.7); }
 @media (hover: hover) { .hand .pcard:not([aria-pressed='true']):hover { translate: 0 -8px; } }
 /* L'étoile jaune derrière la carte choisie */
-.hand__halo { position: absolute; top: -22px; width: 140px; height: 178px; z-index: 19; pointer-events: none; transition: left .28s ease; }
+.hand__halo { position: absolute; top: -22px; width: 146px; height: 186px; z-index: 19; pointer-events: none; transition: left .28s ease; }
 .hand__halo::before, .hand__halo::after { content: ''; position: absolute; clip-path: polygon(50% 0, 57% 13%, 70% 4%, 72% 19%, 87% 13%, 84% 28%, 100% 30%, 90% 42%, 100% 54%, 88% 60%, 96% 74%, 82% 76%, 84% 91%, 70% 86%, 64% 100%, 54% 89%, 44% 100%, 38% 87%, 24% 95%, 24% 80%, 8% 82%, 14% 68%, 0 62%, 10% 50%, 0 38%, 13% 34%, 6% 20%, 21% 22%, 22% 7%, 36% 14%); }
 .hand__halo::before { inset: -4px; background: var(--ink); }
 .hand__halo::after { inset: 0; background: var(--jaune); }
@@ -408,9 +415,11 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .pad-dest--lap { border-style: dashed; box-shadow: none; }
 
 /* ---- Journal des derniers coups ---- */
-.g-journal[aria-expanded='true'] { background: var(--jaune); }
+/* Dans la pause : les règles et les derniers coups, côte à côte */
+.pause-duo { display: flex; gap: 10px; }
+.pause-duo > .btn { flex: 1; min-width: 0; padding-left: 6px; padding-right: 6px; }
 .g-journal-pop {
-  position: absolute; left: 12px; right: 12px; top: 58px; z-index: 40; display: flex; flex-direction: column; gap: 8px;
+  position: absolute; left: 12px; right: 12px; top: 98px; z-index: 40; display: flex; flex-direction: column; gap: 8px;
   padding: 12px 14px; border: 3px solid var(--ink); border-radius: 18px; background: #fff; color: var(--ink); box-shadow: 4px 5px 0 var(--ink);
   animation: tocIn .2s ease-out both;
 }
@@ -456,29 +465,31 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .victory__confetti { position: absolute; inset: 0; pointer-events: none; }
 .victory__confetti i { position: absolute; top: -14px; width: 9px; height: 14px; border: 1.5px solid var(--ink); border-radius: 2px; animation: tocFall 2.6s linear infinite; }
 .victory__head { align-self: stretch; display: flex; align-items: center; justify-content: space-between; gap: 6px; flex: none; }
-.victory__title { font: 400 50px/.9 var(--fx); letter-spacing: .03em; color: #fff; text-shadow: var(--stroke-3), 5px 6px 0 var(--ink); rotate: -4deg; white-space: nowrap; padding: 6px 0 4px 4px; }
-.victory__title--long { font-size: 38px; }
+.victory__title { font: 400 60px/.9 var(--fx); letter-spacing: .03em; color: #fff; text-shadow: var(--stroke-3), 5px 6px 0 var(--ink); rotate: -4deg; white-space: nowrap; padding: 6px 0 4px 4px; }
+.victory__title--long { font-size: 44px; }
 .victory__duo { display: flex; flex: none; }
 .victory__duo > :first-child { rotate: -8deg; }
 .victory__duo > :last-child { rotate: 8deg; margin-left: -8px; margin-top: 8px; }
 /* La planche : une page blanche cernée d'encre, avec ses cases */
-.planche { position: relative; align-self: stretch; flex: none; border: 3px solid var(--ink); border-radius: 10px; background: var(--paper); box-shadow: 5px 6px 0 var(--ink); padding: 9px 9px 8px; display: flex; flex-direction: column; gap: 6px; text-align: left; rotate: .8deg; }
-.planche__kicker { font: 900 9px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; }
-.planche__title { font: 400 24px/1 var(--fx); letter-spacing: .03em; color: var(--rouge-txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.planche { position: relative; align-self: stretch; flex: none; border: 3px solid var(--ink); border-radius: 10px; background: var(--paper); box-shadow: 6px 7px 0 var(--ink); padding: 10px 10px 9px; display: flex; flex-direction: column; gap: 8px; text-align: left; rotate: 1.2deg; }
+.planche__kicker { font: 900 9.5px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; }
+.planche__title { font: 400 27px/1 var(--fx); letter-spacing: .03em; color: var(--rouge-txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .planche__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
-.planche__logo { font: 400 19px/1 var(--fx); letter-spacing: .04em; flex: none; }
-.planche__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.planche__foot { font: 900 9.5px/1 var(--text); letter-spacing: .08em; text-transform: uppercase; }
-.case { position: relative; height: 112px; border: 3px solid var(--ink); border-radius: 6px; background: var(--kc, var(--bleu)); overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; padding: 5px; }
-.case--wide { grid-column: 1 / -1; }
-.case--fin { height: 86px; }
+.planche__logo { font: 400 21px/1 var(--fx); letter-spacing: .04em; flex: none; }
+.planche__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.planche__foot { font: 900 10px/1 var(--text); letter-spacing: .08em; text-transform: uppercase; }
+.case { position: relative; height: 132px; border: 3px solid var(--ink); border-radius: 6px; background: var(--kc, var(--bleu)); overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; padding: 5px; }
+.case--wide { grid-column: 1 / -1; height: 124px; }
+.case--fin { height: 100px; }
 /* Partie sans coup marquant (ou un seul) : la planche est plus courte, on la centre et on agrandit ses cases */
 .planche--courte .case { height: 150px; }
 .planche--courte .case__fx { margin-top: 38px; }
 .planche--courte .case--fin { height: 104px; }
 .case > i { position: absolute; inset: -60px; background: repeating-conic-gradient(from 0deg at 50% 54%, rgba(255, 255, 255, .18) 0deg 5deg, rgba(255, 255, 255, 0) 5deg 13deg); }
 /* Le récitatif puis le mot se suivent de haut en bas ; les personnages sont posés en bas de la case */
-.case__cap { position: relative; z-index: 3; flex: none; max-width: 100%; padding: 3px 6px 2px; border: 2px solid var(--ink); border-radius: 4px; background: #fff; font: 700 10px/1.2 var(--text); }
+.case__cap { position: relative; z-index: 3; flex: none; max-width: 100%; padding: 4px 7px 3px; border: 2.5px solid var(--ink); border-radius: 4px; background: #fff; font: 700 10.5px/1.2 var(--text); }
+/* La première case ouvre le récit : son récitatif est jaune */
+.case--first > .case__cap { background: var(--jaune); max-width: 190px; }
 .case__fx { position: relative; z-index: 2; flex: none; align-self: center; margin-top: 3px; font: 400 27px/1 var(--fx); letter-spacing: .03em; color: #fff; text-shadow: var(--stroke-2), 3px 4px 0 var(--ink); rotate: -6deg; white-space: nowrap; }
 .case--wide .case__fx { font-size: 38px; margin-top: 9px; }
 .case--wide .case__fx--long { font-size: 33px; margin-top: 11px; }
@@ -495,25 +506,32 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .case--wide .case__who--hit { right: 6px; }
 .case__who--hit + .case__who--hit { right: 30px; bottom: 14px; rotate: -16deg; }
 .case--wide .case__who--hit + .case__who--hit { right: 46px; bottom: 30px; }
-.case__lane { position: absolute; z-index: 1; left: 12px; bottom: 12px; height: 34px; padding: 0 9px; border: 3px solid var(--ink); border-radius: 17px; background: var(--d); display: flex; align-items: center; gap: 7px; }
-.case__fin { position: absolute; z-index: 2; right: 84px; bottom: 16px; font: 400 36px/1 var(--fx); letter-spacing: .05em; color: #fff; text-shadow: var(--stroke-2), 3px 4px 0 var(--ink); rotate: -5deg; }
+.case__lane { position: absolute; z-index: 1; left: 14px; bottom: 11px; height: 38px; padding: 0 10px; border: 3px solid var(--ink); border-radius: 17px; background: var(--d); display: flex; align-items: center; gap: 7px; }
+.case__tocword { position: absolute; z-index: 2; right: 96px; top: 25px; font: 400 21px/1 var(--fx); letter-spacing: .04em; color: #fff; text-shadow: var(--stroke-2), 2px 3px 0 var(--ink); rotate: 8deg; white-space: nowrap; }
+.case__fin { position: absolute; z-index: 2; right: 82px; bottom: 9px; font: 400 36px/1 var(--fx); letter-spacing: .05em; color: #fff; text-shadow: var(--stroke-2), 3px 4px 0 var(--ink); rotate: -5deg; }
 .case__toc { position: absolute; z-index: 2; right: 4px; bottom: 2px; }
 /* Récompense : une pastille étoilée posée sur le coin de la planche */
-.victory__reward { position: absolute; z-index: 4; right: -9px; bottom: -52px; width: 84px; height: 84px; rotate: 10deg; display: grid; place-items: center; }
+.victory__reward { position: absolute; z-index: 4; right: -12px; bottom: -40px; width: 88px; height: 88px; filter: drop-shadow(4px 6px 0 var(--ink)); rotate: 10deg; display: grid; place-items: center; }
 .victory__reward > i { position: absolute; }
-.victory__reward > span { position: relative; display: flex; flex-direction: column; align-items: center; font: 400 19px/1 var(--fx); letter-spacing: .03em; }
-.victory__reward small { font: 900 8.5px/1 var(--text); letter-spacing: .06em; text-transform: uppercase; }
-.victory__actions { align-self: stretch; display: flex; gap: 10px; flex: none; margin-top: 4px; }
+.victory__reward > span { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; font: 400 21px/1 var(--fx); letter-spacing: .03em; }
+.victory__reward small { font: 900 9.5px/1 var(--text); letter-spacing: .06em; text-transform: uppercase; }
+.victory__actions { align-self: stretch; display: flex; align-items: flex-start; gap: 14px; flex: none; margin-top: 4px; }
+/* « Revanche ! » en grand, « Partager » en petit à côté (maquette) */
+.victory__actions > .btn--yellow, .victory__rematch > .btn { height: 58px; border-radius: 17px; font-size: 30px; letter-spacing: .05em; rotate: -1deg; }
 .victory__actions > .btn--block { flex: 1; min-width: 0; padding-left: 8px; padding-right: 8px; }
-.victory__share { flex: none; }
+.victory__share { flex: none; width: 122px; height: 56px; padding: 0; border-radius: 17px; gap: 7px; box-shadow: 0 5px 0 var(--ink); font: 900 13.5px/1 var(--text); letter-spacing: 0; rotate: 1.5deg; }
 /* Écran de fin : revanche quand tout le monde est d'accord */
 .victory__rematch { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
-.victory__rematch .btn { padding-left: 8px; padding-right: 8px; font-size: 21px; }
+.victory__rematch .btn { padding-left: 8px; padding-right: 8px; }
+.victory__rematch .btn:not(:first-child), .victory__rematch .btn[disabled] { font-size: 21px; }
 .victory__rematch .btn:disabled { opacity: .85; }
 .victory__votes { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
 .victory__vote { padding: 3px 8px 2px; border: 2px solid var(--ink); border-radius: 999px; background: rgba(255, 255, 255, .5); font: 800 11px/1.2 var(--text); }
 .victory__vote--ok { background: #fff; }
-.victory__links { align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 26px; flex: none; }
+.victory__links { align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 18px; flex: none; margin-top: 6px; }
+.victory__link > span[aria-hidden] > svg { fill: currentColor; stroke: none; }
+.victory__link { text-decoration: none; }
+.victory__link > span:not([aria-hidden]), .victory__link:not(:has(> span)) { text-decoration: underline; text-underline-offset: 3px; }
 .victory__link { position: relative; min-height: 44px; border: none; background: none; padding: 0 2px; display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font: 800 13.5px/1 var(--text); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .victory--lost .victory__link { color: #fff; }
 .victory__link:disabled { opacity: .6; }
@@ -526,3 +544,58 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 @keyframes tocFall { from { transform: translateY(0) rotate(0); } to { transform: translateY(110vh) rotate(540deg); } }
 @keyframes tocFade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .victory__rays, .victory__confetti i, .seat-av__spin, .seat-av__pulse, .g-timer__spark { animation: none; } }
+
+/* ---- La page BOUM : une planche de BD plein écran à chaque bille renvoyée (maquette « Boum », cotes de 390 de large) ---- */
+.g-boum { position: absolute; z-index: 44; left: 0; top: 56px; width: 393px; height: 694px; background: var(--nuit); cursor: pointer; animation: tocFade .14s ease-out both; }
+/* Le fond déborde de la scène : sur un grand téléphone, la page couvre aussi les marges autour */
+.g-boum::before { content: ''; position: absolute; z-index: -1; inset: 0 -600px -600px; background: var(--nuit); }
+.g-boum > * { position: absolute; }
+.g-boum--out { opacity: 0; translate: 0 14px; transition: opacity .16s ease-in, translate .16s ease-in; pointer-events: none; }
+.g-boum__dots { left: -140px; top: 314px; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .13) 2px, rgba(255, 255, 255, 0) 2.6px) 0 0 / 11px 11px; }
+/* La grande case : le choc */
+.g-boum__case { left: 10px; top: 26px; width: 370px; height: 326px; border: 3px solid var(--ink); border-radius: 18px; background: var(--bleu); box-shadow: 5px 6px 0 var(--ink); overflow: hidden; rotate: -1.5deg; animation: tocSlam .3s cubic-bezier(.3, 1.4, .5, 1) both; }
+.g-boum__case > i { position: absolute; }
+.g-boum__case > i:first-child { inset: -80px; background: repeating-conic-gradient(from 0deg at 60% 52%, rgba(255, 255, 255, .2) 0deg 4deg, rgba(255, 255, 255, 0) 4deg 11deg); }
+.g-boum__case > i:last-child { left: -60px; top: -70px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(22, 19, 31, .3) 2px, rgba(22, 19, 31, 0) 2.6px) 0 0 / 10px 10px; }
+.g-boum__burst { left: 92px; top: 36px; width: 292px; height: 292px; rotate: 4deg; animation: tocBoumBurst .42s .08s cubic-bezier(.3, 1.5, .5, 1) both; }
+.g-boum__burst > i { position: absolute; }
+.g-boum__line { height: 7px; border-radius: 4px; background: var(--ink); rotate: -14deg; animation: tocFade .2s .3s both; }
+.g-boum__by { left: 44px; top: 164px; rotate: -6deg; animation: tocBoumBy .34s .12s cubic-bezier(.2, 1.2, .4, 1) both; }
+.g-boum__hit { left: 262px; top: 104px; rotate: 26deg; animation: tocBoumHit .5s .2s cubic-bezier(.2, 1.3, .4, 1) both; }
+.g-boum__word { left: 20px; top: 5px; font: 400 112px/.9 var(--fx); letter-spacing: .02em; color: #fff; white-space: nowrap; rotate: -7deg; pointer-events: none;
+  text-shadow: -4px -4px 0 var(--ink), 4px -4px 0 var(--ink), -4px 4px 0 var(--ink), 4px 4px 0 var(--ink), 0 -4px 0 var(--ink), 0 4px 0 var(--ink), -4px 0 0 var(--ink), 4px 0 0 var(--ink), 8px 10px 0 var(--ink);
+  animation: tocSlam .34s .05s cubic-bezier(.3, 1.4, .5, 1) both; }
+.g-boum__cap { left: 150px; top: 316px; width: 218px; padding: 8px 11px 7px; border: 3px solid var(--ink); border-radius: 6px; background: var(--jaune); color: var(--ink); box-shadow: 4px 5px 0 var(--ink); font: 700 12.5px/1.25 var(--text); rotate: 2deg; animation: tocBoumUp .3s .42s ease-out both; }
+/* Le bandeau du moment, et son récitatif */
+.g-boum__band { left: -24px; top: 386px; width: 440px; height: 62px; background: var(--ink); rotate: -3deg; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 0 var(--rouge); animation: tocBoumBand .3s .6s cubic-bezier(.2, 1.1, .4, 1) both; }
+.g-boum__band > span { padding-top: 5px; font: 400 50px/1 var(--fx); letter-spacing: .06em; color: #fff; text-shadow: 3px 4px 0 var(--rouge); white-space: nowrap; text-transform: uppercase; }
+.g-boum__band > .g-boum__band--long { font-size: 42px; letter-spacing: .04em; }
+.g-boum__sub { left: 0; right: 0; top: 454px; margin: 0 auto; width: max-content; max-width: 350px; padding: 6px 11px 5px; border: 3px solid var(--ink); border-radius: 6px; background: #fff; color: var(--ink); box-shadow: 3px 4px 0 var(--ink); font: 700 12px/1.2 var(--text); text-align: center; rotate: 1deg; animation: tocBoumUp .3s .78s ease-out both; }
+/* Les deux petites cases : ceux qui jubilent, la bille de retour dans sa réserve */
+.g-boum__mini { top: 500px; width: 172px; height: 132px; border: 3px solid var(--ink); border-radius: 16px; box-shadow: 4px 5px 0 var(--ink); }
+.g-boum__mini > * { position: absolute; }
+.g-boum__mini--a { left: 14px; background: var(--jaune); rotate: 2deg; animation: tocSlam .3s .95s cubic-bezier(.3, 1.4, .5, 1) both; }
+.g-boum__mini--a > i { inset: 0; border-radius: 13px; overflow: hidden; }
+.g-boum__mini--a > i::before { content: ''; position: absolute; right: -50px; bottom: -60px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, rgba(22, 19, 31, .24) 2px, rgba(22, 19, 31, 0) 2.6px) 0 0 / 10px 10px; }
+.g-boum__mini--a > .avatar { left: 5px; top: 27px; rotate: -7deg; }
+.g-boum__say { left: 83px; top: 7px; padding: 6px 10px 3px; border: 3px solid var(--ink); border-radius: 14px; background: #fff; color: var(--ink); box-shadow: 3px 4px 0 var(--ink); font: 400 22px/1 var(--fx); letter-spacing: .04em; white-space: nowrap; rotate: 3deg; }
+.g-boum__say::after { content: ''; position: absolute; left: 10px; bottom: -8px; width: 10px; height: 10px; background: #fff; border-right: 3px solid var(--ink); border-bottom: 3px solid var(--ink); rotate: 45deg; }
+.g-boum__mini--b { left: 204px; background: #f6b25f; rotate: -1.5deg; animation: tocSlam .3s 1.08s cubic-bezier(.3, 1.4, .5, 1) both; }
+.g-boum__pad { left: 19px; top: 73px; width: 128px; height: 44px; padding: 0 10px; border: 3px solid var(--ink); border-radius: 22px; display: flex; align-items: center; justify-content: space-around; }
+.g-boum__pad > i { width: 17px; height: 13px; border: 2px solid var(--ink); border-radius: 50%; }
+.g-boum__mini--b > .avatar { left: 89px; top: 17px; rotate: 15.5deg; animation: tocBoumPof .5s 1.2s cubic-bezier(.3, 1.6, .5, 1) both; }
+.g-boum__pof { left: 9px; top: 7px; font: 400 27px/1 var(--fx); letter-spacing: .04em; color: #fff; text-shadow: var(--stroke-2), 3px 4px 0 var(--ink); rotate: -8.5deg; }
+/* Trois réactions, d'un toucher */
+.g-boum__react { left: 16px; right: 12px; top: 646px; height: 44px; display: flex; align-items: center; gap: 8px; animation: tocFade .25s 1.2s both; }
+.g-boum__react > span { margin-right: 6px; font: 900 10px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; color: #fff; }
+.g-boum__react > button { height: 44px; padding: 0 13px; border: 3px solid var(--ink); border-radius: 22px; background: #fff; color: var(--ink); box-shadow: 0 4px 0 var(--ink); font: 800 13px/1 var(--text); white-space: nowrap; cursor: pointer; }
+.g-boum__react > button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+@keyframes tocBoumBurst { 0% { scale: .2; rotate: -40deg; opacity: 0; } 100% { scale: 1; rotate: 4deg; opacity: 1; } }
+@keyframes tocBoumBy { 0% { translate: -160px 30px; opacity: 0; } 100% { translate: 0 0; opacity: 1; } }
+@keyframes tocBoumHit { 0% { translate: -120px 90px; scale: .5; rotate: -30deg; opacity: 0; } 100% { translate: 0 0; scale: 1; rotate: 26deg; opacity: 1; } }
+@keyframes tocBoumUp { 0% { translate: 0 16px; opacity: 0; } 100% { translate: 0 0; opacity: 1; } }
+@keyframes tocBoumBand { 0% { translate: -420px 0; } 100% { translate: 0 0; } }
+@keyframes tocBoumPof { 0% { translate: 0 -70px; scale: .6; opacity: 0; } 100% { translate: 0 0; scale: 1; opacity: 1; } }
+/* Mouvement réduit : la page s'affiche d'un bloc */
+.g-boum--calm, .g-boum--calm * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .g-boum, .g-boum * { animation: none !important; } }

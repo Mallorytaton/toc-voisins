@@ -118,8 +118,11 @@ export interface Tilt {
 }
 /** Vue de dessus (écran de table, réglage « à plat ») */
 export const FLAT: Tilt = { deg: 0, dist: 1400, k: 1 };
-/** Vue de sa place : le fond du plateau s'éloigne, le bord proche tient dans la largeur du téléphone. */
-export const SEATED: Tilt = { deg: 34, dist: 1400, k: 0.955 };
+/**
+ * Vue de sa place, aux cotes de la maquette : le fond du plateau s'éloigne franchement (ses côtés se libèrent pour
+ * les adversaires), le bord proche tient dans la largeur du téléphone.
+ */
+export const SEATED: Tilt = { deg: 40, dist: 820, k: 0.876 };
 
 /**
  * Passe du plan du plateau à l'écran, dans le même repère 360 × 360 (centre commun).
@@ -144,11 +147,13 @@ export function projector(t: Tilt, c = 180) {
 }
 
 /**
- * Où se tiennent les persos quand le plateau est vu de sa place (à 4) : le partenaire en face, au-dessus du bord du fond ;
- * les adversaires dans les deux coins du fond, que la perspective libère ; soi dans le coin proche, à gauche.
+ * Où se tiennent les persos quand le plateau est vu de sa place (à 4), comme sur la maquette : le partenaire en face,
+ * au-dessus du bord du fond ; les adversaires de chaque côté, là où la perspective dégage le bord ; soi dans le coin
+ * proche, à gauche (ton perso n'est pas dessiné sur le téléphone : c'est le point de départ de tes bulles).
+ * Ces points du plan donnent à l'écran (44 ; 180), (346 ; 113) et (14 ; 113) dans le cadre du plateau.
  * À 6, les persos gardent leur place au bout des bras.
  */
-export const seatedAvs = (g: Geom): Pt[] => (g.N === 4 ? [[180, -32], [362, -2], [30, 352], [-2, -2]] : g.avs);
+export const seatedAvs = (g: Geom): Pt[] => (g.N === 4 ? [[180, -55.4], [383.4, 72.8], [30, 352], [-23.4, 72.8]] : g.avs);
 
 /** La même géométrie, vue inclinée : toutes les positions sont celles de l'écran (les fonds teintés restent ceux du plan). */
 export function tilted(g: Geom, t: Tilt): Geom {

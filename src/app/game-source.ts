@@ -28,6 +28,8 @@ export interface GameSource {
   readonly code: string;
   /** Partie à ton rythme : pas de minuteur, chacun joue quand il revient. */
   readonly slow?: boolean;
+  /** Partie d'album : son nom et le numéro de l'épisode (connu un instant après l'ouverture), pour la planche de fin. */
+  readonly album?: { title: string; episode?: number };
   /** Partie d'initiation : première main préparée, robots plus gentils, leçons pendant la partie. */
   readonly initiation?: boolean;
   /** En ligne, pour l'hôte : supprimer la partie pour tout le monde. */

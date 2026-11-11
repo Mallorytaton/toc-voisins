@@ -1,20 +1,21 @@
-// La une : ce qui t'attend (une partie à reprendre, ton tour, une table qui se lance), de quoi lancer ou rejoindre
-// une partie, tes parties à ton rythme, et Toc qui raconte.
-import { XP_PER_LEVEL, draftProfile, levelOf } from '../../app/profile';
+// La une : l'épisode du moment en grand (partie à reprendre, table d'album qui se lance, prochain épisode de ton album),
+// « Nouvelle partie » et « Rejoindre », tes parties à ton rythme, et Toc qui raconte.
+import { draftProfile, levelOf } from '../../app/profile';
+import { lastTime, nemesis } from '../../app/rivaux';
 import { type League, liveGame, parseLeagueCode, refusedBy, watchMyLeagues } from '../../net/league';
 import { RoomSession, deleteRoom } from '../../net/session';
 import { type SlowGame, forgetGame, watchMyGames } from '../../net/slow';
 import { currentUid, watchFriends } from '../../net/social';
-import { openAccountSheet } from './account';
 import { soireeLabel } from './league';
-import { DEMO, DEMO_FRIENDS, type Friend } from '../demo';
-import type { CharId, ColorName } from '../kit/data';
+import { DEMO, DEMO_FRIENDS, DEMO_LEAGUE, DEMO_UID, type Friend } from '../demo';
+import { type CharId, type ColorName, TEAM_BG, TEAM_INK, TEAM_NAMES } from '../kit/data';
 import { deNom, h, toast } from '../dom';
 import { ICONS, avatar, button, icon, tabbar } from '../kit/kit';
 import { mascot } from '../mascot';
 import { go } from '../nav';
 import { confirmSheet } from '../confirm';
 import { nudgePlayers } from '../../net/push';
+import { openScanner } from '../qr';
 
 const fmt = (n: number) => n.toLocaleString('fr-FR');
 const MODE_KEY = 'toc.mode';
@@ -33,6 +34,16 @@ export function parseRoomCode(raw: string): string | null {
   return m ? m[1] : null;
 }
 
+/** Adresse lue dans un QR code d'invitation (salle « ?g=4821 », album « ?t=4821 ») : l'écran à ouvrir, ou null. */
+function routeFromScan(text: string): string | null {
+  const m = /[?&]([gt])=(\d{4})\b/.exec(text);
+  if (m) return (m[1] === 'g' ? '/salle/' : '/tournoi/') + m[2];
+  const t = parseLeagueCode(text);
+  if (t) return '/tournoi/' + t;
+  const c = parseRoomCode(text);
+  return c ? '/salle/' + c : null;
+}
+
 /** Les conseils de Toc, un par jour, quand il n'a rien de plus pressant à raconter. */
 const TIPS = [
   'Le Valet échange deux billes de place. Garde-le pour les coups durs.',
@@ -42,34 +53,43 @@ const TIPS = [
   'Avant chaque donne, tu passes une carte à ton partenaire. Pense à ce qui lui manque.',
 ];
 
-/** Ce qui passe à la une : une partie qui t'attend, avec son bouton. */
+type Face = { char: CharId; color: ColorName };
+/** Ce qui passe à la une : l'épisode du moment, avec son bouton. */
 interface Story {
   tag: string;
   title: string;
+  /** Le score, par équipe (victoires de l'album) */
+  score?: number[];
   chip: string;
   cta: string;
   go: () => void;
   /** Supprimer la partie (hôte seulement) */
   del?: () => void;
-  /** Les autres joueurs, en petit dans le coin */
-  cast: { char: CharId; color: ColorName }[];
+  /** Ton partenaire (en bas à droite) et tes adversaires (en haut à droite) */
+  partner?: Face;
+  rivals: Face[];
 }
+
+/** Les compères par défaut, quand on ne sait pas encore avec qui tu joues : ceux des parties contre les robots. */
+const MIMI: Face = { char: 'lunettes', color: 'yellow' }, BOSS: Face = { char: 'couronne', color: 'blue' }, COCO: Face = { char: 'casquette', color: 'teal' };
 
 export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   const p = draftProfile();
-  const { level, inLevel } = levelOf(p.xp);
+  const { level } = levelOf(p.xp);
   const fresh = !p.xp;
   const mode = savedMode();
+  // Ton perso ne se croise pas lui-même : si tu portes la tête ou la couleur d'un compère, il en change.
+  const other = (f: Face): Face => (f.color === p.color ? { ...f, color: f.color === 'violet' ? 'rose' : 'violet' } : f);
 
-  // ---------- En-tête : le titre du journal, tes pièces, ton perso ----------
+  // ---------- En-tête : le titre du journal, tes pièces, ta fiche de héros ----------
   const head = h('div', { class: 'une-head' },
     h('span', { class: 'une-logo', 'aria-hidden': 'true' }, 'TOC !'),
     // Les pièces ouvrent le kiosque.
     h('button', { class: 'tokens', type: 'button', 'aria-label': `${p.tokens} pièces · ouvrir le kiosque`, onclick: () => go('/boutique') }, h('i'), h('span', null, fmt(p.tokens))),
-    h('button', { class: 'une-me', type: 'button', 'aria-label': `Ton compte · niveau ${level}`, onclick: () => openAccountSheet() },
-      avatar(p.char, p.color, 46), h('span', { class: 'badge-count' }, level)));
+    h('button', { class: 'une-me', type: 'button', 'aria-label': `Ta fiche de héros, niveau ${level}`, onclick: () => go('/joueur/moi') },
+      avatar(p.char, p.color, 52), h('span', { class: 'badge-count' }, level)));
 
-  // ---------- Lancer ou rejoindre ----------
+  // ---------- Nouvelle partie, rejoindre ----------
   const create = (m: 4 | 6) => {
     try { localStorage.setItem(MODE_KEY, String(m)); } catch { /* sans stockage, on garde en mémoire */ }
     go('/salle/nouvelle?n=' + m);
@@ -77,7 +97,7 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   /** Un toucher : la salle est créée. Le format joué la dernière fois est mis en avant. */
   const goBtn = (m: 4 | 6) => h('button', { class: 'une-go' + (m === mode ? ' une-go--hot' : ''), type: 'button', 'aria-label': `Créer une salle · ${m} joueurs`, onclick: () => create(m) },
     h('b', null, `${m} joueurs`), h('small', null, `${m / 2} équipes de 2`));
-  const sheet = (title: string, ...kids: (HTMLElement | null)[]) => {
+  const sheet = (title: string, ...kids: (HTMLElement | null | false)[]) => {
     const close = () => wrap.remove();
     const wrap: HTMLElement = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === wrap) close(); } },
       h('div', { class: 'sheet', role: 'dialog', 'aria-label': title }, h('span', { class: 'sheet__title' }, title), ...kids));
@@ -87,7 +107,9 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   const openNew = () => {
     const close = sheet('Nouvelle partie',
       h('span', { class: 'sheet__text' }, 'Tu crées la salle, tu invites ta bande, et vous formez les équipes.'),
-      h('div', { class: 'une-hero__go' }, goBtn(4), goBtn(6)),
+      h('div', { class: 'une-gos' }, goBtn(4), goBtn(6)),
+      // L'initiation : une partie guidée, pour apprendre ou faire découvrir le jeu.
+      button('Partie d’initiation, contre des robots', 'white', () => go('/initiation'), { size: 'sm', block: true }),
       button('Annuler', 'text', () => close()));
   };
   const openJoin = () => {
@@ -105,9 +127,18 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
     };
     code.addEventListener('keydown', (e) => e.key === 'Enter' && join());
     const close = sheet('Rejoindre',
-      h('span', { class: 'sheet__text' }, 'Tape le code qu’on t’a donné : TOC-4821 pour une salle, T-4821 pour un album.'),
+      h('span', { class: 'sheet__text' }, 'Tape le code qu’on t’a donné (TOC-4821 pour une salle, T-4821 pour un album), ou scanne le QR code de l’invitation.'),
       code,
       button('Rejoindre', 'primary', join, { size: 'md', block: true }),
+      // Le QR code affiché sur le téléphone de celui qui invite.
+      !!navigator.mediaDevices?.getUserMedia && button('Scanner un QR code', 'white', () => {
+        close();
+        openScanner('Rejoindre une partie', 'Vise le QR code affiché sur le téléphone de celui qui t’invite.', 'Ce QR code n’est pas une invitation TOC.', (text) => {
+          const to = routeFromScan(text);
+          if (to) go(to);
+          return !!to;
+        });
+      }, { size: 'sm', block: true }),
       button('Annuler', 'text', () => close()));
     setTimeout(() => code.focus(), 60);
   };
@@ -119,24 +150,33 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   let resume: { host: boolean } | null = null;
   let lastRoom = '';
   try { lastRoom = localStorage.getItem('toc.lastRoom') ?? ''; } catch { /* sans stockage */ }
+  const demo = DEMO ? new URLSearchParams(location.search).get('demo') : null;
+  const myUid = () => (DEMO ? DEMO_UID : currentUid());
 
-  const demoStory: Story | null = DEMO && new URLSearchParams(location.search).get('demo') === 'cours' ? {
-    tag: 'Épisode 13 · en cours', title: 'Les voisins du 12', chip: 'À toi de jouer !', cta: 'Reprendre !', go: () => toast('Démonstration : pas de partie à reprendre.'),
-    cast: [{ char: 'couronne', color: 'blue' }, { char: 'casquette', color: 'teal' }, { char: 'lunettes', color: 'yellow' }],
-  } : null;
-  /** La partie qui passe à la une : une table d'album qui se lance, une partie interrompue, ou ton tour dans une partie à ton rythme. */
-  const story = (): Story | null => {
-    if (demoStory) return demoStory;
-    const uid = currentUid();
+  /** Toi, ton partenaire et tes adversaires dans un album : les places sont fixes. */
+  const castOf = (l: League): Pick<Story, 'partner' | 'rivals'> => {
+    const uid = myUid(), k = l.seats.indexOf(uid), half = l.n / 2;
+    const face = (u: string): Face | null => (l.members[u] ? { char: l.members[u].char, color: l.members[u].color } : null);
+    if (k < 0) return { rivals: l.seats.map(face).filter((f): f is Face => !!f).slice(0, 2) };
+    return {
+      partner: face(l.seats[(k + half) % l.n]) ?? undefined,
+      rivals: l.seats.filter((_, i) => i % half !== k % half).map(face).filter((f): f is Face => !!f).slice(0, 2),
+    };
+  };
+  /** L'épisode à la une : une table qui se lance, une partie à reprendre, ton tour, le prochain épisode de ton album, sinon l'invitation à jouer. */
+  const story = (): Story => {
+    const uid = myUid();
+    if (demo === 'cours') return {
+      tag: 'Épisode 13 · en cours', title: DEMO_LEAGUE.name, score: [3, 1], chip: 'À toi de jouer !', cta: 'Reprendre !',
+      go: () => toast('Démonstration : pas de partie à reprendre.'), ...castOf(DEMO_LEAGUE),
+    };
     for (const l of leagues) {
       const live = liveGame(l, uid);
-      if (live) return {
-        tag: 'Ça commence !', title: l.name, chip: `${live.by} lance une partie`, cta: 'Rejoindre !', go: () => go('/salle/' + live.code),
-        cast: Object.entries(l.members).filter(([u]) => u !== uid).slice(0, 3).map(([, m]) => ({ char: m.char, color: m.color })),
-      };
+      if (live) return { tag: `Épisode ${l.games.length + 1} · ça commence`, title: l.name, score: l.wins, chip: `${live.by} lance la partie !`, cta: 'Rejoindre !', go: () => go('/salle/' + live.code), ...castOf(l) };
     }
     if (resume) return {
-      tag: 'Épisode en cours', title: 'Ta partie t’attend', chip: 'La table est restée ouverte', cta: 'Reprendre !', go: () => go('/salle/' + lastRoom), cast: [],
+      tag: 'Épisode en cours', title: 'Ta partie t’attend', chip: 'La table est restée ouverte', cta: 'Reprendre !', go: () => go('/salle/' + lastRoom),
+      partner: other(MIMI), rivals: [other(BOSS), other(COCO)],
       // L'hôte peut aussi la supprimer pour tout le monde.
       del: resume.host ? () => confirmSheet('Supprimer la partie en cours ?', 'Elle s’arrête pour tout le monde. C’est définitif.', 'Supprimer la partie', async () => {
         await deleteRoom(lastRoom);
@@ -147,56 +187,51 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
       }) : undefined,
     };
     const mine = slow.find((g) => g.status === 'mine');
-    if (mine) return { tag: 'À ton rythme', title: mine.title, chip: 'À toi de jouer !', cta: 'Jouer mon tour', go: () => go('/salle/' + mine.code), cast: [] };
-    return null;
+    if (mine) return { tag: 'À ton rythme', title: mine.title, chip: 'À toi de jouer !', cta: 'Jouer !', go: () => go('/salle/' + mine.code), partner: other(MIMI), rivals: [other(BOSS), other(COCO)] };
+    // Ton album le plus récent : son prochain épisode.
+    const l = leagues[0];
+    if (l) return {
+      tag: `Épisode ${l.games.length + 1} · à jouer`, title: l.name, score: l.wins, chip: l.soiree ? soireeLabel(l.soiree.at) : 'Qui lance la partie ?',
+      cta: 'Jouer !', go: () => go('/tournoi/' + l.code), ...castOf(l),
+    };
+    const friends: Pick<Story, 'partner' | 'rivals'> = online.length
+      ? { partner: online[0], rivals: online.slice(1, 3) }
+      : { partner: other(MIMI), rivals: [other(BOSS), other(COCO)] };
+    // Jamais joué : la une propose l'initiation.
+    if (fresh) return { tag: `Salut ${p.nick || 'toi'} !`, title: 'Apprends à jouer', chip: 'Une partie guidée', cta: 'Commencer !', go: () => go('/initiation'), ...friends };
+    return {
+      tag: `Salut ${p.nick || 'toi'} !`, title: 'On joue ?',
+      chip: online.length ? `${online.slice(0, 2).map((f) => f.name).join(' et ')} ${online.length > 1 ? 'sont là' : 'est là'} !` : 'Ta bande t’attend',
+      cta: 'C’est parti !', go: openNew, ...friends,
+    };
   };
 
-  // ---------- La une ----------
-  const friendsLine = h('div', { class: 'une-friends' });
+  // ---------- Le héros de la une : une composition fixe, comme une couverture ----------
   const hero = h('div', { class: 'une-hero' });
-  const drawHero = (s: Story | null) => {
-    friendsLine.replaceChildren(...(online.length
-      ? [h('div', { class: 'stack' }, ...online.slice(0, 3).map((f) => h('div', { class: 'avatar-ring' }, avatar(f.char, f.color, 28)))),
-        h('span', null, online.length > 2 ? `${online[0].name}, ${online[1].name} et ${online.length - 2} autre${online.length > 3 ? 's' : ''} en ligne` : online.map((f) => f.name).join(' et ') + ' en ligne')]
-      : [h('span', null, 'Partage le code de ta salle à ta bande.')]));
-    hero.className = 'une-hero' + (s ? ' une-hero--now' : '');
+  const drawHero = (s: Story) => {
+    const half = s.score?.length ?? 0;
     hero.replaceChildren(...[
-      h('i', { class: 'rays' }),
-      // Ton perso, en grand : c'est toi le héros de l'histoire.
-      h('span', { class: 'une-hero__star' }, avatar(p.char, p.color, s ? 172 : 156, s ? 'malin' : 'joie')),
-      ...(s ? [
-        h('span', { class: 'tag' }, s.tag),
-        s.cast.length ? h('div', { class: 'une-hero__cast' }, ...s.cast.map((c, k) => avatar(c.char, c.color, 40, k ? 'content' : 'furieux', { flip: true }))) : null,
-        h('span', { class: 'une-hero__title' + (s.title.length > 13 ? ' une-hero__title--long' : '') }, s.title),
-        h('span', { class: 'une-chip' }, s.chip),
-        h('div', { class: 'une-hero__go une-hero__go--now' },
-          button(s.cta, 'primary', s.go, { size: 'md' }),
-          s.del ? h('button', { class: 'une-hero__del', type: 'button', onclick: s.del }, 'Supprimer') : null),
-      ] : [
-        h('span', { class: 'tag' }, `Salut ${p.nick || 'toi'} !`),
-        h('span', { class: 'une-hero__title' }, 'On joue ?'),
-        h('span', { class: 'une-hero__text' }, 'Crée ta salle, invite ta bande et formez les équipes.'),
-        friendsLine,
-        h('div', { class: 'une-hero__go' }, goBtn(4), goBtn(6)),
-      ]),
+      h('div', { class: 'une-hero__bg', 'aria-hidden': 'true' }, h('i', { class: 'rays' }), h('i', { class: 'une-hero__dots' })),
+      h('span', { class: 'tag une-hero__tag' }, s.tag),
+      ...s.rivals.slice(0, 2).map((f, k) => h('span', { class: 'une-hero__rival une-hero__rival--' + k }, avatar(f.char, f.color, k ? 62 : 54, k ? 'furieux' : 'malin', { flip: true }))),
+      h('h1', { class: 'une-hero__title' + (s.title.length > 18 ? ' une-hero__title--long' : '') }, s.title),
+      // Le score de l'album : une case par équipe, à sa couleur.
+      s.score ? h('div', { class: 'une-hero__score', role: 'img', 'aria-label': s.score.map((w, t) => `${TEAM_NAMES[t]} ${w}`).join(', ') },
+        ...s.score.map((w, t) => h('div', { style: { background: TEAM_BG[t], color: TEAM_INK[t], flexDirection: t === half - 1 && half === 2 ? 'row-reverse' : 'row' } }, h('span', null, TEAM_NAMES[t]), h('b', null, w)))) : null,
+      // Toi, en grand : c'est toi le héros de l'épisode. Ton partenaire passe la tête en bas à droite.
+      h('span', { class: 'une-hero__star' }, avatar(p.char, p.color, 196, 'malin', { flip: true, ombre: true })),
+      s.partner ? h('span', { class: 'une-hero__partner' }, avatar(s.partner.char, s.partner.color, 96, 'joie', { flip: true })) : null,
+      h('span', { class: 'une-hero__chip' + (s.score ? '' : ' une-hero__chip--haut') }, s.chip),
+      h('button', { class: 'une-hero__cta' + (s.score ? '' : ' une-hero__cta--haut'), type: 'button', onclick: s.go }, s.cta),
+      s.del ? h('button', { class: 'une-hero__del', type: 'button', onclick: s.del }, 'Supprimer') : null,
     ].filter((x): x is HTMLElement => !!x));
   };
 
   const tile = (cls: string, ic: string, title: string, sub: string, onclick: () => void) => h('button', { class: 'une-tile ' + cls, type: 'button', onclick },
-    h('i', { class: 'une-tile__ic' }, icon(ic, 17, 3.6)), h('b', null, title), h('span', null, sub));
-  const tiles = h('div', { class: 'une-tiles' });
-  const learnRow = h('div', { class: 'card une-learn' },
-    h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 } },
-      h('span', { class: 't-label' }, 'Nouveau au TOC ?'),
-      h('span', { class: 't-body' }, 'Une partie contre des robots où chaque carte est expliquée.')),
-    button('Apprendre', 'dark', () => go('/initiation'), { size: 'xs' }));
-  const drawTiles = (s: Story | null) => {
-    const learn = tile(fresh ? 'une-tile--jaune' : 'une-tile--turq', ICONS.play, 'Apprendre', 'Une partie guidée contre des robots', () => go('/initiation'));
-    const join = tile('', ICONS.arrow, 'Rejoindre', 'Code de salle ou d’album', openJoin);
-    // Une partie est déjà à la une : « Nouvelle partie » passe en tuile, et l'initiation reste proposée plus bas.
-    tiles.replaceChildren(...(s ? [tile('une-tile--rouge', ICONS.plus, 'Nouvelle partie', '4 ou 6 joueurs', openNew), join] : fresh ? [learn, join] : [join, learn]));
-    learnRow.hidden = !s;
-  };
+    h('i', { class: 'une-tile__ic' }, icon(ic, 18, 3.8)), h('span', null, h('b', null, title), h('small', null, sub)));
+  const tiles = h('div', { class: 'une-tiles' },
+    tile('une-tile--rouge', ICONS.plus, 'Nouvelle partie', '4 ou 6 joueurs', openNew),
+    tile('', ICONS.arrow, 'Rejoindre', 'Code ou QR code', openJoin));
 
   // ---------- Parties à ton rythme : celles où c'est ton tour d'abord ----------
   const ago = (t: number) => {
@@ -242,35 +277,36 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
     ...(slow.length > 3 ? [h('span', { class: 't-mini' }, `+ ${slow.length - 3} autre${slow.length > 4 ? 's' : ''}`)] : []));
   };
 
-  // ---------- Toc raconte : ce qui se passe autour de toi, sinon un conseil ----------
+  // ---------- Toc raconte : tes rivalités, ce qui se passe autour de toi, sinon un conseil ----------
   const tocText = h('span', { class: 'une-toc__t' });
-  const toc = h('div', { class: 'une-toc' }, mascot('content', 76, 'buste'),
+  const toc = h('div', { class: 'une-toc' }, mascot('content', 84, 'buste'),
     h('div', { class: 'une-toc__bubble' }, h('span', { class: 'une-toc__k' }, 'Toc raconte'), tocText));
   /** Un album a besoin de toi : une table se lance, ou une partie hors app attend ton accord. */
   const needsMe = (l: League) => {
-    const uid = currentUid();
+    const uid = myUid();
     return !!liveGame(l, uid) || (l.seats.includes(uid) && l.offline.some((o) => !o.votes[uid] && !refusedBy(o).length));
   };
   const tocLine = () => {
-    if (demoStory) return 'Jeudi dernier, Coco t’a renvoyé 3 fois à la réserve. Ce soir, tu lui en dois une.';
-    if (fresh) return 'Bienvenue à la table ! Touche « Apprendre » : une partie guidée où chaque carte est expliquée.';
-    const uid = currentUid();
+    if (demo === 'cours') return 'Jeudi dernier, Coco a renvoyé 3 de tes billes à la réserve. Ce soir, tu lui en dois une.';
+    if (fresh) return 'Bienvenue à la table ! Lance l’initiation : une partie guidée où chaque carte est expliquée.';
+    const uid = myUid();
     const pending = leagues.find((l) => !liveGame(l, uid) && needsMe(l));
     if (pending) return `Une partie jouée hors de l’app attend ton accord dans « ${pending.name} ». Va voir dans Albums.`;
+    // La rivalité du moment : celui qui t'a le plus renvoyé à la réserve.
+    const foe = nemesis();
+    if (foe && Date.now() - foe.at < 14 * 86_400_000)
+      return `${lastTime(foe)}, ${foe.name} a renvoyé ${foe.dayOn > 1 ? `${foe.dayOn} de tes billes` : 'une de tes billes'} à la réserve. ${foe.on > foe.by ? 'Tu lui en dois une.' : 'Vous êtes quittes… pour l’instant.'}`;
     const soon = leagues.filter((l) => l.soiree && l.soiree.at - Date.now() < 7 * 86_400_000).sort((a, b) => a.soiree!.at - b.soiree!.at)[0];
     if (soon) return `Soirée « ${soon.name} » : ${soireeLabel(soon.soiree!.at).toLowerCase()}. Prépare tes valets.`;
     const theirs = slow.find((g) => g.status === 'theirs' && g.who);
     if (theirs) return `Dans « ${theirs.title} », on attend ${theirs.who}. Tu peux le secouer s’il traîne.`;
     if (online.length) return `${online.slice(0, 2).map((f) => f.name).join(' et ')} ${online.length > 1 ? 'sont' : 'est'} en ligne. C’est le moment de lancer une salle.`;
-    if (XP_PER_LEVEL - inLevel <= 300) return `Encore ${fmt(XP_PER_LEVEL - inLevel)} XP et tu passes niveau ${level + 1}.`;
     return TIPS[Math.floor(Date.now() / 86_400_000) % TIPS.length];
   };
 
   let tabs = tabbar('home');
   const draw = () => {
-    const s = story();
-    drawHero(s);
-    drawTiles(s);
+    drawHero(story());
     drawSlow();
     tocText.textContent = tocLine();
     // La pastille des Albums : ceux qui ont besoin de toi.
@@ -281,6 +317,7 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
   };
 
   online = DEMO ? DEMO_FRIENDS.filter((f) => f.presence !== 'off') : [];
+  if (demo === 'album') leagues = [DEMO_LEAGUE];
   const live = !DEMO && navigator.onLine;
   const stopFriends = live ? watchFriends((all) => { online = all.filter((f) => f.presence !== 'off'); draw(); }) : () => {};
   const stopLeagues = live ? watchMyLeagues((list) => { leagues = list; draw(); }) : () => {};
@@ -296,9 +333,9 @@ export function homeScreen(): { el: HTMLElement; cleanup: () => void } {
     }).catch(() => undefined);
 
   // Le milieu défile si besoin (parties à ton rythme) ; l'en-tête et les onglets restent en place.
-  const el = h('div', { class: 'screen screen--tabs une', 'data-fit': 'tabs', 'data-tone': 'jaune', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 6px)' } },
+  const el = h('div', { class: 'screen screen--tabs une', 'data-fit': 'tabs', 'data-tone': 'jaune', style: { gap: 0, paddingTop: 'calc(var(--safe-top) + 6px)' } },
     head,
-    h('div', { class: 'scroll-y une-body' }, hero, tiles, slowCard, toc, learnRow),
+    h('div', { class: 'scroll-y une-body' }, hero, tiles, slowCard, toc),
     tabs);
   draw();
   return { el, cleanup: () => { alive = false; stopFriends(); stopLeagues(); stopSlow(); } };

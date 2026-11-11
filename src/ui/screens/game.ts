@@ -1,6 +1,7 @@
 // 06 Plateau de jeu : rendu de la maquette, sélection des coups, animations.
 import type { GameSource, RematchVote, TableMsg } from '../../app/game-source';
 import { draftProfile } from '../../app/profile';
+import { noteCapture, rivalOf } from '../../app/rivaux';
 import {
   type Card, type GameState, type Move, type PawnRef, type Rank, type SevenPart, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, homeIndex, inHome, isLap, leavesHome, legalMovesFor, occupant, partner, rankOf, sameRef, squareOf, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
 } from '../../engine';
@@ -9,7 +10,7 @@ import { FLAT, SEATED, type Tilt, armOf, geom, pawnXY, projector, seatedAvs, til
 import { paintedGeom } from '../board/painted';
 import { criOf, lookOf } from '../../app/shop';
 import { deNom, h, toast as pageToast } from '../dom';
-import { COL, EMOTES, SEAT_COLORS, TEAM_NAMES, cardLook } from '../kit/data';
+import { COL, EMOTES, SEAT_COLORS, TEAM_BG, TEAM_INK, TEAM_NAMES, cardLook } from '../kit/data';
 import { ICONS, avatar, bille, billeSkin, button, cardBack, icon, pauseButton, playingCard, segmented, suitIcon } from '../kit/kit';
 import { type Humeur, setHumeur } from '../kit/perso';
 import { boomFx } from '../board/boom';
@@ -26,10 +27,13 @@ const STAGE_W = 393;
 const STAGE_H = 750;
 /** Le cadre du plateau (360 × 360) dans la scène */
 const BOARD_X = 16;
-const BOARD_Y = 66;
+const BOARD_Y = 70;
+/** Le haut de la rangée d'actions (chat, consigne, bouton) dans la scène */
+const ACTIONS_Y = 424;
 /** Largeur d'une carte de la main */
-const CARD_W = 92;
+const CARD_W = 98;
 const VIEW_KEY = 'toc.vue';
+const BOUM_KEY = 'toc.boum';
 /** Réglage « Vue du plateau » : inclinée depuis sa place (par défaut), ou de dessus. */
 const viewPref = (): 'inclinee' | 'plat' => { try { return localStorage.getItem(VIEW_KEY) === 'plat' ? 'plat' : 'inclinee'; } catch { return 'inclinee'; } };
 /** Vue de dessus sur un téléphone : le plateau entier, dans la même place que la vue inclinée. */
@@ -59,12 +63,16 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const flat = pg ? pg.g : geom(N);
   const L = trackLen(N);
   const Z = N === 4
-    ? { hs: 12, ss: 15, rs: 12, ps: pg ? 17 : 16.5, av: pg ? 32 : 40, lift: 11 }
+    ? { hs: 12, ss: 15, rs: 12, ps: pg ? 17 : 16.5, av: pg ? 32 : 50, lift: 11 }
     : { hs: 10.5, ss: 13, rs: 10.5, ps: 13.5, av: 34, lift: 8 };
   // Vue du plateau : inclinée, comme assis à sa place, ou de dessus (réglage dans la pause).
   // L'écran de table, posé à plat au milieu des joueurs, reste vu de dessus.
   const tiltFor = (): Tilt => (watching ? FLAT : viewPref() === 'plat' ? FLAT_PHONE : SEATED);
   let proj = projector(tiltFor());
+  /** La vue de la maquette : à 4, depuis sa place, sur le plateau dessiné. */
+  const mockView = () => N === 4 && !!tiltFor().deg && !pg && !watching;
+  /** Vue de sa place : les billes dépassent un peu de leurs trous, comme sur la maquette (elles restent lisibles au fond). */
+  const pawnBoost = () => (tiltFor().deg && !pg ? (N === 4 ? 1.2 : 1.1) : 1);
   /**
    * Les positions vues à l'écran. Vue inclinée : les persos passent au fond et dans le coin proche (seatedAvs).
    * À 6, ton perso quitte le bout de son bras pour le coin proche, à gauche, comme à 4 : le milieu du bord reste
@@ -105,7 +113,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   root.append(tableJournal);
   const LOW_H = 760 - SPLIT_Y;
   /** Grand écran plus haut que large : consigne et cartes côte à côte, sur une rangée (scène deux fois plus large). */
-  const ROW_Y = 414, ROW_H = 196, ROW_W = 2 * 393;
+  const ROW_Y = 414, ROW_H = 206, ROW_W = 2 * 393;
   /** Grand écran : la région du plateau descend jusqu'aux noms des persos du bas. */
   const BOARD_H = 440;
   /** Le chat suit la mise en page (rangé plus bas, une fois le chat construit). */
@@ -257,10 +265,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   );
 
   // ---------- Barre du haut ----------
-  const roundEl = h('span', { class: 'g-top__round' });
-  const turnEl = h('span', { class: 'g-top__turn' });
-  const scoreEl = h('div', { class: 'g-score', 'aria-label': 'Billes rentrées par équipe' });
-  const rulesBtn = h('button', { class: 'btn-round g-rules', type: 'button', 'aria-label': 'Règles', onclick: () => openRulesSheet(view.variants) }, '?');
+  // La manche et la donne : un récitatif jaune à cheval sur le coin de la case. Le toucher montre les derniers coups.
+  const roundEl = h('button', { class: 'g-round', type: 'button', 'aria-expanded': 'false', onclick: () => toggleJournal() });
+  // À qui le tour : la consigne et les persos le montrent ; ce texte reste pour les lecteurs d'écran et l'écran de table.
+  const turnEl = h('span', { class: 'g-top__turn', role: 'status' });
+  const scoreEl = h('div', { class: 'g-score', role: 'img' });
   /** Vue du plateau (inclinée ou de dessus) : rien n'est reconstruit, les billes et les persos se replacent. */
   const retilt = () => {
     proj = projector(tiltFor());
@@ -272,10 +281,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   // Journal : les 4 derniers coups joués, pour savoir ce qui s'est passé (demandé par Mallory).
   const journal = h('div', { class: 'g-journal-pop', role: 'dialog', 'aria-label': 'Les 4 derniers coups', hidden: true });
-  const journalBtn = h('button', { class: 'btn-round g-journal', type: 'button', 'aria-label': 'Derniers coups', 'aria-expanded': 'false', onclick: () => toggleJournal() });
-  journalBtn.append(icon(ICONS.list, 22, 3));
-  // À 6, le score a trois cases : la barre se resserre pour que le tour reste lisible en entier.
-  stage.append(h('div', { class: 'g-top' + (N === 6 ? ' g-top--six' : '') }, pauseButton(() => openPause()), rulesBtn, journalBtn, h('div', { class: 'g-top__mid' }, roundEl, turnEl), scoreEl), journal);
+  const journalBtn = roundEl;
+  // La barre, comme sur la maquette : la pause à gauche, le score des équipes à droite (à 6, il a trois cases et se resserre).
+  // Les règles et les derniers coups sont aussi dans la pause.
+  stage.append(h('div', { class: 'g-top' + (N === 6 ? ' g-top--six' : '') }, pauseButton(() => openPause()), turnEl, scoreEl), roundEl, journal);
 
   // ---------- Plateau ----------
   const board = h('div', { class: 'board' });
@@ -393,7 +402,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (!rematchUi || !src.rematchVotes) return;
     const votes: RematchVote[] = src.rematchVotes(), ok = votes.filter((x) => x.ok).length, mine = votes.find((x) => x.me)?.ok;
     // Libellés courts : le bouton partage sa ligne avec « Partager ». Qui est d'accord est écrit juste dessous.
-    rematchUi.btn.textContent = mine ? `En attente… ${ok}/${votes.length}` : ok ? `Revanche (${ok}/${votes.length})` : 'Revanche';
+    rematchUi.btn.textContent = mine ? `En attente… ${ok}/${votes.length}` : ok ? `Revanche (${ok}/${votes.length})` : 'Revanche !';
     rematchUi.btn.disabled = !!mine;
     rematchUi.who.replaceChildren(...votes.map((x) =>
       h('span', { class: 'victory__vote' + (x.ok ? ' victory__vote--ok' : '') }, `${x.ok ? '✓' : '…'} ${x.me ? 'Toi' : x.name}`)));
@@ -434,7 +443,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     e.outer.style.left = r1(x - Z.ps / 2) + 'px';
     e.outer.style.top = r1(y - Z.ps * 0.62) + 'px';
     // Plus une bille est loin, plus elle est petite (vue inclinée).
-    e.outer.style.scale = proj.scaleAtY(y).toFixed(3);
+    e.outer.style.scale = (proj.scaleAtY(y) * pawnBoost()).toFixed(3);
     e.outer.style.translate = lift ? `0 ${-lift}px` : '0 0';
     e.outer.style.zIndex = String(Math.round(y) + extraZ);
   };
@@ -444,20 +453,23 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // ---------- Persos ----------
   // Chaque joueur est une bille à visage, posée autour du plateau là où elle ne cache aucun trou.
   // Son humeur suit la partie : elle réfléchit à son tour, panique quand on la vise, enrage quand on la renvoie.
-  type SeatEl = { root: HTMLElement; pulse: HTMLElement; spin: HTMLElement; cards: HTMLElement; chip: HTMLElement; meTag: HTMLElement | null; face: HTMLElement; char: typeof src.players[number]['char']; color: typeof src.players[number]['color']; flip: boolean };
+  type SeatEl = { root: HTMLElement; pulse: HTMLElement; spin: HTMLElement; cards: HTMLElement; chip: HTMLElement; face: HTMLElement; char: typeof src.players[number]['char']; color: typeof src.players[number]['color']; flip: boolean };
   const avEls: SeatEl[] = [];
   for (let s = 0; s < N; s++) {
     const size = Z.av, isMe = s === me && !watching;
     const pl = isMe ? { ...src.players[s], ...draftProfile() } : src.players[s];
     const pulse = h('div', { class: 'seat-av__pulse' });
     const spin = h('div', { class: 'seat-av__spin' });
-    const cards = h('span', { class: 'seat-av__cards' });
-    // Qui commence la donne (pendant la donne et l'échange), puis qui joue après le joueur actif.
+    // L'étiquette : le nom et le nombre de cartes en main (« Mimi · 4 »). Dessous, une pastille : qui commence la donne
+    // (pendant la donne et l'échange), puis qui joue après le joueur actif.
+    const cards = h('span');
     const chip = h('i', { class: 'seat-av__chip', hidden: true });
-    const name = h('span', { class: 'seat-av__name', hidden: isMe }, isMe ? 'Toi' : pl.name, chip);
+    const name = h('span', { class: 'seat-av__name' }, pl.name, cards);
     const face = avatar(pl.char, pl.color, size);
-    const rootAv = h('div', { class: 'seat-av', style: { width: size, height: size, '--c': tint(s).c, '--d': tint(s).d } }, pulse, spin, face, cards, name);
-    avEls[s] = { root: rootAv, pulse, spin, cards, chip, meTag: isMe ? name : null, face, char: pl.char, color: pl.color, flip: false };
+    // Ton perso n'est pas dessiné sur ton téléphone, comme sur la maquette : la consigne te parle (« À toi, Frédo ! »).
+    const rootAv = h('div', { class: 'seat-av', hidden: isMe, style: { width: size, height: size, '--c': tint(s).c, '--d': tint(s).d } },
+      pulse, spin, face, h('div', { class: 'seat-av__tags' }, name, chip));
+    avEls[s] = { root: rootAv, pulse, spin, cards, chip, face, char: pl.char, color: pl.color, flip: false };
     avLayer.append(rootAv);
   }
   /** Le haut et le bas des trous à l'écran (repère du plateau) : les noms et les bulles restent au-dessus ou en dessous. */
@@ -471,14 +483,18 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     for (let s = 0; s < N; s++) {
       const [x0, y] = g.avs[armOf(N, me, s)], e = avEls[s], size = Z.av;
       // Jamais hors de l'écran : un perso posé dans un coin reste entier (plateau peint, vue inclinée).
-      const x = watching ? x0 : Math.min(360 + BOARD_X - size / 2 - 12, Math.max(size / 2 + 12 - BOARD_X, x0));
+      const x = watching ? x0 : Math.min(360 + BOARD_X - size / 2 - 5, Math.max(size / 2 + 5 - BOARD_X, x0));
       e.root.style.left = r1(x - size / 2) + 'px';
       e.root.style.top = r1(y - size / 2) + 'px';
       const isMe = s === me && !watching;
       // Au fond : le nom au-dessus du perso, dans la bande libre au-dessus du plateau. Sur les côtés proches :
       // à côté, vers le milieu (à 6, dessous : les persos des côtés sont au bout d'un bras).
-      const side = y < 150 ? (x < 110 ? 'over-start' : x > 250 ? 'over-end' : 'right')
-        : N === 6 && !isMe ? (x < 110 ? 'under-start' : x > 250 ? 'under-end' : 'under') : x < 110 ? 'right' : x > 250 ? 'left' : 'under';
+      // Vue de la maquette : l'étiquette du partenaire part à sa gauche (sa bulle part à droite) ; celles des adversaires
+      // se posent au-dessus d'eux, hors du plateau (dessous, elles couvriraient deux trous).
+      const side = mockView() ? (x < 110 ? 'over-start' : x > 250 ? 'over-end' : 'left')
+        // Tout en haut à gauche (vue de dessus), l'étiquette passe sous le perso : au-dessus, le récitatif de la manche la cacherait.
+        : y < 150 ? (x < 110 ? (y - size / 2 < 60 ? 'under-start' : 'over-start') : x > 250 ? 'over-end' : 'right')
+          : N === 6 && !isMe ? (x < 110 ? 'under-start' : x > 250 ? 'under-end' : 'under') : x < 110 ? 'right' : x > 250 ? 'left' : 'under';
       // Dans les coins proches (toi compris), l'étiquette part sur le côté, descendue sous la dernière rangée de trous.
       const low = y >= 150 && (side === 'right' || side === 'left');
       e.root.dataset.side = low ? side + '-low' : side;
@@ -518,7 +534,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     // Repère du cadre du plateau : l'écran va de -BOARD_X + 6 à 360 + BOARD_X - 6.
     const lo = 6 - BOARD_X, hi = 360 + BOARD_X - 6 - w;
     let left: number, y0: number, tail: string;
-    if (far) {
+    if (mine) {
+      // Ton perso n'est pas à l'écran : ta bulle sort du bouton du chat, au coin sous le plateau, sur une seule ligne.
+      left = lo;
+      y0 = ACTIONS_Y - BOARD_Y - ht - 6;
+      tail = 'down';
+    } else if (far) {
       // Dans les coins du fond, la bulle se cale contre le bord de l'écran, par-dessus le nom de celui qui parle :
       // elle ne masque ni les trous, ni le perso d'à côté. Au milieu du fond, elle part à droite du perso.
       left = x < 150 ? lo : x > 210 ? hi : x + half + 9;
@@ -748,7 +769,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // « Une astuce ? » : propose un bon coup (le robot le choisit) sans le jouer à la place du joueur.
   const tipBtn = h('button', { class: 'g-tip', type: 'button', onclick: () => suggest() }, 'Une astuce ?');
   const resetSeven = h('button', { class: 'g-tip', type: 'button', onclick: () => { chain = []; pick = null; render(); } }, 'Recommencer le partage');
-  const playBtn = button('Jouer', 'primary', () => commit());
+  const playBtn = button('Jouer !', 'primary', () => commit());
   playBtn.classList.add('g-play');
   // Initiation : Toc, la mascotte, remplace la bulle d'émotes et réagit à chaque leçon.
   const coach = h('div', { class: 'g-coach', 'aria-hidden': 'true' });
@@ -765,7 +786,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const actions = h('div', { class: 'g-actions' }, src.initiation ? coach : emoteBtn, h('div', { class: 'g-hint', 'aria-live': 'polite' }, hintT, hintS, tipBtn, resetSeven), playBtn);
   // Minuteur : une mèche qui brûle vers la bombe ; l'étincelle suit le bout de la mèche.
   const timerBar = h('div', null, h('i', { class: 'g-timer__spark' }));
-  const timerEl = h('div', { class: 'g-timer', 'aria-hidden': 'true', hidden: true }, timerBar);
+  /** Les secondes qui restent, au bout de la mèche */
+  const timerLeft = h('span', { class: 'g-timer__left' });
+  const timerEl = h('div', { class: 'g-timer', 'aria-hidden': 'true', hidden: true }, timerBar, timerLeft);
   const hand = h('div', { class: 'hand' });
   /** Étoile jaune derrière la carte choisie */
   const handHalo = h('div', { class: 'hand__halo', 'aria-hidden': 'true', hidden: true });
@@ -1340,7 +1363,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // ---------- Minuteur de tour ----------
   let turnTimer = 0;
   let timerFor = '';
-  const stopTimer = () => { clearTimeout(turnTimer); timerFor = ''; timerBar.style.animation = 'none'; timerEl.hidden = true; };
+  let timerTick = 0;
+  const stopTimer = () => { clearTimeout(turnTimer); clearInterval(timerTick); timerFor = ''; timerBar.style.animation = 'none'; timerEl.hidden = true; };
   /** Un autre humain attend à la table ? Contre des robots seulement, personne n'attend : pas de minuteur. */
   // À ton rythme, jamais de minuteur : chacun joue quand il revient.
   const othersWaiting = () => !src.slow && src.players.some((p, k) => k !== me && !p.bot);
@@ -1356,6 +1380,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     timerBar.style.animation = 'none';
     void timerBar.offsetWidth;
     timerBar.style.animation = `tocBurn ${TURN_MS / 1000}s linear both`;
+    // Les secondes qui restent, à côté de la mèche.
+    const end = Date.now() + TURN_MS;
+    const tick = () => { timerLeft.textContent = `${Math.max(0, Math.ceil((end - Date.now()) / 1000))} s`; };
+    clearInterval(timerTick);
+    tick();
+    timerTick = window.setInterval(tick, 250);
     turnTimer = window.setTimeout(() => {
       if (disposed) return;
       clearSel();
@@ -1367,6 +1397,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   // ---------- Rendu ----------
   const renderTop = () => {
     roundEl.textContent = `Manche ${Math.floor(view.dealNo / 3) + 1} · Donne ${(view.dealNo % 3) + 1}`;
+    roundEl.setAttribute('aria-label', `${roundEl.textContent} : voir les derniers coups`);
     deckCount.textContent = String(deckLeft().left);
     turnEl.textContent = view.phase === 'over' ? 'Partie terminée'
       : view.phase === 'deal' ? 'On distribue…'
@@ -1375,13 +1406,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
           : view.turn === me && !watching ? 'À toi de jouer' : `Tour ${deNom(nameOf(view.turn))}`;
     const myTeam = teamOf(N, me);
     const teams = [myTeam, ...Array.from({ length: N / 2 }, (_, t) => t).filter((t) => t !== myTeam)];
-    // Une case par équipe, à ses couleurs : billes rentrées (la tienne d'abord).
-    scoreEl.replaceChildren(...teams.map((t) => {
-      const n = [t, t + N / 2].reduce((a, s) => a + view.pawns[s].filter((pw) => inHome(N, pw.p)).length, 0);
-      return h('div', { style: { background: tint(t + N / 2).c }, 'aria-label': `Équipe ${TEAM_NAMES[t]} : ${n}` },
-        h('span', { style: { background: tint(t).c } }),
-        h('b', null, n));
-    }));
+    // Une case par équipe, à sa couleur : son nom et ses billes rentrées (la tienne d'abord, le nom vers l'extérieur).
+    const homes = teams.map((t) => [t, t + N / 2].reduce((a, s) => a + view.pawns[s].filter((pw) => inHome(N, pw.p)).length, 0));
+    scoreEl.setAttribute('aria-label', 'Billes rentrées : ' + teams.map((t, k) => `${TEAM_NAMES[t]} ${homes[k]}`).join(', '));
+    scoreEl.replaceChildren(...teams.map((t, k) => h('div', { class: k ? 'g-score__rev' : undefined, style: { background: TEAM_BG[t], color: TEAM_INK[t] } },
+      h('span', null, TEAM_NAMES[t]), h('b', null, homes[k]))));
   };
 
   /** Le joueur qui jouera après le joueur actif (le suivant qui a encore des cartes), ou -1. */
@@ -1424,7 +1453,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       e.chip.textContent = label;
       e.chip.hidden = !label;
       e.chip.classList.toggle('seat-av__chip--first', label === 'Commence');
-      if (e.meTag) e.meTag.hidden = !label;
+
       e.root.classList.toggle('seat-av--next', !!label);
       e.root.style.transform = `scale(${active ? 1.14 : 1})`;
       e.pulse.hidden = !active;
@@ -1432,7 +1461,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       e.spin.hidden = !active;
       e.root.classList.toggle('seat-av--turn', active);
       e.root.classList.toggle('seat-av--wait', view.phase === 'play' && !active);
-      e.cards.textContent = String(view.hands[s]?.length ?? 0);
+      e.cards.textContent = ` · ${view.hands[s]?.length ?? 0}`;
       e.root.classList.toggle('seat-av--off', !src.players[s].online && !src.players[s].bot && (watching || s !== me));
       rpads[s].classList.toggle('pad--glow', active);
     }
@@ -1460,7 +1489,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     // Cartes injouables : elles pâlissent, sauf si aucune carte ne se joue (il faut alors défausser).
     const playable = new Set(myTurn() ? myMoves().filter((m) => m.kind !== 'discard').map((m) => m.card) : []);
     // Éventail : les cartes se serrent quand la main est pleine, la carte choisie sort du rang.
-    const step = n > 1 ? Math.min(62, (STAGE_W - 28 - CARD_W) / (n - 1)) : 0;
+    const step = n > 1 ? Math.min(64, (STAGE_W - 28 - CARD_W) / (n - 1)) : 0;
     const mid = sel ?? (n - 1) / 2;
     handHalo.hidden = sel === null || !active;
     if (sel !== null) handHalo.style.left = r1(STAGE_W / 2 - CARD_W / 2 + (sel - (n - 1) / 2) * step - 24) + 'px';
@@ -1478,8 +1507,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         },
       });
       el.style.left = r1(STAGE_W / 2 - CARD_W / 2 + m * step) + 'px';
-      el.style.top = (on ? 0 : r1(30 + m * m * 5)) + 'px';
+      el.style.top = (on ? 0 : r1(32 + Math.abs(m) * 10)) + 'px';
       el.style.transform = `rotate(${on ? 0 : r1(m * 6)}deg)`;
+      // Le pouvoir de la carte s'écrit du côté qui dépasse de l'éventail : il reste lisible sous la carte voisine.
+      el.dataset.side = i < mid ? 'start' : i > mid ? 'end' : '';
+      // Le 7 choisi annonce son partage en toutes lettres (son bandeau n'est plus recouvert par la carte voisine).
+      if (on && rankOf(card) === '7') el.querySelector('.pcard__badge')!.textContent = '+7 partagé';
       // Les cartes se recouvrent vers l'extérieur : le rang reste lisible dans un coin de chacune.
       el.style.zIndex = String(on ? 20 : 12 - Math.round(Math.abs(i - mid) * 2));
       el.classList.toggle('pcard--wait', !active);
@@ -1608,7 +1641,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const offRoom = src.onRoom?.(() => { if (!disposed) render(); });
 
   const rematchBox = () => {
-    const btn = button('Revanche', 'yellow', () => src.voteRematch?.(), { size: 'md', block: true }) as HTMLButtonElement;
+    const btn = button('Revanche !', 'yellow', () => src.voteRematch?.(), { size: 'md', block: true }) as HTMLButtonElement;
     const who = h('div', { class: 'victory__votes', 'aria-live': 'polite' });
     rematchUi = { btn, who };
     return h('div', { class: 'victory__rematch' }, btn, who);
@@ -1672,15 +1705,16 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         sub = 'Tu seras prévenu·e quand ce sera ton tour.';
       } else {
         t = view.phase === 'play' && view.turn !== me ? `${nameOf(view.turn)} réfléchit…` : 'Beau coup…';
-        sub = 'Prépare ton prochain coup.';
+        // Ton perso n'est pas à l'écran : c'est la consigne qui te dit quand tu es le suivant.
+        sub = view.phase === 'play' && nextSeat() === me ? 'Tu joues juste après : prépare ton coup.' : 'Prépare ton prochain coup.';
       }
     } else if (sel === null && currentLesson()) {
       const ls = currentLesson()!;
       setCoach(ls.mood);
       t = `Leçon ${lessonNo} sur ${LESSONS.length} · ${ls.title}`;
       sub = ls.text();
-    } else if (sel === null) { t = 'À ton tour !'; sub = 'Choisis une carte dans ta main.'; }
-    else if (tip) { t = 'Astuce'; sub = tip; label = pl.chosen ? (pl.chosen.kind === 'discard' ? 'Défausser' : 'Jouer') : ''; }
+    } else if (sel === null) { t = `À toi, ${nick} !`; sub = 'Choisis une carte dans ta main.'; }
+    else if (tip) { t = 'Astuce'; sub = tip; label = pl.chosen ? (pl.chosen.kind === 'discard' ? 'Défausser' : 'Jouer !') : ''; }
     else {
       const c = cardLook(myHand()[sel], view.variants);
       if (pl.chosen?.kind === 'discard') {
@@ -1709,7 +1743,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
           const alt = sv.dests[0]?.kind;
           sub = (bits ? bits[0].toUpperCase() + bits.slice(1) + '.' : many ? 'Touche une bille pour changer le partage.' : c.rule)
             + (alt === 'lap' ? ' Pointillés : un tour.' : alt === 'home' ? ' Case pleine : rentrer.' : '');
-          label = 'Jouer';
+          label = 'Jouer !';
         } else if (pick && sv.dests.length) {
           sub = (chain.length ? `Encore ${sv.left} pas. ` : '')
             + (both ? 'Touche son arrivée : pleine pour rentrer, pointillés pour refaire un tour.' : 'Touche la case où elle arrive.');
@@ -1722,7 +1756,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
             : !pl.chosen && pl.targets.length > 1 ? 'Touche la bille à échanger.'
               : c.rule;
         if (pl.chosen && leavesHome(view, pl.chosen)) sub = 'Ta bille ressort de sa maison à reculons.';
-        if (pl.chosen) label = 'Jouer';
+        if (pl.chosen) label = 'Jouer !';
         // Carte injouable : on dit pourquoi pour le 7 (règle la plus souvent mal comprise).
         if (!pl.moves.length)
           sub = rankOf(myHand()[sel]) !== '7' ? 'Cette carte ne peut pas être jouée pour l’instant.'
@@ -1792,6 +1826,80 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     ], { duration: 1750, easing: 'linear' });
     await sleep(1700);
     el.remove();
+  };
+  // ---------- La page BOUM (maquette « Boum ») ----------
+  /** Réglage « Planche BOUM » (dans la pause) : une page de BD plein écran à chaque bille renvoyée. */
+  const boumPref = () => { try { return localStorage.getItem(BOUM_KEY) !== 'non'; } catch { return true; } };
+  /** La page est composée pour la scène du téléphone ; ailleurs (pliant, tablette, manette, écran de table), la case sous le plateau suffit. */
+  const boumPageOn = () => boumPref() && !watching && layout === 'phone' && !manette();
+  /** Étoile d'explosion aux pointes irrégulières (toujours les mêmes : pas de hasard). */
+  const wobBurst = (n: number, inner: number, rot: number, wob: number) => {
+    const pts: string[] = [];
+    for (let i = 0; i < n * 2; i++) {
+      const a = ((rot + (i * 180) / n) * Math.PI) / 180, r = (i % 2 ? inner : 50) * (1 - (wob * ((i * 7) % 5)) / 5);
+      pts.push(`${(50 + r * Math.cos(a)).toFixed(1)}% ${(50 + r * Math.sin(a)).toFixed(1)}%`);
+    }
+    return `polygon(${pts.join(',')})`;
+  };
+  /** « son 7 », « sa Dame », « ton As » : la carte abattue, dans le récitatif. */
+  const cardOf = (card: Card, mine: boolean) => {
+    const r = rankOf(card), fem = r === 'Q';
+    return `${mine ? (fem ? 'ta' : 'ton') : fem ? 'sa' : 'son'} ${r === 'A' ? 'As' : r === 'K' ? 'Roi' : r === 'Q' ? 'Dame' : r === 'J' ? 'Valet' : r === 'X' ? 'Joker' : r}`;
+  };
+  /**
+   * La page BOUM : la grande case (celui qui frappe, l'explosion, celui qui s'envole), le bandeau du moment
+   * (« VENGEANCE ! », « DOUBLÉ ! »… ou « À LA RÉSERVE ! »), deux petites cases (les copains qui jubilent, la bille de retour
+   * dans sa réserve) et trois réactions à envoyer d'un toucher. Elle passe toute seule ; un toucher la passe tout de suite.
+   * by : celui qui joue le coup ; hit : ceux dont une bille repart (jamais lui-même) ; replaying : le coup est rejoué à la fin.
+   */
+  const boumPage = async (by: number, hit: number[], card: Card, tag: string, replaying: boolean) => {
+    toastBox.replaceChildren();
+    sfx('moment');
+    const v = hit[0], oops = tag.startsWith('OUPS');
+    const face = (s: number, size: number, humeur: Humeur) => avatar(avEls[s].char, avEls[s].color, size, humeur);
+    const gone = hit.length > 1 ? `${hit.length} billes s’envolent vers leur réserve`
+      : isMe(v) ? 'ta bille s’envole vers ta réserve' : `la bille ${deNom(nameOf(v))} s’envole vers sa réserve`;
+    const caption = `${isMe(by) ? `Tu abats ${cardOf(card, true)}` : `${nameOf(by)} abat ${cardOf(card, false)}`} : ${gone} !`;
+    // Sous le bandeau : pourquoi ce moment compte ; sinon, où en est votre rivalité (elle est tenue sur ce téléphone).
+    const feud = isMe(by) ? rivalOf(nameOf(v)) : isMe(v) ? rivalOf(nameOf(by)) : null;
+    const sub = tag ? momentText(tag, by, hit)
+      : feud && isMe(by) && feud.by > 1 ? `Ça fait ${feud.by} fois que tu renvoies ${nameOf(v)}.`
+        : feud && isMe(v) && feud.on > 1 ? `Ça fait ${feud.on} fois que ${nameOf(by)} te renvoie.`
+          : hit.length > 1 ? 'Elles repartent toutes de leur réserve.' : isMe(v) ? 'Ta bille repart de ta réserve.' : `La bille ${deNom(nameOf(v))} repart de sa réserve.`;
+    // La petite case de gauche : le partenaire de celui qui frappe jubile (s'il a renvoyé son propre camp, c'est un adversaire qui rit).
+    const fan = oops ? (by + 1) % N : partner(N, by);
+    const big = wobBurst(13, 34, 3, 0.16), small = wobBurst(10, 31, 11, 0.12);
+    const layer = (inset: string, background: string, clipPath: string, extra: Record<string, string> = {}) => h('i', { style: { inset, background, clipPath, ...extra } });
+    let done: () => void = () => {};
+    const closed = new Promise<void>((r) => { done = r; });
+    const react = !replaying && !src.initiation
+      ? h('div', { class: 'g-boum__react' }, h('span', null, 'Réagis'),
+        ...['Bien joué !', 'Oh là là !', 'Aïe…'].map((t) => h('button', { type: 'button', onclick: (e: Event) => { e.stopPropagation(); sendEmote(t); done(); } }, t)))
+      : null;
+    const page = h('div', { class: 'g-boum' + (calm() ? ' g-boum--calm' : ''), onclick: () => done() },
+      h('i', { class: 'g-boum__dots' }),
+      h('div', { class: 'g-boum__case' }, h('i'), h('i')),
+      h('div', { class: 'g-boum__burst' },
+        layer('auto', 'var(--ink)', big, { left: '8px', top: '10px', width: '100%', height: '100%' }),
+        layer('-5px', 'var(--ink)', big), layer('0', 'var(--jaune)', big), layer('62px', 'var(--ink)', small), layer('66px', '#fff', small)),
+      ...[[6, 226, 46], [0, 254, 58], [12, 284, 40]].map(([left, top, width]) => h('i', { class: 'g-boum__line', style: { left, top, width } })),
+      h('span', { class: 'g-boum__by' }, face(by, 152, oops ? 'panique' : 'malin')),
+      h('span', { class: 'g-boum__hit' }, face(v, 112, 'ko')),
+      h('div', { class: 'g-boum__word', role: 'img', 'aria-label': 'BOUM !' }, 'BOUM !'),
+      h('div', { class: 'g-boum__cap' }, caption),
+      h('div', { class: 'g-boum__band' }, h('span', { class: (tag || 'À LA RÉSERVE !').length > 12 ? 'g-boum__band--long' : undefined }, tag || 'À la réserve !')),
+      h('div', { class: 'g-boum__sub' }, sub),
+      h('div', { class: 'g-boum__mini g-boum__mini--a' }, h('i'), face(fan, 94, 'joie'), h('span', { class: 'g-boum__say' }, oops ? 'Hahaha !' : 'Ouiii !')),
+      h('div', { class: 'g-boum__mini g-boum__mini--b' },
+        h('div', { class: 'g-boum__pad', style: { background: tint(v).c } }, ...[0, 1, 2, 3].map(() => h('i', { style: { background: tint(v).d } }))),
+        face(v, 62, 'ko'), h('span', { class: 'g-boum__pof' }, 'Pof !')),
+      react);
+    stage.append(page);
+    await Promise.race([closed, sleep(tag ? 3300 : 2700)]);
+    if (disposed) return;
+    page.classList.add('g-boum--out');
+    await sleep(calm() ? 0 : 170);
+    page.remove();
   };
   /** La musique et l'ambiance suivent la partie : de 0 (début) à 3 (une équipe n'a plus qu'une bille à rentrer). */
   const syncTension = (st: GameState) => {
@@ -1982,9 +2090,18 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         if (revenge) grudge.delete(seat);
         tag = foes.length >= 3 ? 'TRIPLÉ !' : foes.length === 2 ? 'DOUBLÉ !' : revenge ? 'VENGEANCE !' : !foes.length ? 'OUPS !' : '';
       }
+      // La mémoire des rivalités (sur ce téléphone) : qui a renvoyé tes billes, et à qui tu l'as rendu.
+      if (replay === undefined && !watching && !src.initiation)
+        for (const f of foes) {
+          if (seat === me) noteCapture(src.players[f.s], 'by');
+          else if (f.s === me) noteCapture(src.players[seat], 'on');
+        }
       setFlash(seat, foes.length ? 'joie' : 'panique', 3400);
       hitSeats.forEach((s) => { if (s !== seat) setFlash(s, 'furieux', 3400); });
-      if (tag) await moment(tag, seat, hitSeats.filter((s) => s !== seat), momentText(tag, seat, hitSeats));
+      // Une bille renvoyée : la page BOUM (sur téléphone) ; sinon, la case du moment fort sous le plateau.
+      const victims = hitSeats.filter((s) => s !== seat);
+      if (victims.length && boumPageOn()) await boumPage(seat, victims, move.card, tag, replay !== undefined);
+      else if (tag) await moment(tag, seat, victims, momentText(tag, seat, hitSeats));
     }
     // Maison : la bille qui file droit au fond, ou un joueur qui vient de rentrer sa dernière bille.
     let home = '';
@@ -2111,6 +2228,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     sheet = h('div', { class: 'sheet-wrap', onclick: (e: Event) => { if (e.target === sheet) closeSheet(); } }, h('div', { class: 'sheet', role: 'dialog' }, ...kids));
     root.append(sheet);
   };
+  const boumRow = () => {
+    const sw = h('input', { type: 'checkbox', class: 'switch', role: 'switch', checked: boumPref(), 'aria-label': 'Planche BOUM' }) as HTMLInputElement;
+    sw.addEventListener('change', () => { try { localStorage.setItem(BOUM_KEY, sw.checked ? 'oui' : 'non'); } catch { /* sans stockage : pour cette partie seulement */ } });
+    return h('label', { class: 'push-row' },
+      h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('b', null, 'Planche BOUM'), h('span', { class: 'push-row__text' }, 'Une page de BD à chaque bille renvoyée.')), sw);
+  };
   const openPause = () => openSheet(
     h('span', { class: 'sheet__title' }, 'Pause'),
     h('span', { class: 'sheet__text' }, watching ? 'Écran de table : la partie continue sur les téléphones des joueurs.'
@@ -2123,7 +2246,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         try { localStorage.setItem(VIEW_KEY, v); } catch { /* sans stockage : pour cette partie seulement */ }
         retilt();
       })),
+    // La planche BOUM : une page de BD à chaque bille renvoyée (on peut préférer rester sur le plateau).
+    watching ? h('span') : boumRow(),
     button('Reprendre', 'primary', closeSheet, { size: 'md', block: true }),
+    // Les règles et les derniers coups (aussi sous l'étiquette « Manche · Donne » du plateau).
+    h('div', { class: 'pause-duo' },
+      button('Règles', 'white', () => openRulesSheet(view.variants), { size: 'sm' }),
+      button('Derniers coups', 'white', () => { closeSheet(); toggleJournal(true); }, { size: 'sm' })),
     src.local ? button('Recommencer la donne', 'white', () => { closeSheet(); src.restartDeal(); }, { size: 'md', block: true }) : h('span'),
     !src.local && !watching ? button('Afficher le plateau sur une tablette', 'white', () => { closeSheet(); openTableSheet(src.code); }, { size: 'md', block: true }) : h('span'),
     button(watching ? 'Fermer l’écran de table' : src.slow ? 'Revenir à l’accueil' : 'Quitter la partie', src.slow || watching ? 'white' : 'danger', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
@@ -2171,15 +2300,18 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const t = st.winner;
     const mover = (x: { next: GameState }) => (x.next.lastMove ? x.next.lastMove.seat : 0);
     const best = highlights.filter((x) => x.next.phase !== 'over').sort((a, b) => b.score - a.score || b.n - a.n).slice(0, 3).sort((a, b) => a.n - b.n);
-    const cases: PlancheCase[] = best.map((x) => {
+    // La partie se raconte d'une case à l'autre, comme sur la maquette : « Manche 1. Coco frappe le premier… »,
+    // « Puis Frédo se venge de Coco. », « …et rentre sa dernière bille. »
+    const cases: PlancheCase[] = best.map((x, k) => {
       const by = mover(x);
       const hit = [...new Set(x.next.lastCaptures.map((v) => v.s))].filter((s) => s !== by);
-      const cap = x.tag.startsWith('VENGEANCE') && hit.length ? `${nameOf(by)} se venge ${deNom(nameOf(hit[0]))}.`
-        : x.tag.startsWith('DOUBLÉ') ? `${nameOf(by)} en renvoie deux d’un coup.`
-          : x.tag.startsWith('TRIPLÉ') ? `${nameOf(by)} en renvoie trois d’un coup !`
-            : x.tag.startsWith('OUPS') ? `${nameOf(by)} renvoie son propre camp…`
-              : hit.length ? `${nameOf(by)} renvoie ${hit.map(nameOf).join(' et ')}.`
-                : x.home.startsWith('TOUT') ? `${nameOf(by)} rentre ses 4 billes.` : `${nameOf(by)} file droit au fond.`;
+      const told = x.tag.startsWith('VENGEANCE') && hit.length ? `${nameOf(by)} se venge ${deNom(nameOf(hit[0]))}`
+        : x.tag.startsWith('DOUBLÉ') ? `${nameOf(by)} en renvoie deux d’un coup`
+          : x.tag.startsWith('TRIPLÉ') ? `${nameOf(by)} en renvoie trois d’un coup`
+            : x.tag.startsWith('OUPS') ? `${nameOf(by)} renvoie son propre camp`
+              : hit.length ? (k === 0 ? `${nameOf(by)} frappe le premier` : `${nameOf(by)} renvoie ${hit.map(nameOf).join(' et ')}`)
+                : x.home.startsWith('TOUT') ? `${nameOf(by)} rentre ses 4 billes` : `${nameOf(by)} file droit au fond`;
+      const cap = k === 0 ? `Manche ${Math.floor(x.prev.dealNo / 3) + 1}. ${told}${best.length > 1 ? '…' : '.'}` : `Puis ${told}.`;
       return {
         cap, fx: x.tag || x.home || (hit.length ? criOf(lookOfSeat(by)) : 'TOC !'),
         by: actor(by, x.tag.startsWith('OUPS') ? 'panique' : hit.length ? 'malin' : 'joie'), hits: hit.map((s) => actor(s, 'ko')),
@@ -2194,13 +2326,17 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const last = st.lastMove ? st.lastMove.seat : t;
     const homes = Array.from({ length: N / 2 }, (_, k) => `${TEAM_NAMES[k]} ${[k, k + N / 2].reduce((a, s) => a + st.pawns[s].filter((pw) => inHome(N, pw.p)).length, 0)}`);
     const boums = caps.reduce((a, v) => a + (v ?? 0), 0);
+    // La dernière case enchaîne sur la précédente quand c'est le même joueur qui conclut.
+    const sameHero = best.length > 0 && mover(best[best.length - 1]) === last;
     return {
-      won: won || watching, color: won || watching ? tint(t + N / 2).c : '#55517a',
+      // La victoire se fête en rouge, comme sur la maquette ; la défaite passe à l'ardoise.
+      won: won || watching, color: won || watching ? '#ff5433' : '#55517a',
       title: won || watching ? 'Victoire !' : 'Défaite…',
       duo: [actor(t, 'joie'), actor(t + N / 2, 'joie')],
-      kicker: `Équipe ${TEAM_NAMES[t]} · ${nameOf(t)} et ${nameOf(t + N / 2)}`,
+      // Partie d'album : son épisode et son nom ; sinon, l'équipe gagnante.
+      kicker: src.album ? `${src.album.episode ? `Épisode ${src.album.episode}` : 'Album'} · ${src.album.title}` : `Équipe ${TEAM_NAMES[t]} · ${nameOf(t)} et ${nameOf(t + N / 2)}`,
       story, cases,
-      fin: { cap: `…et ${nameOf(last)} rentre la dernière bille.`, color: SEAT_COLORS[N][last], toc: won || watching ? 'vainqueur' : 'surpris' },
+      fin: { cap: sameHero ? '…et rentre sa dernière bille.' : `…et ${nameOf(last)} rentre la dernière bille.`, color: SEAT_COLORS[N][last], toc: won || watching ? 'vainqueur' : 'surpris' },
       foot: `${homes.join(' · ')} · ${boums} BOUM`,
       // Gains : seulement pour les parties en ligne (comme awardGame).
       reward: src.local || watching ? undefined : { n: won ? '+100' : '+20', label: 'pièces' },
@@ -2236,10 +2372,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         watching ? button('Fermer', 'white', closeVictory, { size: 'md', block: true })
           // En ligne, la revanche part quand tout le monde a dit oui.
           : src.voteRematch ? rematchBox()
-            : button('Revanche', 'yellow', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
+            : button('Revanche !', 'yellow', () => { closeVictory(); src.rematch(); }, { size: 'md', block: true }),
         watching ? null : shareBtn),
       watching ? null : h('div', { class: 'victory__links' },
-        highlights.length ? h('button', { class: 'victory__link', type: 'button', onclick: () => replayHighlights(st, won) }, 'Moments forts') : null,
+        highlights.length ? h('button', { class: 'victory__link', type: 'button', onclick: () => replayHighlights(st, won) }, icon(ICONS.play, 15, 0), h('span', null, 'Revoir les moments forts')) : null,
         // Après la partie, on continue de discuter avec la table.
         src.chat ? h('button', { class: 'victory__link', type: 'button', onclick: openEndChat }, 'Discuter avec la table', endBadge) : null,
         h('button', { class: 'victory__link', type: 'button', onclick: () => { closeVictory(); o.onQuit(); } }, 'Retour à la une')));

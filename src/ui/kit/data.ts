@@ -61,13 +61,11 @@ export interface CardLook {
 }
 
 const SUIT: Record<string, string> = { S: '♠', H: '♥', D: '♦', C: '♣' };
-// Bandeau de pouvoir au bas de la carte : un aplat par famille, toujours écrit à l'encre.
-const OUT = { bg: '#19c6a4', bc: '#16131f' };
-const BACK = { bg: '#b9c6ff', bc: '#16131f' };
-const SPLIT = { bg: '#ffcf1f', bc: '#16131f' };
-const SWAP = { bg: '#c9b0ff', bc: '#16131f' };
-const BIG = { bg: '#ffa58f', bc: '#16131f' };
-const SMALL = { bg: '#f0eadc', bc: '#16131f' };
+// Bandeau de pouvoir au bas de la carte, comme sur la maquette : bleu pâle pour les cartes à pouvoir (sortir, reculer,
+// partager, échanger), crème pour celles qui avancent ; toujours écrit à l'encre. La carte choisie passe au jaune (main).
+const POWER = { bg: '#d9e1ff', bc: '#16131f' };
+const PLAIN = { bg: '#f0eadc', bc: '#16131f' };
+const OUT = POWER, BACK = POWER, SPLIT = POWER, SWAP = POWER, BIG = PLAIN, SMALL = PLAIN;
 const JOKER = { bg: '#ff7ab8', bc: '#16131f' };
 
 export interface CardOptions {
@@ -122,5 +120,8 @@ export const SEAT_COLORS: Record<4 | 6, ColorName[]> = {
   6: ['coral', 'blue', 'rose', 'yellow', 'teal', 'violet'],
 };
 export const TEAM_NAMES = ['Soleil', 'Myrtilles', 'Framboises'];
+/** Le fond de chaque équipe (affiche, scores, épisodes) et la couleur du texte posé dessus. */
+export const TEAM_BG = ['#ffcf1f', '#3b5bff', '#ff8fc4'];
+export const TEAM_INK = ['#16131f', '#ffffff', '#16131f'];
 
 export const EMOTES =['Allez, vas-y !', 'Oh là là !', 'Bien joué !', 'Aïe…', 'Mais non !', 'GG l’équipe', '🖕🏻', '❤️'];

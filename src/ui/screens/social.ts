@@ -1,4 +1,5 @@
-// 07 Amis (liste, chat d'équipe) et 08 Classement.
+// Ta bande : tes amis, le classement et le chat d'équipe, trois volets d'une même rubrique (comme sur la maquette,
+// où la navigation n'a que quatre entrées : La une, Ta bande, Albums, Kiosque).
 import { draftProfile } from '../../app/profile';
 import { addFriend, currentUid, friendIds, friendLink, lookupFriendCode, sendChat, setTyping, topPlayers, watchChat, watchFriends, type FriendView, type RankEntry } from '../../net/social';
 import {
@@ -213,34 +214,44 @@ async function offerFriend(code: string) {
   (document.getElementById('app') ?? document.body).append(wrap);
 }
 
-export function friendsScreen(addCode: string | null = null): View {
+type Volet = 'amis' | 'classement' | 'chat';
+
+export function friendsScreen(addCode: string | null = null, start: Volet = 'amis'): View {
   if (addCode && !DEMO) void offerFriend(addCode);
-  const content = h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 14 } });
-  // La liste d'amis défile à l'intérieur de l'écran.
+  const content = h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12 } });
+  // Chaque volet défile à l'intérieur de l'écran.
   let stop = () => {};
-  const show = (k: 'amis' | 'chat') => {
+  const show = (k: Volet) => {
     stop();
     if (k === 'amis') {
       const v = friendsPane();
       stop = v.cleanup;
       v.el.classList.add('scroll-y');
       content.replaceChildren(v.el);
+    } else if (k === 'classement') {
+      const r = rankingPane();
+      stop = r.cleanup;
+      content.replaceChildren(...r.els);
     } else {
       const c = chatPane();
       stop = c.cleanup;
       content.replaceChildren(c.head, c.body, ...(c.foot ? [c.foot] : []));
     }
   };
-  show('amis');
+  show(start);
   const el = h('div', { class: 'screen screen--tabs bande', 'data-fit': 'tabs', 'data-tone': 'violet', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)' } },
     h('span', { class: 't-screen' }, 'Ta bande'),
-    segmented([{ value: 'amis' as const, label: 'Amis' }, { value: 'chat' as const, label: 'Chat d’équipe' }], 'amis', show),
+    segmented<Volet>([{ value: 'amis', label: 'Amis' }, { value: 'classement', label: 'Classement' }, { value: 'chat', label: 'Chat' }], start, show),
     content,
     tabbar('friends'));
   return { el, cleanup: () => stop() };
 }
 
-export function rankingScreen(): View {
+/** Le classement s'ouvre dans Ta bande (ancienne adresse #/classement). */
+export const rankingScreen = (): View => friendsScreen(null, 'classement');
+
+/** Le volet Classement : le podium, la liste, et ta ligne en bas. */
+function rankingPane(): { els: HTMLElement[]; cleanup: () => void } {
   // Le podium et la liste défilent à l'intérieur de l'écran.
   const body = h('div', { class: 'scroll-y', style: { display: 'flex', flexDirection: 'column', gap: 14 } });
   const me = h('div', { class: 'rank-row rank-me' });
@@ -302,13 +313,12 @@ export function rankingScreen(): View {
       .then(([all, f]) => { real = { all, friends: new Set(f) }; show(scope); })
       .catch(() => { real = { all: [], friends: new Set() }; show(scope); });
 
-  const el = h('div', { class: 'screen screen--tabs classement', 'data-fit': 'tabs', 'data-tone': 'bleu', style: { gap: 10, paddingTop: 'calc(var(--safe-top) + 8px)', paddingBottom: 'calc(var(--safe-bottom) + 162px)' } },
-    h('div', { style: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 } },
-      h('span', { class: 't-screen' }, 'Classement'),
-      h('span', { class: 'pill' }, DEMO ? 'Saison 4 · finit dans 12 j' : 'Saison 1')),
-    segmented<RankScope>([{ value: 'amis', label: 'Amis' }, { value: 'monde', label: 'Monde' }], 'monde', show),
-    body,
-    me,
-    tabbar('ranking'));
-  return { el, cleanup: () => {} };
+  // Qui on compare (la bande ou tout le monde) et la saison, sur une ligne.
+  const scopes = h('div', { class: 'rank-scope' },
+    ...(['amis', 'monde'] as RankScope[]).map((s) => h('button', { type: 'button', 'aria-pressed': String(s === scope), onclick: (e: Event) => {
+      [...scopes.querySelectorAll('button')].forEach((b) => b.setAttribute('aria-pressed', String(b === e.currentTarget)));
+      show(s);
+    } }, s === 'amis' ? 'Ma bande' : 'Tout le monde')),
+    h('span', { class: 'pill' }, DEMO ? 'Saison 4 · 12 j' : 'Saison 1'));
+  return { els: [scopes, body, me], cleanup: () => {} };
 }

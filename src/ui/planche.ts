@@ -72,7 +72,7 @@ export function plancheEl(p: Planche): HTMLElement {
   const n = p.cases.length, bgs = caseBgs(p);
   const cases = p.cases.map((c, k) => {
     const wide = isWide(n, k), bg = bgs[k];
-    return h('div', { class: 'case' + (wide ? ' case--wide' : ''), style: { '--kc': bg } },
+    return h('div', { class: 'case' + (wide ? ' case--wide' : '') + (k === 0 ? ' case--first' : ''), style: { '--kc': bg } },
       h('i'),
       h('div', { class: 'case__burst' }, ...burstEl(burstOn(bg, c))),
       c.by && h('span', { class: 'case__who case__who--by' }, perso(c.by.char, c.by.color, wide ? 72 : 58, c.by.humeur)),
@@ -86,6 +86,7 @@ export function plancheEl(p: Planche): HTMLElement {
     h('i'),
     h('div', { class: 'case__lane', style: { '--d': t.d } },
       ...[0, 1, 2, 3].map(() => h('div', { class: 'bille', style: { '--c': t.c, '--d': t.d, '--s': '22' } }))),
+    h('span', { class: 'case__tocword' }, 'Toc !'),
     h('span', { class: 'case__fin' }, 'Fin'),
     h('span', { class: 'case__toc' }, mascot(p.fin.toc, 66, 'buste')),
     h('span', { class: 'case__cap' }, p.fin.cap));

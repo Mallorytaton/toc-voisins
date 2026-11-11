@@ -26,10 +26,10 @@ const OPTIONS: Option[] = [
 /** Règles complètes (les vieilles parties n'ont pas toutes les clés). */
 export const withDefaults = (v?: Partial<Variants>): Variants => ({ ...DEFAULT_VARIANTS, ...v });
 
-/** « Règles de base » ou « Règles de base + 2 variantes ». */
+/** « Règles classiques » ou « Règles classiques + 2 variantes ». */
 export function variantsSummary(v: Variants): string {
   const n = OPTIONS.filter((o) => o.get(v) !== o.get(DEFAULT_VARIANTS)).length;
-  return n === 0 ? 'Règles de base' : `Règles de base + ${n} variante${n > 1 ? 's' : ''}`;
+  return n === 0 ? 'Règles classiques' : `Règles classiques + ${n} variante${n > 1 ? 's' : ''}`;
 }
 
 /** Rappel des règles de base, en tête de la feuille. */
@@ -57,7 +57,7 @@ export function openVariantsSheet(current: Variants, editable: boolean, onSave: 
       h('div', { class: 'scroll-y', style: { maxHeight: '46vh' } }, rows),
       editable
         ? [button('Valider', 'primary', () => { onSave(v); close(); }, { size: 'md', block: true }),
-          button('Revenir aux règles de base', 'text', () => { v = { ...DEFAULT_VARIANTS }; draw(); })]
+          button('Revenir aux règles classiques', 'text', () => { v = { ...DEFAULT_VARIANTS }; draw(); })]
         : button('Fermer', 'white', close, { size: 'md', block: true })));
   (document.getElementById('app') ?? document.body).append(wrap);
 }
@@ -96,7 +96,7 @@ export function openRulesSheet(current: Variants) {
         h('span', { class: 't-label' }, 'Variantes de cette partie'),
         active.length
           ? h('ul', { class: 'rule-list' }, ...active.map((o) => h('li', null, h('b', null, o.label), ' : ', o.desc)))
-          : h('span', { class: 't-body' }, 'Aucune : on joue avec les règles de base.')),
+          : h('span', { class: 't-body' }, 'Aucune : on joue avec les règles classiques.')),
       button('Fermer', 'primary', close, { size: 'md', block: true })));
   (document.getElementById('app') ?? document.body).append(wrap);
 }

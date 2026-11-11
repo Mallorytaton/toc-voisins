@@ -162,14 +162,13 @@ export function segmented<T>(options: SegOption<T>[], value: T, onChange: (v: T)
   return root;
 }
 
-/** Les cinq rubriques de l'app : La une, Ta bande, Albums (tournois), Classement, Kiosque (boutique). */
-export type Tab = 'home' | 'friends' | 'albums' | 'ranking' | 'shop';
+/** Les quatre rubriques de l'app, comme sur la maquette : La une, Ta bande (amis, classement, chat), Albums (tournois), Kiosque (boutique). */
+export type Tab = 'home' | 'friends' | 'albums' | 'shop';
 
 const TABS: { id: Tab; label: string; path: string; d: string }[] = [
   { id: 'home', label: 'La une', path: ROUTES.home, d: 'M13.5 2 L4.5 13.5 h6 l-1 8.5 L19.5 10 h-6 Z' },
   { id: 'friends', label: 'Ta bande', path: ROUTES.friends, d: 'M12.600 8 a3.600 3.600 0 1 1 -7.200 0 a3.600 3.600 0 1 1 7.200 0 M2.500 20 c0 -4 3 -6.500 6.500 -6.500 s6.500 2.500 6.500 6.500 M20.300 9.500 a2.800 2.800 0 1 1 -5.600 0 a2.800 2.800 0 1 1 5.600 0 M17 13.800 c2.800 0 4.800 2 4.800 5.700' },
   { id: 'albums', label: 'Albums', path: ROUTES.albums, d: 'M5 5.5 A2 2 0 0 1 7 3.5 h12 v14 H7 a2 2 0 0 0 -2 2 Z M5 19.5 a2 2 0 0 0 2 2 h12 v-4 M9.5 8 h5.500' },
-  { id: 'ranking', label: 'Classement', path: ROUTES.ranking, d: 'M7 4h10v5a5 5 0 0 1-10 0z M7 6H4a3 3 0 0 0 3 4 M17 6h3a3 3 0 0 1-3 4 M12 14v4.500 M8.500 20.500h7' },
   { id: 'shop', label: 'Kiosque', path: ROUTES.shop, d: 'M5 8.5 h14 l-1 12 H6 Z M9 8.5 V7 a3 3 0 0 1 6 0 v1.500' },
 ];
 
