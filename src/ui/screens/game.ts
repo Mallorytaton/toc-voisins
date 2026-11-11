@@ -8,6 +8,7 @@ import {
 import { type Fx, playFx } from '../board/fx';
 import { FLAT, SEATED, type Tilt, armOf, geom, pawnXY, projector, seatedAvs, tilted, trackIndex } from '../board/geom';
 import { paintedGeom } from '../board/painted';
+import { askRelief, relief, reliefAvailable, reliefOn, setReliefPref } from '../board/relief';
 import { criOf, lookOf } from '../../app/shop';
 import { deNom, h, toast as pageToast } from '../dom';
 import { COL, EMOTES, SEAT_COLORS, TEAM_BG, TEAM_INK, TEAM_NAMES, cardLook } from '../kit/data';
@@ -342,6 +343,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     board.classList.toggle('board--flat', !tiltFor().deg);
   };
   applyTilt();
+  // Le plateau en relief : il bascule légèrement quand on incline le téléphone (pas l'écran de table, posé à plat).
+  const tilt3d = watching ? null : relief({ board, slab: plane.querySelector<HTMLElement>(pg ? '.board__photo' : '.board__wood'), scene: stage.querySelector<HTMLElement>('.g-case') });
+  tilt3d?.sync();
   let zoomed = '';
   /** Mise en scène d'un BOUM en cours : la caméra lui appartient, le reste de l'écran n'y touche pas. */
   let staged = false;
@@ -2234,10 +2238,32 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     return h('label', { class: 'push-row' },
       h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('b', null, 'Planche BOUM'), h('span', { class: 'push-row__text' }, 'Une page de BD à chaque bille renvoyée.')), sw);
   };
+  const reliefRow = () => {
+    const sw = h('input', { type: 'checkbox', class: 'switch', role: 'switch', checked: reliefOn(), 'aria-label': 'Plateau en relief' }) as HTMLInputElement;
+    sw.addEventListener('change', async () => {
+      // Certains téléphones (iPhone) demandent un accord pour lire leurs mouvements : ce toucher sert à le demander.
+      const ok = !sw.checked || await askRelief();
+      if (!ok) {
+        sw.checked = false;
+        toast('Ton téléphone n’a pas donné accès à ses mouvements.', 2600);
+      }
+      setReliefPref(sw.checked);
+      tilt3d?.sync();
+    });
+    return h('label', { class: 'push-row' },
+      h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 } }, h('b', null, 'Plateau en relief'), h('span', { class: 'push-row__text' }, 'Il bascule légèrement quand tu inclines le téléphone.')), sw);
+  };
   const openPause = () => openSheet(
     h('span', { class: 'sheet__title' }, 'Pause'),
     h('span', { class: 'sheet__text' }, watching ? 'Écran de table : la partie continue sur les téléphones des joueurs.'
       : src.slow ? 'Partie à ton rythme : elle t’attend sur l’accueil, reviens quand tu veux.' : 'Les autres t’attendent, fais vite !'),
+    // Les actions d'abord : reprendre, les règles et les derniers coups (aussi sous l'étiquette « Manche · Donne »).
+    button('Reprendre', 'primary', closeSheet, { size: 'md', block: true }),
+    h('div', { class: 'pause-duo' },
+      button('Règles', 'white', () => openRulesSheet(view.variants), { size: 'sm' }),
+      button('Derniers coups', 'white', () => { closeSheet(); toggleJournal(true); }, { size: 'sm' })),
+    // Puis les réglages : la feuille défile si elle dépasse de l'écran.
+    h('span', { class: 't-label' }, 'Réglages'),
     soundSettings(),
     // Vue du plateau : chacun la sienne (l'écran de table reste vu de dessus).
     watching ? h('span') : h('div', { class: 'push-row view-row' },
@@ -2248,11 +2274,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       })),
     // La planche BOUM : une page de BD à chaque bille renvoyée (on peut préférer rester sur le plateau).
     watching ? h('span') : boumRow(),
-    button('Reprendre', 'primary', closeSheet, { size: 'md', block: true }),
-    // Les règles et les derniers coups (aussi sous l'étiquette « Manche · Donne » du plateau).
-    h('div', { class: 'pause-duo' },
-      button('Règles', 'white', () => openRulesSheet(view.variants), { size: 'sm' }),
-      button('Derniers coups', 'white', () => { closeSheet(); toggleJournal(true); }, { size: 'sm' })),
+    !watching && reliefAvailable() ? reliefRow() : h('span'),
     src.local ? button('Recommencer la donne', 'white', () => { closeSheet(); src.restartDeal(); }, { size: 'md', block: true }) : h('span'),
     !src.local && !watching ? button('Afficher le plateau sur une tablette', 'white', () => { closeSheet(); openTableSheet(src.code); }, { size: 'md', block: true }) : h('span'),
     button(watching ? 'Fermer l’écran de table' : src.slow ? 'Revenir à l’accueil' : 'Quitter la partie', src.slow || watching ? 'white' : 'danger', () => { closeSheet(); o.onQuit(); }, { size: 'md', block: true }),
@@ -2420,6 +2442,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     el: root,
     cleanup: () => {
       disposed = true;
+      tilt3d?.stop();
       music(false);
       closeVictory();
       offRoom?.();
