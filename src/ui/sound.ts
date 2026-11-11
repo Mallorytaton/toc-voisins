@@ -2,7 +2,7 @@
 // Les navigateurs n'autorisent le son qu'après un toucher : unlockAudio() au premier geste.
 // Les vibrations ont leur palette à part (haptics.ts) ; leur interrupteur est ici, avec ceux du son.
 import { h } from './dom';
-import { canVibrate, haptic, hapticsOn, setHapticsOn } from './haptics';
+import { canHaptic, canTick, haptic, hapticsOn, setHapticsOn } from './haptics';
 
 export type Sfx = 'toc' | 'carte' | 'donne' | 'sortie' | 'maison' | 'echange' | 'elan' | 'boum' | 'roule' | 'moment' | 'tour' | 'victoire' | 'defaite';
 
@@ -308,6 +308,7 @@ export function soundSettings(): HTMLElement {
   return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
     row('Sons', 'Billes, cartes, BOUM, ton tour…', soundOn(), (v) => setPref(SOUND_KEY, v)),
     row('Musique', 'Pendant la partie, elle monte avec la tension.', musicOn(), (v) => setPref(MUSIC_KEY, v)),
-    // Seulement là où le téléphone sait vibrer pour une page web (pas sur iPhone).
-    canVibrate() && row('Vibrations', 'Tes gestes, tes billes, les BOUM.', hapticsOn(), (v) => { setHapticsOn(v); if (v) haptic('tour'); }));
+    // Là où le téléphone sait vibrer pour une page web ; sur iPhone, un simple tic sous le doigt, à allumer soi-même.
+    canHaptic() && row('Vibrations', canTick() ? 'Un petit tic sous le doigt à chaque geste (à l’essai sur iPhone).' : 'Tes gestes, tes billes, les BOUM.',
+      hapticsOn(), (v) => { setHapticsOn(v); if (v) haptic('tour'); }));
 }

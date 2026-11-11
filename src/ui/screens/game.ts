@@ -17,7 +17,7 @@ import { type Humeur, setHumeur } from '../kit/perso';
 import { boomFx } from '../board/boom';
 import { openRulesSheet } from './rules';
 import { music, musicTension, sfx, soundSettings } from '../sound';
-import { type Haptic, haptic } from '../haptics';
+import { type Haptic, canTick, haptic, tickUnder } from '../haptics';
 import { type MascotMood, mascot } from '../mascot';
 import { openTableSheet } from '../table-invite';
 import { allowLandscape } from '../orientation';
@@ -71,6 +71,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   let felt = { on: false, mine: false };
   /** Un instant du coup animé : pour celui qui le joue, et (also) pour celui dont une bille est concernée. */
   const feel = (name: Haptic, also = false) => { if (felt.on && (felt.mine || also)) haptic(name); };
+  /** iPhone : le tic du toucher sous chaque bouton redessiné avec la partie (arrivées du 7, choix, manette). */
+  const equip = () => {
+    if (canTick()) for (const box of [ghostLayer, choicePop, padPanel]) box.querySelectorAll<HTMLElement>('button').forEach((b) => tickUnder(b));
+  };
   // Plateau peint (boutique, à 4) : la photo du plateau, tournée pour que sa couleur soit en bas.
   const pg = !watching && N === 4 && lookOf(draftProfile().look).plateau === 'peint' ? paintedGeom(SEAT_COLORS[4][me]) : null;
   /** Le plateau dans son plan (trous, fonds teintés) ; `g`, plus bas, donne les mêmes positions vues à l'écran. */
@@ -471,7 +475,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   for (let s = 0; s < N; s++)
     for (let i = 0; i < 4; i++) {
       const inner = billeSkin(bille(SEAT_COLORS[N][s], { size: Z.ps }), lookOfSeat(s)?.bille);
-      const outer = h('div', { class: 'pawn', style: { width: Z.ps, height: Z.ps } }, inner);
+      const outer = tickUnder(h('div', { class: 'pawn', style: { width: Z.ps, height: Z.ps } }, inner));
       outer.addEventListener('click', () => onPawn({ s, i }));
       const shade = h('i', { class: 'pawn-shade' });
       pawnEls.set(`${s}.${i}`, { outer, inner, shade, y: 0, fx: 0, fy: 0 });
@@ -659,9 +663,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const emoteBtn = h('button', { class: 'btn-round btn-round--lg emote-btn', type: 'button', 'aria-label': 'Émotes', 'aria-expanded': 'false' },
     icon(ICONS.chat, 24, 2.8));
+  tickUnder(emoteBtn);
   const emotePop = h('div', { class: 'pop pop--emotes', hidden: true },
     // Les émojis seuls (sans texte) s'affichent en plus grand.
-    ...EMOTES.map((t) => h('button', { type: 'button', class: /\p{L}/u.test(t) ? undefined : 'pop__emoji', onclick: () => sendEmote(t) }, t)));
+    ...EMOTES.map((t) => tickUnder(h('button', { type: 'button', class: /\p{L}/u.test(t) ? undefined : 'pop__emoji', onclick: () => sendEmote(t) }, t))));
   // Chat de table (en ligne) : toute la table voit la conversation ; les messages des autres passent aussi en bulle.
   const chatList = h('div', { class: 'table-chat__list', 'aria-live': 'polite' });
   const chatInput = h('input', { class: 'table-chat__input', type: 'text', maxlength: 140, placeholder: 'Écrire à la table…', 'aria-label': 'Message à la table', enterkeyhint: 'send', autocomplete: 'off' }) as HTMLInputElement;
@@ -866,9 +871,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const hintT = h('b');
   const hintS = h('span');
   // « Une astuce ? » : propose un bon coup (le robot le choisit) sans le jouer à la place du joueur.
-  const tipBtn = h('button', { class: 'g-tip', type: 'button', onclick: () => suggest() }, 'Une astuce ?');
-  const resetSeven = h('button', { class: 'g-tip', type: 'button', onclick: () => { tap('touche'); chain = []; pick = null; render(); } }, 'Recommencer le partage');
-  const playBtn = button('Jouer !', 'primary', () => commit());
+  const tipBtn = tickUnder(h('button', { class: 'g-tip', type: 'button', onclick: () => suggest() }, 'Une astuce ?'));
+  const resetSeven = tickUnder(h('button', { class: 'g-tip', type: 'button', onclick: () => { tap('touche'); chain = []; pick = null; render(); } }, 'Recommencer le partage'));
+  const playBtn = tickUnder(button('Jouer !', 'primary', () => commit()));
   playBtn.classList.add('g-play');
   // Initiation : Toc, la mascotte, remplace la bulle d'émotes et réagit à chaque leçon.
   const coach = h('div', { class: 'g-coach', 'aria-hidden': 'true' });
@@ -1619,6 +1624,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
           render();
         },
       });
+      tickUnder(el);
       el.style.left = r1(STAGE_W / 2 - CARD_W / 2 + m * step) + 'px';
       el.style.top = (on ? 0 : r1(32 + Math.abs(m) * 10)) + 'px';
       el.style.transform = `rotate(${on ? 0 : r1(m * 6)}deg)`;
@@ -1885,11 +1891,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     playBtn.hidden = !label;
     if (label && playBtn.textContent !== label) {
       playBtn.textContent = label;
+      // Le texte remplacé a emporté l'interrupteur invisible du bouton (iPhone) : on le remet.
+      tickUnder(playBtn);
       playBtn.style.animation = 'none';
       void playBtn.offsetWidth;
       playBtn.style.animation = '';
     }
     renderJournal();
+    equip();
     syncTimer();
   };
 
@@ -1987,7 +1996,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const closed = new Promise<void>((r) => { done = r; });
     const react = !replaying && !src.initiation
       ? h('div', { class: 'g-boum__react' }, h('span', null, 'Réagis'),
-        ...['Bien joué !', 'Oh là là !', 'Aïe…'].map((t) => h('button', { type: 'button', onclick: (e: Event) => { e.stopPropagation(); sendEmote(t); done(); } }, t)))
+        ...['Bien joué !', 'Oh là là !', 'Aïe…'].map((t) => tickUnder(h('button', { type: 'button', onclick: (e: Event) => { e.stopPropagation(); sendEmote(t); done(); } }, t))))
       : null;
     const page = h('div', { class: 'g-boum' + (calm() ? ' g-boum--calm' : ''), onclick: () => done() },
       h('i', { class: 'g-boum__dots' }),

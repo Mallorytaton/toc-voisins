@@ -1,8 +1,9 @@
-// Le retour haptique de la partie : une petite palette de vibrations, une par geste ou par évènement.
-// Android : la vraie vibration du téléphone (durées en millisecondes).
-// iPhone : Safari ne laisse pas les apps web faire vibrer le téléphone. Il reste une astuce, bonne pour iOS 17.4 à 26.4
-// seulement (Apple l'a fermée ensuite) : pendant un toucher, basculer un interrupteur caché fait faire « tic » au
-// téléphone. On la tente, pour un à trois petits coups sous le doigt ; là où elle ne marche plus, il ne se passe rien.
+// Le retour haptique de la partie.
+// Android : la vraie vibration du téléphone, avec une petite palette de motifs, un par geste ou par évènement.
+// iPhone : Safari ne laisse pas les apps web faire vibrer le téléphone. Le seul retour possible est le « tic » que fait un
+// vrai interrupteur (<input type="checkbox" switch>) quand le doigt le bascule : tickUnder() en glisse un, invisible, sous
+// chaque geste de la partie. Un seul tic par toucher, toujours le même, et rien pour les évènements (ton tour, un BOUM) :
+// depuis iOS 26.5, un interrupteur basculé par le code ne fait plus rien.
 // Le réglage « Vibrations » (pause du jeu, Ton compte) coupe tout.
 
 /** Une vibration seule (ms), ou un motif : vibration, silence, vibration… */
@@ -52,8 +53,6 @@ export type Haptic = keyof typeof HAPTICS;
 export const lengthOf = (p: Pattern) => (typeof p === 'number' ? p : p.reduce((a, b) => a + b, 0));
 /** Force d'un motif : sa plus longue vibration. */
 export const strengthOf = (p: Pattern) => (typeof p === 'number' ? p : Math.max(...p.filter((_, i) => i % 2 === 0)));
-/** Nombre de petits coups pour un téléphone qui ne sait que faire « tic » : un par vibration du motif, trois au plus. */
-export const ticksOf = (p: Pattern) => (typeof p === 'number' ? 1 : Math.min(3, Math.ceil(p.length / 2)));
 
 /** Ce qui vibre en ce moment : jusqu'à quand, et avec quelle force. */
 export interface Busy { until: number; level: number }
@@ -69,47 +68,78 @@ export function admit(busy: Busy, p: Pattern, now: number): Busy | null {
 // ---------- Le téléphone ----------
 
 const KEY = 'toc.vibrations';
-export const hapticsOn = () => { try { return localStorage.getItem(KEY) !== '0'; } catch { return true; } };
-export function setHapticsOn(on: boolean) {
-  try { localStorage.setItem(KEY, on ? '1' : '0'); } catch { /* sans stockage, réglage pour cette visite */ }
-}
 /** Ce téléphone sait-il vibrer pour une page web ? (Android ; jamais l'iPhone) */
 export const canVibrate = () => typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
-/** Écran tactile qui ne sait pas vibrer pour une page web (iPhone) : on tente le « tic » de l'interrupteur. */
-const canTick = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-
 /**
- * Un « tic » sur iPhone : un interrupteur caché, basculé par son étiquette, puis retiré. Seulement pendant un toucher :
- * en dehors, le téléphone ne répond pas, et un faux clic n'a rien à faire dans la page.
+ * iPhone (Safari 17.4 et plus) : pas de vibration, mais un vrai interrupteur fait « tic » quand le doigt le bascule.
+ * Pas l'iPad, qui n'a pas de moteur pour ça.
  */
-function tick() {
-  try {
-    if (!navigator.userActivation?.isActive) return;
-    const label = document.createElement('label'), input = document.createElement('input');
-    label.setAttribute('aria-hidden', 'true');
-    label.style.display = 'none';
-    input.type = 'checkbox';
-    input.setAttribute('switch', '');
-    label.append(input);
-    document.head.append(label);
-    label.click();
-    label.remove();
-  } catch { /* pas de retour haptique sur ce téléphone */ }
+export const canTick = () => !canVibrate() && typeof navigator !== 'undefined' && /iPhone|iPod/.test(navigator.userAgent ?? '')
+  && typeof HTMLInputElement !== 'undefined' && 'switch' in HTMLInputElement.prototype;
+/** Ce téléphone peut-il rendre quelque chose sous le doigt ? */
+export const canHaptic = () => canVibrate() || canTick();
+/**
+ * Le réglage « Vibrations ». Allumé d'office là où le téléphone vibre. Sur iPhone, il faut l'allumer : le tic passe par
+ * des interrupteurs invisibles glissés sous le doigt, encore à l'essai.
+ */
+export const hapticsOn = () => {
+  let v: string | null = null;
+  try { v = localStorage.getItem(KEY); } catch { /* sans stockage : le réglage d'office */ }
+  return canTick() ? v === '1' : v !== '0';
+};
+export function setHapticsOn(on: boolean) {
+  try { localStorage.setItem(KEY, on ? '1' : '0'); } catch { /* sans stockage, rien n'est retenu */ }
+  syncTick();
 }
 
 let busy: Busy = { until: 0, level: 0 };
-/** Fait vibrer le téléphone pour ce geste ou cet évènement, si les vibrations ne sont pas coupées. */
+/** Fait vibrer le téléphone pour ce geste ou cet évènement (Android), si les vibrations ne sont pas coupées. */
 export function haptic(name: Haptic) {
-  if (!hapticsOn()) return;
+  if (!canVibrate() || !hapticsOn()) return;
   const p: Pattern = HAPTICS[name];
   const next = admit(busy, p, performance.now());
   if (!next) return;
-  if (canVibrate()) {
-    busy = next;
-    try { navigator.vibrate(typeof p === 'number' ? p : [...p]); } catch { /* refusée : rien à faire */ }
-  } else if (canTick()) {
-    busy = next;
-    tick();
-    for (let k = 1; k < ticksOf(p); k++) setTimeout(tick, k * 120);
-  }
+  busy = next;
+  try { navigator.vibrate(typeof p === 'number' ? p : [...p]); } catch { /* refusée : rien à faire */ }
+}
+
+// ---------- iPhone : le tic d'un vrai interrupteur ----------
+// Technique reprise des bibliothèques browser-haptic et @haptics/core (licence MIT), qui la disent vérifiée sur iOS 26.5 et 27.
+
+/** Les interrupteurs invisibles ne reçoivent les touchers que si le réglage est allumé (voir .tic dans kit.css). */
+function syncTick() {
+  if (typeof document !== 'undefined') document.documentElement.toggleAttribute('data-tic', canTick() && hapticsOn());
+}
+syncTick();
+
+/**
+ * iPhone : glisse sous ce bouton une étiquette invisible reliée à un vrai interrupteur. Le doigt touche l'étiquette, qui
+ * bascule l'interrupteur pour de bon (c'est ce qui fait « tic »), puis le toucher repart vers le bouton comme un clic
+ * ordinaire. Sans effet ailleurs, ni tant que le réglage est coupé (l'étiquette n'est alors pas affichée).
+ */
+export function tickUnder<T extends HTMLElement>(el: T): T {
+  if (!canTick() || el.querySelector(':scope > .tic')) return el;
+  const sw = document.createElement('input');
+  sw.type = 'checkbox';
+  sw.setAttribute('switch', '');
+  sw.tabIndex = -1;
+  const cover = document.createElement('label');
+  cover.className = 'tic';
+  cover.setAttribute('aria-hidden', 'true');
+  cover.append(sw);
+  cover.addEventListener('click', (e) => {
+    // Le clic que l'étiquette renvoie à son interrupteur remonte ici : ce n'est pas un toucher.
+    if (e.target !== cover) return;
+    e.stopPropagation();
+    if (el.matches(':disabled')) return void e.preventDefault();
+    // Un tour plus tard : le clic redessine souvent ce qu'on vient de toucher (la main, les choix), et un interrupteur
+    // retiré de la page avant d'avoir basculé ne ferait plus « tic ».
+    setTimeout(() => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })), 0);
+  });
+  const stop = (e: Event) => e.stopPropagation();
+  sw.addEventListener('click', stop);
+  sw.addEventListener('change', stop);
+  el.classList.add('tic-host');
+  el.append(cover);
+  return el;
 }

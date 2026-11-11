@@ -62,6 +62,14 @@
 .btn-round > svg { display: block; }
 .pause-bar { width: 5px; height: 16px; border-radius: 3px; background: var(--ink); margin-top: -3px; }
 
+/* ---- Retour haptique sur iPhone (src/ui/haptics.ts) ----
+   Une étiquette invisible couvre le bouton ; elle est reliée à un vrai interrupteur, que le doigt bascule en la touchant :
+   c'est lui qui fait « tic ». Affichée seulement quand le réglage « Vibrations » est allumé sur un iPhone (data-tic). */
+:where(.tic-host) { position: relative; }
+.tic { display: none; position: absolute; z-index: 2; inset: 0; margin: 0; padding: 0; opacity: 0; cursor: inherit; -webkit-tap-highlight-color: transparent; }
+:root[data-tic] .tic { display: block; }
+.tic > input { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); opacity: 0; -webkit-appearance: auto; appearance: auto; }
+
 /* ---- Interrupteur ---- */
 .switch {
   appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 54px; height: 32px; margin: 0;

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { HAPTICS, type Haptic, admit, lengthOf, strengthOf, ticksOf } from '../src/ui/haptics';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { HAPTICS, type Haptic, admit, canHaptic, canTick, canVibrate, hapticsOn, lengthOf, strengthOf } from '../src/ui/haptics';
 
 describe('retour haptique', () => {
   it('chaque motif alterne vibrations et silences, en durées raisonnables', () => {
@@ -32,13 +32,6 @@ describe('retour haptique', () => {
     for (let i = 0; i + 2 < p.length; i += 2) expect(p[i] + p[i + 1]).toBe(85);
   });
 
-  it('un téléphone qui ne sait que faire « tic » en fait un, deux ou trois', () => {
-    expect(ticksOf(HAPTICS.carte)).toBe(1);
-    expect(ticksOf(HAPTICS.tour)).toBe(2);
-    expect(ticksOf(HAPTICS.maison)).toBe(3);
-    expect(ticksOf(HAPTICS.donne)).toBe(3);
-  });
-
   it('un petit coup ne coupe pas une vibration plus forte en cours', () => {
     const idle = { until: 0, level: 0 };
     const boum = admit(idle, HAPTICS.aie, 1000)!;
@@ -53,5 +46,42 @@ describe('retour haptique', () => {
   it('un motif plus fort prend la place d’un plus léger : la bille se pose, puis le BOUM part aussitôt', () => {
     const pose = admit({ until: 0, level: 0 }, HAPTICS.pose, 500)!;
     expect(admit(pose, HAPTICS.boum, 500)).toEqual({ until: 650, level: 80 });
+  });
+});
+
+describe('retour haptique : ce que le téléphone permet, et le réglage d’office', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  /** Le réglage enregistré sur ce téléphone (null : le joueur n'a rien choisi). */
+  const stored = (v: string | null) => vi.stubGlobal('localStorage', { getItem: () => v, setItem: () => undefined });
+  /** Un navigateur qui connaît (ou non) le vrai interrupteur. */
+  const browser = (userAgent: string, o: { vibrate?: boolean; nativeSwitch?: boolean } = {}) => {
+    vi.stubGlobal('navigator', o.vibrate ? { userAgent, vibrate: () => true } : { userAgent });
+    vi.stubGlobal('HTMLInputElement', o.nativeSwitch ? class { get switch() { return false; } } : class {});
+  };
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1';
+
+  it('Android : le téléphone vibre ; allumé d’office, coupé si le joueur le coupe', () => {
+    browser('Mozilla/5.0 (Linux; Android 16; Pixel 9) Chrome/156.0 Mobile', { vibrate: true });
+    stored(null);
+    expect([canVibrate(), canTick(), hapticsOn()]).toEqual([true, false, true]);
+    stored('0');
+    expect(hapticsOn()).toBe(false);
+  });
+
+  it('iPhone : pas de vibration, mais le tic d’un vrai interrupteur ; coupé d’office, allumé si le joueur l’allume', () => {
+    browser(IPHONE, { nativeSwitch: true });
+    stored(null);
+    expect([canVibrate(), canTick(), hapticsOn()]).toEqual([false, true, false]);
+    stored('1');
+    expect(hapticsOn()).toBe(true);
+  });
+
+  it('iPhone trop ancien pour l’interrupteur, iPad (pas de moteur), ordinateur : rien', () => {
+    browser(IPHONE.replace('Version/26.5', 'Version/16.0'));
+    expect(canHaptic()).toBe(false);
+    browser('Mozilla/5.0 (iPad; CPU OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/26.5 Mobile/15E148 Safari/604.1', { nativeSwitch: true });
+    expect(canHaptic()).toBe(false);
+    browser('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/26.5 Safari/605.1.15', { nativeSwitch: true });
+    expect(canHaptic()).toBe(false);
   });
 });

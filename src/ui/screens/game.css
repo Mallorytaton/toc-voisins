@@ -192,6 +192,10 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .pawn > .bille { width: 100%; height: 100%; }
 .pawn--pick { cursor: pointer; }
 .pawn--pick::before { content: ''; position: absolute; inset: -11px; border-radius: 50%; }
+/* Retour haptique sur iPhone : une bille ne fait « tic » que si elle peut être choisie, sur toute sa zone de toucher ;
+   une carte, seulement quand c'est à toi (échange ou tour). */
+:root[data-tic] .pawn > .tic, :root[data-tic] .pcard--wait > .tic { display: none; }
+:root[data-tic] .pawn--pick > .tic { display: block; inset: -11px; border-radius: 50%; }
 .pawn--cand > .bille { box-shadow: 0 0 0 2.5px var(--jaune), 0 0 0 4.5px var(--ink); animation: tocBob .9s ease-in-out infinite; }
 /* BOUM : la bille renvoyée tournoie en l'air avant de retomber dans sa réserve. */
 .bille--ko { animation: tocKo .73s cubic-bezier(.3, .6, .4, 1); }
