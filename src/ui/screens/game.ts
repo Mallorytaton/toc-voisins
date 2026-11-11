@@ -21,6 +21,7 @@ import { type Haptic, canTick, haptic, tickUnder } from '../haptics';
 import { type MascotMood, mascot } from '../mascot';
 import { openTableSheet } from '../table-invite';
 import { allowLandscape } from '../orientation';
+import { type Pose, type Shape, closedFoldable, noteOpened, panes as foldPanes, pose as foldPose, shapeOf, watchFold } from '../fold';
 import { type Planche, type PlancheActor, type PlancheCase, burstEl, plancheEl, sharePlanche } from '../planche';
 
 const REPLIES = ['Aïe !', 'Tu vas voir…', 'Hahaha', 'Pas mal du tout', 'Sérieux ?'];
@@ -91,6 +92,31 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const mockView = () => N === 4 && !!tiltFor().deg && !pg && !watching;
   /** Vue de sa place : les billes dépassent un peu de leurs trous, comme sur la maquette (elles restent lisibles au fond). */
   const pawnBoost = () => (tiltFor().deg && !pg ? (N === 4 ? 1.2 : 1.1) : 1);
+  // Pliants (src/ui/fold.ts) : la tenue en cours ('' hors pliant) et la forme de la double page.
+  let fold: Exclude<Pose, 'phone'> | '' = '';
+  let foldShape: Shape = 'duo';
+  /** Ce que la case du plateau montre de la scène, dans le repère du plateau : les persos et les bulles n'en sortent pas. */
+  const PHONE_VIS = { x0: -BOARD_X, x1: 360 + BOARD_X, y0: -BOARD_Y, y1: STAGE_H - BOARD_Y };
+  let vis = PHONE_VIS;
+  /** Échelle de la scène dans la case du plateau (pliants). */
+  let foldScale = 1;
+  /**
+   * Où se tiennent les persos : dans les coins du plateau (téléphone, livre, clapet), dans les marges de la case
+   * (double page), ou nulle part quand chacun a sa fiche à côté du plateau (double page large, chevalet).
+   */
+  const avMode = (): 'coins' | 'marges' | 'fiches' =>
+    (fold === 'open' ? (foldShape === 'wide' ? 'fiches' : 'marges') : fold === 'tent' ? 'fiches' : 'coins');
+  /** Double page : les marges de la case, de part et d'autre du plateau (repère du plateau). */
+  const MARGIN_L = -26, MARGIN_R = 386;
+  /**
+   * Double page : les persos quittent le plateau pour les marges de la case, comme sur la maquette. À 4 : un adversaire
+   * de chaque côté, le partenaire au fond, juste à gauche de la pliure. Vue de dessus, le plateau monte jusqu'en haut
+   * de la case : le partenaire passe dans la marge de gauche.
+   */
+  const marginAvs = (avs: [number, number][]): [number, number][] => avs.map(([x, y], arm): [number, number] => {
+    if (N === 4) return ((tiltFor().deg ? [[149, 53], [MARGIN_R, 135], [x, y], [MARGIN_L, 189]] : [[MARGIN_L, 66], [MARGIN_R, 135], [x, y], [MARGIN_L, 222]]) as [number, number][])[arm];
+    return x < 120 ? [MARGIN_L, y] : x > 240 ? [MARGIN_R, y] : [Math.abs(x - 180) < 34 ? 146 : x, y];
+  });
   /**
    * Les positions vues à l'écran. Vue inclinée : les persos passent au fond et dans le coin proche (seatedAvs).
    * À 6, ton perso quitte le bout de son bras pour le coin proche, à gauche, comme à 4 : le milieu du bord reste
@@ -103,7 +129,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (N === 6 && !watching) avs = avs.map((p, k): [number, number] => (k === N / 2 ? (t.deg ? [24, 360] : [17, 357]) : p));
     return avs;
   };
-  const seen = () => tilted({ ...flat, avs: planeAvs() }, tiltFor());
+  const seen = () => {
+    const t = tilted({ ...flat, avs: planeAvs() }, tiltFor());
+    return avMode() === 'marges' ? { ...t, avs: marginAvs(t.avs) } : t;
+  };
   let g = seen();
   const tint = (s: number) => COL[SEAT_COLORS[N][s]];
   const nick = draftProfile().nick || 'Toi';
@@ -122,22 +151,17 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   /** Contenu de l'écran de fin : mis à l'échelle de tout l'écran (son fond, lui, couvre tout l'écran). */
   let victoryInner: HTMLElement | null = null;
 
-  // ---------- Pliants : deux volets ----------
-  // La scène se coupe en deux régions : le haut (barre, plateau) et le bas (indice, minuteur, main).
-  // Pliant à moitié plié : plateau en haut, main en bas, de part et d'autre de la pliure ;
-  // pliant en livre, ou ouvert et plus large que haut : côte à côte.
-  // Le bas est la même scène décalée : les coordonnées ne changent pas, rien n'est reconstruit.
+  // ---------- Mise en page ----------
+  // Téléphone : la scène entière, à l'échelle de l'écran. Téléphone couché (manette) : la scène coupée en deux régions,
+  // le haut (barre, billes à choisir) et le bas (consigne, minuteur, main), dans deux volets : le bas est la même scène
+  // décalée, les coordonnées ne changent pas, rien n'est reconstruit. Écran de table : le plateau et le journal.
+  // Pliants et tablettes (src/ui/fold.ts) : la grille de la maquette « TOC sur pliants », où la scène ne garde que le
+  // plateau (voir « Pliants : l'album ouvert », plus bas).
   const SPLIT_Y = 416;
   /** Journal de la partie, affiché en permanence sur l'écran de table. */
   const tableJournal = h('div', { class: 'table-journal', hidden: true });
   root.append(tableJournal);
   const LOW_H = 760 - SPLIT_Y;
-  /** Grand écran plus haut que large : consigne et cartes côte à côte, sur une rangée (scène deux fois plus large). */
-  const ROW_Y = 414, ROW_H = 206, ROW_W = 2 * 393;
-  /** Grand écran : la région du plateau descend jusqu'aux noms des persos du bas. */
-  const BOARD_H = 440;
-  /** Le chat suit la mise en page (rangé plus bas, une fois le chat construit). */
-  let layoutHook: (P: ReturnType<typeof panes>) => void = () => {};
   /** Écran de table : le plateau seul, des noms au-dessus des avatars du haut à ceux du bas (sans barre ni main). */
   const TABLE_Y = 26;
   const TABLE_H = 470;
@@ -147,6 +171,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   /** Éléments du bas (indice, minuteur, main), rangés dans le second volet quand il y en a deux. */
   const lowEls: HTMLElement[] = [];
   let layout = '';
+  /** Le chat suit la mise en page (rangé plus bas, une fois le chat construit). */
+  let layoutHook: () => void = () => {};
   type Box = { x: number; y: number; w: number; h: number };
   const probe = (css: string) => {
     const p = h('div');
@@ -157,11 +183,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     p.remove();
     return out;
   };
-  const segment = (i: number, j: number): Box =>
-    probe(`left:env(viewport-segment-left ${i} ${j});top:env(viewport-segment-top ${i} ${j});width:env(viewport-segment-width ${i} ${j});height:env(viewport-segment-height ${i} ${j})`);
-  const mqFlex = matchMedia('(vertical-viewport-segments: 2)');
-  const mqBook = matchMedia('(horizontal-viewport-segments: 2)');
-  const panes = (): { kind: string; a: Box; b?: Box; c?: Box; j?: Box } | null => {
+  /** La grille des pliants : montée plus bas, une fois les éléments de la partie créés. */
+  let foldUi: { mount: (on: boolean) => void; fit: (p: Exclude<Pose, 'phone'>) => void } | null = null;
+  const isFold = (k: string): k is Exclude<Pose, 'phone'> => k === 'open' || k === 'book' || k === 'tent' || k === 'flip';
+  const panes = (): { kind: string; a?: Box; b?: Box; j?: Box } | null => {
     const W = root.clientWidth, H = root.clientHeight;
     const sa = probe('padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)');
     const { t, b } = sa;
@@ -183,27 +208,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       return { kind: 'manette', a: { x: L, y: T, w: wa - 4, h: hh }, b: { x: L + wa + 4, y: T, w: w - wa - 4, h: hh } };
     }
     if (document.documentElement.dataset.rot) return null;
-    // Pliant à moitié plié (ou posture inconnue) : un volet de chaque côté de la pliure.
-    const posture = (navigator as Navigator & { devicePosture?: { type: string } }).devicePosture?.type;
-    if (posture !== 'continuous' && mqFlex.matches) return { kind: 'flex', a: clip(segment(0, 0)), b: clip(segment(0, 1)) };
-    if (posture !== 'continuous' && mqBook.matches) return { kind: 'book', a: clip(segment(0, 0)), b: clip(segment(1, 0)) };
-    // Grand écran (pliant ouvert à plat, tablette) : tout l'écran, charnière comprise.
-    if (matchMedia('(pointer: coarse)').matches && Math.min(W, H) >= 560) {
-      const f = clip({ x: sa.l, y: 0, w: W - sa.l - sa.r, h: H });
-      if (f.w >= f.h * 0.95) {
-        // Plus large que haut : le plateau à gauche, toute la hauteur ; à droite le chat, puis la consigne et les cartes.
-        const wb = Math.round(Math.min(400, Math.max(300, f.w * 0.38))), hb = Math.round(LOW_H * wb / STAGE_W);
-        const chat = !!src.chat && f.h - hb > 220;
-        return { kind: 'wide-side', a: { x: f.x, y: f.y, w: f.w - wb - 8, h: f.h },
-          b: { x: f.x + f.w - wb, y: chat ? f.y + f.h - hb : f.y + Math.round((f.h - hb) / 2), w: wb, h: hb },
-          c: chat ? { x: f.x + f.w - wb + 8, y: f.y + 10, w: wb - 16, h: f.h - hb - 18 } : undefined };
-      }
-      // Plus haut que large : le plateau en haut, toute la largeur ; dessous, la consigne et les cartes côte à côte.
-      const hb = Math.round(ROW_H * Math.min(1.15, f.w / ROW_W)), top = f.y + Math.round(f.h * 0.4);
-      return { kind: 'wide-stack', a: { x: f.x, y: f.y, w: f.w, h: f.h - hb }, b: { x: f.x, y: f.y + f.h - hb, w: f.w, h: hb },
-        c: { x: f.x + 12, y: top, w: f.w - 24, h: f.y + f.h - hb - 8 - top } };
-    }
-    return null;
+    // Pliant (grand ouvert, en livre, en chevalet, à clapet) ou tablette : la grille s'occupe de tout.
+    const p = foldPose();
+    return p === 'phone' ? null : { kind: p };
   };
   /** Montre la région [y0, y0 + hReg] de la scène `st`, centrée et à la plus grande échelle possible dans `fr`. */
   const showRegion = (st: HTMLElement, fr: HTMLElement, y0: number, hReg: number, wReg = STAGE_W) => {
@@ -219,8 +226,9 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (layout && (P?.kind === 'manette') !== (layout === 'manette')) requestAnimationFrame(() => { if (!disposed) render(); });
     const kind = P?.kind ?? 'phone';
     if (kind !== layout) {
-      // Plier, déplier : les éléments du bas changent de volet, la partie continue (carte choisie comprise).
-      (P?.b ? stage2 : stage).append(...lowEls);
+      // Plier, déplier, tourner : les éléments changent de place, la partie continue (carte choisie comprise).
+      if (isFold(kind) !== isFold(layout)) foldUi?.mount(isFold(kind));
+      if (!isFold(kind)) (P?.b ? stage2 : stage).append(...lowEls);
       frame2.hidden = !P?.b;
       root.dataset.layout = kind;
       if (layout) {
@@ -232,16 +240,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
     tableJournal.hidden = !P?.j;
     if (P?.j) tableJournal.style.cssText = `left:${P.j.x}px;top:${P.j.y}px;width:${P.j.w}px;height:${P.j.h}px`;
-    if (P) {
+    if (isFold(kind)) foldUi?.fit(kind);
+    else if (P?.a) {
       putFrame(frame, P.a);
-      const wide = P.kind === 'wide-side' || P.kind === 'wide-stack';
       if (P.kind === 'table') showRegion(stage, frame, TABLE_Y, TABLE_H - TABLE_Y);
-      else showRegion(stage, frame, 0, wide ? BOARD_H : SPLIT_Y);
-      stage2.classList.toggle('lowrow', P.kind === 'wide-stack');
+      else showRegion(stage, frame, 0, SPLIT_Y);
       if (P.b) {
         putFrame(frame2, P.b);
-        if (P.kind === 'wide-stack') showRegion(stage2, frame2, ROW_Y, ROW_H, ROW_W);
-        else showRegion(stage2, frame2, SPLIT_Y, LOW_H);
+        showRegion(stage2, frame2, SPLIT_Y, LOW_H);
       }
     } else {
       frame.style.cssText = '';
@@ -249,8 +255,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const s = Math.min(w / STAGE_W, ht / STAGE_H);
       stage.style.transform = `translate(${(w - STAGE_W * s) / 2}px,${Math.max(0, (ht - STAGE_H * s) / 2)}px) scale(${s})`;
     }
-    layoutHook(P);
-    if (victoryInner) {
+    layoutHook();
+    if (victoryInner && !victoryInner.dataset.pli) {
       const fr = victoryInner.parentElement!, w = fr.clientWidth, ht = fr.clientHeight;
       const s = Math.min(w / STAGE_W, ht / STAGE_H);
       victoryInner.style.transform = `translate(${(w - STAGE_W * s) / 2}px,${Math.max(0, (ht - STAGE_H * s) / 2)}px) scale(${s})`;
@@ -270,12 +276,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   }, ms));
   window.addEventListener('orientationchange', settle);
   screen.orientation?.addEventListener?.('change', settle);
-  mqFlex.addEventListener('change', fit);
-  mqBook.addEventListener('change', fit);
-  type Posture = EventTarget & { type: string };
-  const posture = (navigator as Navigator & { devicePosture?: Posture }).devicePosture;
-  posture?.addEventListener('change', fit);
-  window.addEventListener('resize', fit);
+  // On plie, on déplie, on redimensionne : la mise en page suit.
+  const unwatchFold = watchFold(() => { if (!disposed) fit(); });
 
   // Le fond de la case est le sol sur lequel le plateau est posé : ses rayons et ses trames le suivent (plateau en relief).
   const ground = h('div', { class: 'g-case__sol' }, h('i'), h('b'), h('b'));
@@ -307,7 +309,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const journalBtn = roundEl;
   // La barre, comme sur la maquette : la pause à gauche, le score des équipes à droite (à 6, il a trois cases et se resserre).
   // Les règles et les derniers coups sont aussi dans la pause.
-  stage.append(h('div', { class: 'g-top' + (N === 6 ? ' g-top--six' : '') }, pauseButton(() => openPause()), turnEl, scoreEl), roundEl, journal);
+  const gTop = h('div', { class: 'g-top' + (N === 6 ? ' g-top--six' : '') }, pauseButton(() => openPause()), turnEl, scoreEl);
+  stage.append(gTop, roundEl, journal);
 
   // ---------- Plateau ----------
   const board = h('div', { class: 'board' });
@@ -426,7 +429,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const tocPeek = () => {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const el = h('div', { class: 'toc-peek', 'aria-hidden': 'true' }, mascot('surpris', 84, 'buste'));
-    stage.append(el);
+    (fold ? stageTop : stage).append(el);
     const a = el.animate?.([
       { translate: '0 60px', opacity: 0 }, { translate: '0 0', opacity: 1, offset: 0.18 },
       { translate: '0 0', opacity: 1, offset: 0.82 }, { translate: '0 60px', opacity: 0 },
@@ -460,6 +463,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (themeMeta && themeBefore !== null) themeMeta.content = themeBefore;
     themeBefore = null;
   };
+  /** Les bandeaux (« À toi de jouer ! ») passent sous le plateau, sur la consigne ; sur un pliant, en travers du plateau. */
+  const bannerY = () => (fold ? BOARD_Y + 196 : 452);
   const fx = (layer: 'board' | 'screen', it: Fx) => {
     if (it.kind === 'float') it = { ...it, x: Math.min(300, Math.max(60, it.x)), y: Math.max(40, it.y) };
     playFx(layer === 'board' ? fxBoard : fxScreen, it);
@@ -550,8 +555,10 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const [, bot] = holesSpan();
     for (let s = 0; s < N; s++) {
       const [x0, y] = g.avs[armOf(N, me, s)], e = avEls[s], size = Z.av;
-      // Jamais hors de l'écran : un perso posé dans un coin reste entier (plateau peint, vue inclinée).
-      const x = watching ? x0 : Math.min(360 + BOARD_X - size / 2 - 5, Math.max(size / 2 + 5 - BOARD_X, x0));
+      const mode = avMode();
+      // Jamais hors de ce qu'on voit : un perso posé dans un coin reste entier (plateau peint, vue inclinée).
+      // Double page : il reste dans sa marge, même quand elle est étroite.
+      const x = watching ? x0 : mode === 'marges' ? Math.min(vis.x1 - 21, Math.max(vis.x0 + 21, x0)) : Math.min(vis.x1 - size / 2 - 5, Math.max(vis.x0 + size / 2 + 5, x0));
       e.root.style.left = r1(x - size / 2) + 'px';
       e.root.style.top = r1(y - size / 2) + 'px';
       const isMe = s === me && !watching;
@@ -559,7 +566,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       // à côté, vers le milieu (à 6, dessous : les persos des côtés sont au bout d'un bras).
       // Vue de la maquette : l'étiquette du partenaire part à sa gauche (sa bulle part à droite) ; celles des adversaires
       // se posent au-dessus d'eux, hors du plateau (dessous, elles couvriraient deux trous).
-      const side = mockView() ? (x < 110 ? 'over-start' : x > 250 ? 'over-end' : 'left')
+      const side = mode === 'marges' ? (x < 60 ? 'over-start' : x > 300 ? 'over-end' : 'left')
+        : mockView() ? (x < 110 ? 'over-start' : x > 250 ? 'over-end' : 'left')
         // Tout en haut à gauche (vue de dessus), l'étiquette part à droite du perso : au-dessus, le récitatif de la manche
         // la cacherait ; dessous, elle couvrirait la réserve.
         : y < 150 ? (x < 110 ? (y - size / 2 < 40 ? 'right' : 'over-start') : x > 250 ? 'over-end' : 'right')
@@ -597,10 +605,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     pawnLayer.style.setProperty('--hy', rest ? '0%' : r1(-y * 8) + '%');
     const avs = planeAvs();
     for (let s = 0; s < N; s++) {
-      if (!live) { avEls[s].root.style.translate = ''; continue; }
+      // Dans les marges de la double page, les persos ne sont pas posés sur le plateau : ils ne le suivent pas.
+      if (!live || avMode() !== 'coins') { avEls[s].root.style.translate = ''; continue; }
       const [ax, ay] = avs[armOf(N, me, s)], [x0, y0] = proj.at(ax, ay), [x1, y1] = live.at(ax, ay);
       // Un perso collé au bord de l'écran y reste : il ne sort pas du cadre en suivant le plateau.
-      const left = parseFloat(avEls[s].root.style.left) || 0, lo = 3 - BOARD_X - left, hi = 360 + BOARD_X - Z.av - 3 - left;
+      const left = parseFloat(avEls[s].root.style.left) || 0, lo = 3 + vis.x0 - left, hi = vis.x1 - Z.av - 3 - left;
       avEls[s].root.style.translate = `${r1(Math.min(Math.max(hi, 0), Math.max(Math.min(lo, 0), x1 - x0)))}px ${r1(y1 - y0)}px`;
     }
   };
@@ -625,18 +634,32 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
    */
   const bubble = (s: number, t: string, ms = 2200, long = false) => {
     if (s < 0) return;
-    const [x, y] = g.avs[armOf(N, me, s)], half = Z.av / 2;
+    // Une réaction s'ajoute au fil de la table des pliants (les messages du chat y arrivent par ailleurs).
+    if (!long) pushEmote(s, t);
     const mine = s === me && !watching;
+    const mode = avMode();
+    // Pliant : ton message est dans le fil de la table, sous ton pouce (ton perso n'est pas à l'écran) ;
+    // quand les joueurs ont leur fiche, la bulle se pose sous les fiches.
+    if (fold && mine) return;
+    if (fold && mode === 'fiches') return foldBubble(s, t, ms);
+    const [x, y] = g.avs[armOf(N, me, s)], half = Z.av / 2;
     const far = y < 180 && !mine;
     const b = h('div', { class: 'emote-bubble' + (long ? ' emote-bubble--chat' + (far ? '' : ' emote-bubble--line') : ''), 'data-seat': String(s), style: { '--c': tint(s).c } }, typo(t));
     bubbleLayer.querySelectorAll(`[data-seat="${s}"]`).forEach((n) => n.remove());
     bubbleLayer.append(b);
     const w = b.offsetWidth || 120, ht = b.offsetHeight || 34;
     const [top, bot] = holesSpan();
-    // Repère du cadre du plateau : l'écran va de -BOARD_X + 6 à 360 + BOARD_X - 6.
-    const lo = 6 - BOARD_X, hi = 360 + BOARD_X - 6 - w;
+    // Repère du cadre du plateau : sur téléphone, l'écran va de -BOARD_X + 6 à 360 + BOARD_X - 6.
+    const lo = vis.x0 + 6, hi = vis.x1 - 6 - w;
     let left: number, y0: number, tail: string;
-    if (mine) {
+    if (mode === 'marges') {
+      // Double page : la bulle se pose au-dessus des étiquettes du perso, dans sa marge. Celle du partenaire, au fond,
+      // part à sa gauche, par-dessus son étiquette : elle ne passe pas sur la pliure.
+      const beside = avEls[s].root.dataset.side === 'left';
+      left = beside ? x - half * 0.78 - 9 - w : x < 180 ? lo : hi;
+      y0 = beside ? y - ht / 2 : Math.max(vis.y0 + 2, y - 56 - ht);
+      tail = beside ? 'right' : x < 180 ? 'down' : 'down-end';
+    } else if (mine) {
       // Ton perso n'est pas à l'écran : ta bulle sort du bouton du chat, au coin sous le plateau, sur une seule ligne.
       left = lo;
       y0 = ACTIONS_Y - BOARD_Y - ht - 6;
@@ -703,31 +726,20 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const drawer = h('div', { class: 'chat-drawer', hidden: !drawerOn }, drawerBar, drawerPanel);
   if (drawerOn) drawerPanel.append(chatList, chatForm);
   let drawerOpen = false;
-  // Grand écran : le chat sort de la scène. Plus large que haut, une colonne toujours ouverte ; plus haut que large,
-  // une feuille qui s'ouvre depuis la barre, par-dessus le bas du plateau.
-  const sideStatus = h('span', { class: 'chat-drawer__status' });
-  const sideClose = h('button', { class: 'chat-drawer__close', type: 'button', 'aria-label': 'Replier le chat' }, h('i'));
-  const sideChat = h('div', { class: 'side-chat', hidden: true, role: 'complementary', 'aria-label': 'Chat de la table' },
-    h('div', { class: 'side-chat__head' }, h('b', null, 'Chat de la table'), sideStatus, sideClose));
-  root.append(sideChat);
-  const wideChat = () => layout === 'wide-side' || layout === 'wide-stack';
-  /** Le chat est-il sous les yeux ? (sinon les messages qui arrivent comptent comme pas lus) */
-  const chatVisible = () => (drawerOn ? layout === 'wide-side' || drawerOpen : !chatPop.hidden);
-  /** Range la liste et le champ du chat là où il s'affiche selon la mise en page. */
+  /** Le chat est-il sous les yeux ? (sinon les messages qui arrivent comptent comme pas lus) Sur un pliant, toujours : la table a sa place. */
+  const chatVisible = () => (fold ? true : drawerOn ? drawerOpen : !chatPop.hidden);
+  /** Range la liste et le champ du chat là où ils s'affichent selon la mise en page. */
   const homeChat = () => {
-    if (!drawerOn) chatPop.append(chatList, chatForm);
-    else if (wideChat()) sideChat.append(chatForm, chatList);
-    else drawerPanel.append(chatList, chatForm);
+    if (!drawerOn) return void chatPop.append(chatList, chatForm);
+    drawerPanel.append(chatList, chatForm);
+    // Pliant : le fil de la table y est redessiné à sa façon ; seul le champ de saisie change de place.
+    if (fold) pliSaisie.append(chatForm);
   };
   const syncDrawer = () => {
     if (!drawerOn) return;
-    const side = layout === 'wide-side', stack = layout === 'wide-stack';
-    sideChat.hidden = !(side || (stack && drawerOpen));
-    sideChat.classList.toggle('side-chat--sheet', stack);
-    drawerPanel.hidden = side || stack || !drawerOpen;
-    drawerBar.hidden = side || drawerOpen;
+    drawerPanel.hidden = !!fold || !drawerOpen;
+    drawerBar.hidden = !!fold || drawerOpen;
   };
-  sideClose.addEventListener('click', () => setDrawer(false));
   const setDrawer = (open: boolean, write = false) => {
     if (!drawerOn) return;
     drawerOpen = open;
@@ -753,14 +765,23 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   swipe(drawerBar, -1, () => setDrawer(true));
   swipe(drawerHead, 1, () => setDrawer(false));
-  // Pendant la saisie, le chat monte en haut de l'écran, au-dessus du clavier (téléphone en portrait).
-  // Pendant la saisie (téléphone, ou pliant tenu en hauteur) : le chat se cale dans la partie visible au-dessus du clavier.
+  // Pendant la saisie, sur téléphone : le chat monte en haut de l'écran, dans la partie visible au-dessus du clavier.
   // L'iPhone fait glisser la page pour montrer le champ : on suit la zone visible (visualViewport), rien n'est coupé.
   // On déplace le panneau, jamais le champ (le déplacer lui ferait perdre le clavier).
   let typing = false;
-  let chatBox: Box | undefined;
   const vv = window.visualViewport;
+  /** Pliant : pendant la saisie, toute la grille tient dans la partie de l'écran que le clavier laisse libre. */
+  const foldTyping = () => {
+    const on = !!fold && document.activeElement === chatInput;
+    const vTop = vv?.offsetTop ?? 0, vH = vv?.height ?? innerHeight;
+    const kbd = on && vH < innerHeight - 60;
+    root.classList.toggle('game--ecrit', kbd);
+    pli.style.top = kbd ? `${Math.round(vTop)}px` : '';
+    pli.style.height = kbd ? `${Math.round(vH)}px` : '';
+    fit();
+  };
   const placeTyping = () => {
+    if (fold) return foldTyping();
     if (!typing) return;
     const safeTop = probe('padding-top:env(safe-area-inset-top)').t;
     const vTop = vv?.offsetTop ?? 0, vH = vv?.height ?? innerHeight;
@@ -768,17 +789,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const kbd = vH < innerHeight * 0.8;
     const top = Math.max(vTop + 8, safeTop + 4);
     const bottom = kbd ? Math.max(top + 140, vTop + vH - 8) : top + Math.min(330, innerHeight * 0.42);
-    if (layout === 'wide-stack') {
-      sideChat.style.top = `${Math.round(top)}px`;
-      sideChat.style.height = `${Math.round(bottom - top)}px`;
-      return;
-    }
     const r = drawer.parentElement!.getBoundingClientRect(), k = r.width / STAGE_W;
     drawerPanel.style.top = `${(top - r.top) / k}px`;
     drawerPanel.style.height = `${(bottom - top) / k}px`;
   };
   const startTyping = () => {
-    if (typing || !drawerOpen || !(layout === 'phone' || layout === 'wide-stack')) return;
+    if (typing || !drawerOpen || layout !== 'phone') return;
     typing = true;
     drawer.classList.add('chat-drawer--typing');
     placeTyping();
@@ -791,19 +807,22 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     typing = false;
     drawer.classList.remove('chat-drawer--typing');
     drawerPanel.style.top = drawerPanel.style.height = '';
-    if (chatBox) sideChat.style.cssText = `left:${chatBox.x}px;top:${chatBox.y}px;width:${chatBox.w}px;height:${chatBox.h}px`;
   }
   vv?.addEventListener('resize', placeTyping);
   vv?.addEventListener('scroll', placeTyping);
   // L'iPhone peut aussi faire défiler toute la page : pendant la saisie, on la remet en place et on recale le chat.
   const onPageScroll = () => {
-    if (!typing) return;
+    if (!typing && !(fold && document.activeElement === chatInput)) return;
     if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) window.scrollTo(0, 0);
     placeTyping();
   };
   window.addEventListener('scroll', onPageScroll, true);
-  chatInput.addEventListener('focus', startTyping);
-  chatInput.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== chatInput) stopTyping(); }, 300));
+  chatInput.addEventListener('focus', () => (fold ? foldTyping() : startTyping()));
+  chatInput.addEventListener('blur', () => setTimeout(() => {
+    if (document.activeElement === chatInput) return;
+    stopTyping();
+    if (fold) foldTyping();
+  }, 300));
   chatForm.addEventListener('submit', () => { if (drawerOpen) chatInput.focus(); });
   let unread = 0;
   const renderChat = (lines: TableMsg[]) => {
@@ -811,6 +830,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       h('b', { style: { color: m.seat >= 0 ? COL[SEAT_COLORS[N][m.seat]].c : 'var(--ink-2)' } }, m.mine ? 'Toi' : m.name), h('span', null, typo(m.t))))
       : [h('span', { class: 'table-chat__empty' }, 'Personne n’a encore écrit. Lance la discussion !')]));
     chatList.scrollTop = chatList.scrollHeight;
+    chatFeed = lines.map((m) => ({ seat: m.seat, name: m.name, t: m.t, at: m.at, mine: m.mine }));
+    renderFeed();
     const last = lines[lines.length - 1];
     lastLine.classList.toggle('chat-drawer__last--empty', !last);
     lastLine.replaceChildren(...(last ? [h('b', { style: { color: last.seat >= 0 ? COL[SEAT_COLORS[N][last.seat]].d : 'var(--ink-2)' } }, last.mine ? 'Toi' : last.name), h('span', null, typo(last.t))]
@@ -820,6 +841,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     emotePop.hidden = !open;
     emoteBtn.setAttribute('aria-expanded', String(open));
     chatPop.hidden = !open || !src.chat || drawerOn;
+    // Pliant : le bouton ouvre aussi de quoi écrire à la table (en livre, le champ est toujours là).
+    const plume = open && !!fold && drawerOn;
+    root.classList.toggle('game--plume', plume);
+    if (plume && fold !== 'book') requestAnimationFrame(() => chatInput.focus({ preventScroll: true }));
+    else if (!open && fold && fold !== 'book') chatInput.blur();
     if (open && !drawerOn) { unread = 0; showUnread(); chatList.scrollTop = chatList.scrollHeight; }
   };
   /** Écran de fin : bouton « Discuter avec la table » et sa pastille. */
@@ -851,7 +877,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const closeOutside = (e: Event) => {
     if (emotePop.hidden) return;
     const t = e.target as Node;
-    if (!chatPop.contains(t) && !emotePop.contains(t) && !emoteBtn.contains(t)) setEmotes(false);
+    if (!chatPop.contains(t) && !emotePop.contains(t) && !emoteBtn.contains(t) && !pliSaisie.contains(t)) setEmotes(false);
   };
   document.addEventListener('pointerdown', closeOutside, true);
   const sendEmote = (t: string) => {
@@ -887,7 +913,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     coach.classList.add('g-coach--pop');
   };
   if (src.initiation) setCoach('content');
-  const actions = h('div', { class: 'g-actions' }, src.initiation ? coach : emoteBtn, h('div', { class: 'g-hint', 'aria-live': 'polite' }, hintT, hintS, tipBtn, resetSeven), playBtn);
+  const hintEl = h('div', { class: 'g-hint', 'aria-live': 'polite' }, hintT, hintS, tipBtn, resetSeven);
+  const actions = h('div', { class: 'g-actions' }, src.initiation ? coach : emoteBtn, hintEl, playBtn);
   // Minuteur : une mèche qui brûle vers la bombe ; l'étincelle suit le bout de la mèche.
   const timerBar = h('div', null, h('i', { class: 'g-timer__spark' }));
   /** Les secondes qui restent, au bout de la mèche */
@@ -899,15 +926,282 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   stage.append(actions, timerEl, hand);
   lowEls.push(actions, timerEl, hand, drawer);
   root.classList.toggle('with-drawer', drawerOn);
-  layoutHook = (P) => {
+  layoutHook = () => {
     if (!drawerOn) return;
-    chatBox = P?.c;
-    if (P?.c && !typing) sideChat.style.cssText = `left:${P.c.x}px;top:${P.c.y}px;width:${P.c.w}px;height:${P.c.h}px`;
-    const home = wideChat() ? sideChat : drawerPanel;
-    if (!endChat && chatList.parentElement !== home) homeChat();
-    if (layout === 'wide-side') { unread = 0; showUnread(); }
+    const home = fold ? pliSaisie : drawerPanel;
+    if (!endChat && chatForm.parentElement !== home) homeChat();
+    if (fold) { unread = 0; showUnread(); }
     syncDrawer();
   };
+
+  // ---------- Pliants : l'album ouvert (maquette « TOC sur pliants ») ----------
+  // Sur un pliant ou une tablette, la scène ne garde que le plateau : elle est posée dans une case de la grille, à son
+  // échelle. Le reste quitte la scène pour les autres cases, à taille réelle : l'en-tête (pause, score, manche), les
+  // fiches des joueurs, le fil des coups, les bavards (la table : messages et réactions) et la main (consigne, mèche,
+  // cartes, « Jouer ! »). Chaque tenue range ces blocs à sa façon (game-fold.css) :
+  //   grand ouvert : le plateau à cheval sur la pliure, les bavards sous le pouce gauche, la main sous le pouce droit ;
+  //   en livre     : une page de chaque côté, rien sur la pliure ;
+  //   en chevalet  : le plateau debout dans le volet du haut, la main à plat dans celui du bas ;
+  //   à clapet     : pareil, sur un écran de téléphone.
+  /** Les trois réactions sous le pouce (les autres sont derrière le bouton rond). */
+  const QUICK = ['Bien joué !', 'Oh là là !', 'Aïe…'];
+  const pliCase = h('div', { class: 'pli__case', 'aria-hidden': 'true' }, h('i'), h('b'), h('b'), h('u'));
+  const pliTete = h('div', { class: 'pli__tete' });
+  const pliPlateau = h('div', { class: 'pli__plateau' });
+  const pliJoueurs = h('div', { class: 'pli__joueurs' });
+  /** La bulle du dernier qui a parlé, sous les fiches (chevalet) */
+  const pliBulle = h('div', { class: 'pli__bulle', hidden: true });
+  const pliFilTitre = h('span', { class: 'pli__titre' });
+  const pliCoups = h('div', { class: 'pli__coups' });
+  const pliFil = h('div', { class: 'pli__fil' }, pliFilTitre, pliCoups);
+  type FoldTab = 'table' | 'fil';
+  let foldTab: FoldTab = 'table';
+  /** Chevalet, clapet : le fil des coups s'ouvre en fenêtre depuis l'étiquette de la manche. */
+  let filOpen = false;
+  const tabBtn = (id: FoldTab, label: string) => h('button', { class: 'pli__onglet', type: 'button', 'aria-pressed': String(id === foldTab), onclick: () => { tap('touche'); foldTab = id; syncFoldTab(); } }, label);
+  const tabTable = tabBtn('table', 'La table'), tabFil = tabBtn('fil', 'Le fil des coups');
+  const pliCompte = h('span', { class: 'pli__compte' });
+  const pliOnglets = h('div', { class: 'pli__onglets' }, tabTable, tabFil, pliCompte);
+  const pliFeed = h('div', { class: 'pli__feed', role: 'log', 'aria-label': 'La table' });
+  const pliBoite = h('div', { class: 'pli__boite' }, pliFeed);
+  const pliPuces = h('div', { class: 'pli__puces', hidden: !!src.initiation },
+    ...QUICK.map((t) => tickUnder(h('button', { class: 'pli__puce', type: 'button', onclick: () => sendEmote(t) }, t))));
+  const pliSaisie = h('div', { class: 'pli__saisie' });
+  const pliBavards = h('div', { class: 'pli__bavards' }, pliOnglets, pliBoite, pliPuces, pliSaisie);
+  const pliRecit = h('div', { class: 'pli__recit' });
+  const pliCartes = h('div', { class: 'pli__cartes' });
+  const pliActions = h('div', { class: 'pli__actions' });
+  const pliMain = h('div', { class: 'pli__main' }, pliRecit, pliCartes, pliActions);
+  /** Ce qui passe par-dessus toute la grille (carte qui vole, bandeaux, messages, moments forts) : une seconde scène, calée sur la première. */
+  const stageTop = h('div', { class: 'game__stage' });
+  const pliDessus = h('div', { class: 'pli__dessus' }, stageTop);
+  const pli = h('div', { class: 'pli', hidden: true }, h('i', { class: 'pli__pliure', 'aria-hidden': 'true' }), pliCase, pliTete, pliJoueurs, pliPlateau, pliFil, pliBavards, pliMain, pliDessus);
+  root.append(pli);
+
+  // La table : les messages du chat (en ligne) et les réactions, du plus ancien au plus récent.
+  interface FeedLine { seat: number; name: string; t: string; at: number; mine: boolean }
+  let chatFeed: FeedLine[] = [];
+  const emoteFeed: FeedLine[] = [];
+  const pushEmote = (s: number, t: string) => {
+    emoteFeed.push({ seat: s, name: nameOf(s), t, at: Date.now(), mine: s === me && !watching });
+    if (emoteFeed.length > 24) emoteFeed.shift();
+    renderFeed();
+  };
+  const renderFeed = () => {
+    if (!fold) return;
+    const lines = [...chatFeed, ...emoteFeed].sort((a, b) => a.at - b.at).slice(-24);
+    pliFeed.replaceChildren(...(lines.length
+      ? lines.map((m) => h('div', { class: 'pli__msg' },
+        m.seat >= 0 ? avatar(avEls[m.seat].char, avEls[m.seat].color, 30, m.mine ? 'malin' : 'content') : h('i'),
+        h('span', null, h('b', null, m.mine ? 'Toi' : m.name), ' ' + typo(m.t))))
+      : [h('span', { class: 'pli__vide' }, src.chat ? 'La table est bien calme. Lance la discussion !' : 'Les réactions de la table s’affichent ici.')]));
+    pliFeed.scrollTop = pliFeed.scrollHeight;
+    const here = src.players.filter((p, k) => k === me || p.bot || p.online).length;
+    pliCompte.textContent = `${here} à table · ${lines.length} message${lines.length > 1 ? 's' : ''}`;
+  };
+  let bulleTimer = 0;
+  /** Chevalet : la bulle de celui qui parle, sous les fiches (jamais sur le plateau). */
+  const foldBubble = (s: number, t: string, ms: number) => {
+    clearTimeout(bulleTimer);
+    pliBulle.replaceChildren(h('b', { style: { color: tint(s).d } }, nameOf(s)), ' ' + typo(t.length > 44 ? t.slice(0, 43) + '…' : t));
+    pliBulle.hidden = false;
+    bulleTimer = window.setTimeout(() => { pliBulle.hidden = true; }, ms);
+  };
+
+  // Les fiches des joueurs (double page large, livre, chevalet) : dans l'ordre du tour, à partir de celui qui joue après toi.
+  const ficheEls = new Map<number, { root: HTMLElement; face: HTMLElement; cards: HTMLElement; dots: HTMLElement; chip: HTMLElement }>();
+  for (let k = 1; k < N; k++) {
+    const s = (me + k) % N;
+    const face = avatar(avEls[s].char, avEls[s].color, 44);
+    const cards = h('span', { class: 'pli__fiche-cartes' });
+    const dots = h('span', { class: 'pli__fiche-billes' }, h('i'), h('i'), h('i'), h('i'));
+    const chip = h('em', { hidden: true });
+    const rootF = h('div', { class: 'pli__fiche', style: { '--c': tint(s).c, '--d': tint(s).d, '--l': tint(s).l } }, face, h('div', null, h('b', null, nameOf(s)), cards, dots, chip));
+    ficheEls.set(s, { root: rootF, face, cards, dots, chip });
+    pliJoueurs.append(rootF);
+  }
+  pliJoueurs.append(pliBulle);
+
+  // Le fil des coups : les derniers coups joués, puis à qui le tour.
+  let filKey = '';
+  const renderFil = () => {
+    if (!fold) return;
+    const round = `Manche ${Math.floor(view.dealNo / 3) + 1} · Donne ${(view.dealNo % 3) + 1}`;
+    pliFilTitre.textContent = fold === 'book' ? `${round} · Le fil des coups` : 'Le fil des coups';
+    const moves = view.log.filter((e) => e.card || /défausse/.test(e.text)).slice(-(fold === 'book' ? 3 : 4));
+    const turn = view.phase === 'play' ? view.turn : -1;
+    const key = [fold, foldShape, view.dealNo, view.phase, turn, ...moves.map((e) => `${e.seat}${e.card}${e.text}`)].join('|');
+    if (key === filKey) return;
+    filKey = key;
+    pliCoups.replaceChildren(
+      ...moves.map((e) => {
+        const c = e.card ? cardLook(e.card, view.variants) : null;
+        return h('div', { class: 'pli__coup' },
+          avatar(avEls[e.seat].char, avEls[e.seat].color, 28),
+          h('span', null, h('b', null, nameOf(e.seat)), ' ' + logText(e.text, e.seat)),
+          c && h('em', { style: { color: c.k === 'X' ? 'var(--violet-d)' : c.red ? 'var(--card-red)' : 'var(--ink)' } }, c.r));
+      }),
+      ...(moves.length ? [] : [h('span', { class: 'pli__vide' }, 'Aucun coup pour l’instant.')]),
+      ...(turn >= 0 ? [h('div', { class: 'pli__coup pli__coup--tour' },
+        avatar(avEls[turn].char, avEls[turn].color, 28, 'concentre'),
+        h('span', null, turn === me && !watching ? 'À toi de jouer !' : `${nameOf(turn)} réfléchit…`))] : []),
+      h('span', { class: 'pli__pioche' }, deckText()));
+  };
+  /** Qui montre le fil des coups : un onglet des bavards (double page), une fenêtre (chevalet, clapet), sinon il a sa place. */
+  const syncFoldTab = () => {
+    const tabs = fold === 'open' && foldShape === 'duo', pop = fold === 'tent' || fold === 'flip';
+    const fil = tabs && foldTab === 'fil';
+    tabTable.setAttribute('aria-pressed', String(!fil));
+    tabFil.setAttribute('aria-pressed', String(fil));
+    tabFil.hidden = !tabs;
+    pliFeed.hidden = fil;
+    pliFil.hidden = tabs ? !fil : pop && !filOpen;
+    pliFil.classList.toggle('pli__fil--fenetre', pop);
+    roundEl.setAttribute('aria-expanded', String(tabs ? fil : pop && filOpen));
+  };
+  /** L'étiquette de la manche (ou « Derniers coups », dans la pause) montre le fil des coups. */
+  const foldJournal = (open?: boolean) => {
+    if (fold === 'open' && foldShape === 'duo') foldTab = open ?? foldTab !== 'fil' ? 'fil' : 'table';
+    else filOpen = open ?? !filOpen;
+    syncFoldTab();
+  };
+
+  // La main sur un pliant : des cartes à plat, en rangées, dans un cadre mis à l'échelle de sa case.
+  const HAND_GAP = 12, HAND_LIFT = 22, CARD_H = 142;
+  const handGrid = (n: number) => {
+    // Trois volets : la main tient dans le volet de droite, sur deux rangées.
+    const per = fold === 'open' && foldShape === 'trio' ? 3 : Math.max(5, n);
+    const rows = Math.max(1, Math.ceil(n / per));
+    return { per, rows, bw: per * CARD_W + (per - 1) * HAND_GAP, bh: rows * CARD_H + (rows - 1) * HAND_GAP + HAND_LIFT };
+  };
+  /** Le coin haut gauche de la carte i d'une main de n cartes (repère du cadre de la main) ; `on` : la carte choisie, qui sort du rang. */
+  const handSpot = (i: number, n: number, on = false): [number, number] => {
+    const { per, bw } = handGrid(n);
+    const row = Math.floor(i / per), inRow = Math.min(per, n - row * per);
+    const x0 = (bw - (inRow * CARD_W + (inRow - 1) * HAND_GAP)) / 2;
+    return [x0 + (i - row * per) * (CARD_W + HAND_GAP), row * (CARD_H + HAND_GAP) + (on ? 0 : HAND_LIFT)];
+  };
+  let handRows = 1;
+  const fitHand = () => {
+    const { bw, bh, rows } = handGrid(myHand().length);
+    handRows = rows;
+    // Plié à l'horizontale, la main tient dans le volet du bas : sur un écran court, les cartes rapetissent plutôt que de déborder.
+    const low = fold === 'flip' || fold === 'tent' ? root.clientHeight - (foldPanes(fold)?.[1].y ?? root.clientHeight / 2) : 0;
+    const room = fold === 'flip' ? low - 302 : fold === 'tent' ? low - 170 : Infinity;
+    const k = Math.max(0.4, Math.min(pliCartes.clientWidth / bw, room / (bh + 6), fold === 'tent' ? 1.05 : 0.8));
+    hand.style.width = bw + 'px';
+    hand.style.height = bh + 'px';
+    hand.style.setProperty('--hk', k.toFixed(4));
+    // La rangée réserve la place de la main à son échelle (l'étoile de la carte choisie dépasse un peu au-dessus, comme sur la maquette).
+    pli.style.setProperty('--ch', Math.round((bh + 6) * k) + 'px');
+    hand.style.left = r1(Math.max(0, (pliCartes.clientWidth - bw * k) / 2)) + 'px';
+    hand.style.top = Math.round(6 * k) + 'px';
+  };
+  /** Un point de l'écran, dans le repère de la scène. */
+  const toStage = (cx: number, cy: number): [number, number] => {
+    const r = stage.getBoundingClientRect(), k = r.width / STAGE_W || 1;
+    return [(cx - r.left) / k, (cy - r.top) / k];
+  };
+  /**
+   * La région de la scène que montre la case du plateau : largeur, hauteur et hauteur de son milieu (unités de la scène).
+   * Dans les coins : comme sur le téléphone, le partenaire au-dessus du bord du fond. Dans les marges : le plateau et de
+   * quoi loger un perso de chaque côté. Avec les fiches : le plateau seul.
+   */
+  const foldRegion = () => {
+    const seated = !!tiltFor().deg;
+    if (avMode() === 'coins') return { w: STAGE_W, h: seated ? 328 : 340, cy: BOARD_Y + (seated ? 176 : 180) };
+    if (avMode() === 'fiches') return { w: 372, h: seated ? 292 : 322, cy: BOARD_Y + (seated ? 208 : 181) };
+    return { w: 470, h: seated ? 300 : 326, cy: BOARD_Y + (seated ? 195 : 181) };
+  };
+  const mountFold = (on: boolean) => {
+    pli.hidden = !on;
+    root.classList.toggle('game--pli', on);
+    if (on) {
+      pliTete.append(gTop, roundEl);
+      pliPlateau.append(frame);
+      pliRecit.append(...(src.initiation ? [coach] : []), hintEl);
+      pliActions.append(tipBtn, resetSeven, playBtn);
+      pliCartes.append(hand);
+      pliMain.insertBefore(timerEl, pliCartes);
+      pliMain.append(choicePop);
+      stageTop.append(fxScreen, toastBox);
+      if (!src.initiation) pliPuces.append(emoteBtn, emotePop);
+      frame.style.cssText = '';
+      toggleJournal(false);
+      setDrawer(false);
+      return;
+    }
+    // On referme le pliant : tout retourne dans la scène, à ses cotes de téléphone.
+    fold = '';
+    foldScale = 1;
+    vis = PHONE_VIS;
+    filOpen = false;
+    delete root.dataset.avs;
+    root.classList.remove('game--ecrit', 'game--plume');
+    pli.style.top = pli.style.height = '';
+    root.prepend(frame);
+    stage.append(gTop, roundEl, fxScreen, toastBox, emotePop, choicePop);
+    hintEl.append(tipBtn, resetSeven);
+    actions.append(src.initiation ? coach : emoteBtn, hintEl, playBtn);
+    pliBavards.append(pliBoite, pliPuces, pliSaisie);
+    for (const p of ['width', 'height', 'left', 'top', '--hk']) hand.style.removeProperty(p);
+    handHalo.style.top = '';
+    root.style.removeProperty('--u');
+    root.style.removeProperty('--bas');
+    roundEl.setAttribute('aria-expanded', 'false');
+    setEmotes(false);
+    homeChat();
+    retilt();
+  };
+  const fitFold = (p: Exclude<Pose, 'phone'>) => {
+    const shape: Shape = p === 'open' ? shapeOf(root.clientWidth, root.clientHeight) : 'duo';
+    const changed = p !== fold || shape !== foldShape;
+    fold = p;
+    foldShape = shape;
+    pli.dataset.tenue = p;
+    pli.dataset.forme = shape;
+    pli.style.setProperty('--teams', String(N / 2));
+    root.dataset.avs = avMode();
+    // Ce téléphone montre la double page : refermé, il saura dire « Déplie-moi ».
+    if (p !== 'flip') noteOpened();
+    // Plié : chaque volet a sa place de part et d'autre de la pliure, rien d'important dessus.
+    const two = foldPanes(p);
+    pli.style.setProperty('--pa', two ? `${Math.round(p === 'book' ? two[0].x + two[0].w : two[0].y + two[0].h)}px` : '50%');
+    pli.style.setProperty('--pb', two ? `${Math.round(p === 'book' ? two[1].x : two[1].y)}px` : '50%');
+    const filHome = p === 'open' && shape === 'duo' ? pliBoite : p === 'open' && shape === 'trio' ? pliMain : pli;
+    if (pliFil.parentElement !== filHome) {
+      if (filHome === pliMain) pliMain.insertBefore(pliFil, pliActions);
+      else filHome.append(pliFil);
+    }
+    // Chevalet : les réactions, le dernier message et le champ de saisie rejoignent la main, dans le volet du bas ;
+    // le bouton rond s'y range au bout du dernier message.
+    const low = p === 'tent' ? pliMain : pliBavards;
+    if (pliBoite.parentElement !== low) low.append(pliBoite, pliPuces, pliSaisie);
+    const btnHome = p === 'tent' ? pliBoite : pliPuces;
+    if (!src.initiation && emoteBtn.parentElement !== btnHome) btnHome.append(emoteBtn, emotePop);
+    if (changed) filOpen = false;
+    syncFoldTab();
+    fitHand();
+    const cw = pliPlateau.clientWidth, ch = pliPlateau.clientHeight;
+    if (!cw || !ch) return;
+    const R = foldRegion();
+    const S = Math.min(cw / R.w, ch / R.h);
+    const tx = cw / 2 - (STAGE_W / 2) * S, ty = ch / 2 - R.cy * S;
+    foldScale = S;
+    stage.style.transform = stageTop.style.transform = `translate(${r1(tx)}px,${r1(ty)}px) scale(${S.toFixed(4)})`;
+    root.style.setProperty('--u', (1 / S).toFixed(4));
+    root.style.setProperty('--bas', r1((ch - ty) / S) + 'px');
+    vis = { x0: -tx / S - BOARD_X, x1: (cw - tx) / S - BOARD_X, y0: -ty / S - BOARD_Y, y1: (ch - ty) / S - BOARD_Y };
+    if (changed) {
+      filKey = '';
+      retilt();
+      renderFeed();
+    } else {
+      g = seen();
+      placeAvatars();
+    }
+  };
+  foldUi = { mount: mountFold, fit: fitFold };
 
   // ---------- Sélection ----------
   let sel: number | null = null;
@@ -1384,17 +1678,23 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       }) : [h('span', { class: 't-body' }, 'Aucun coup pour l’instant.')];
   };
   const renderJournal = () => {
+    renderFil();
     if (journal.hidden) return;
     journal.replaceChildren(h('span', { class: 't-label' }, 'Les 4 derniers coups'), h('span', { class: 'g-deck-line' }, deckText()), ...journalRows(4));
   };
-  const toggleJournal = (open = journal.hidden) => {
+  const toggleJournal = (want?: boolean) => {
+    // Pliant : le fil des coups a sa place dans la grille (un onglet, une colonne ou une fenêtre).
+    if (fold) return foldJournal(want);
+    const open = want ?? !!journal.hidden;
     journal.hidden = !open;
     journalBtn.setAttribute('aria-expanded', String(open));
     renderJournal();
   };
   // Un toucher ailleurs referme le journal.
   const closeJournalOutside = (e: Event) => {
-    if (!journal.hidden && !journal.contains(e.target as Node) && !journalBtn.contains(e.target as Node)) toggleJournal(false);
+    const t = e.target as Node;
+    if (fold) { if (filOpen && !pliFil.contains(t) && !journalBtn.contains(t)) foldJournal(false); }
+    else if (!journal.hidden && !journal.contains(t) && !journalBtn.contains(t)) toggleJournal(false);
   };
   document.addEventListener('pointerdown', closeJournalOutside, true);
 
@@ -1558,6 +1858,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const renderMoods = () => {
     for (let s = 0; s < N; s++) setHumeur(avEls[s].face, avEls[s].char, avEls[s].color, moodOf(s), { flip: avEls[s].flip });
+    if (fold) ficheEls.forEach((f, s) => setHumeur(f.face, avEls[s].char, avEls[s].color, moodOf(s)));
   };
 
   const renderAvatars = () => {
@@ -1581,6 +1882,20 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       e.cards.textContent = ` · ${view.hands[s]?.length ?? 0}`;
       e.root.classList.toggle('seat-av--off', !src.players[s].online && !src.players[s].bot && (watching || s !== me));
       rpads[s].classList.toggle('pad--glow', active);
+      // Pliant : la fiche du joueur dit la même chose (ses cartes, ses billes rentrées, son tour).
+      const f = fold ? ficheEls.get(s) : undefined;
+      if (f) {
+        const n = view.hands[s]?.length ?? 0, home = view.pawns[s].filter((pw) => inHome(N, pw.p)).length;
+        f.cards.textContent = `${n} carte${n > 1 ? 's' : ''}`;
+        f.dots.setAttribute('aria-label', `${home} bille${home > 1 ? 's' : ''} rentrée${home > 1 ? 's' : ''}`);
+        [...f.dots.children].forEach((d, k) => d.classList.toggle('on', k < home));
+        const tag = label || (s === partner(N, me) ? 'Avec toi' : '');
+        f.chip.textContent = tag;
+        f.chip.hidden = !tag;
+        f.chip.classList.toggle('doux', !label);
+        f.root.classList.toggle('pli__fiche--tour', active);
+        f.root.classList.toggle('pli__fiche--off', !src.players[s].online && !src.players[s].bot);
+      }
     }
     renderMoods();
   };
@@ -1608,8 +1923,16 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     // Éventail : les cartes se serrent quand la main est pleine, la carte choisie sort du rang.
     const step = n > 1 ? Math.min(64, (STAGE_W - 28 - CARD_W) / (n - 1)) : 0;
     const mid = sel ?? (n - 1) / 2;
+    // Pliant : les cartes sont à plat, en rangées (handSpot) ; la carte choisie sort du rang, son étoile derrière elle.
+    const flatRow = !!fold;
     handHalo.hidden = sel === null || !active;
-    if (sel !== null) handHalo.style.left = r1(STAGE_W / 2 - CARD_W / 2 + (sel - (n - 1) / 2) * step - 24) + 'px';
+    if (sel !== null && flatRow) {
+      const [hx, hy] = handSpot(sel, n, true);
+      handHalo.style.left = r1(hx - 24) + 'px';
+      handHalo.style.top = r1(hy - 22) + 'px';
+    } else if (sel !== null) handHalo.style.left = r1(STAGE_W / 2 - CARD_W / 2 + (sel - (n - 1) / 2) * step - 24) + 'px';
+    // La main change de nombre de rangées (trois volets) : la grille se recale.
+    if (flatRow && handGrid(n).rows !== handRows) requestAnimationFrame(() => { if (!disposed) fit(); });
     hand.replaceChildren(handHalo, ...cards.map((card, i) => {
       const dead = playable.size > 0 && !playable.has(card);
       const m = i - (n - 1) / 2, on = sel === i;
@@ -1625,15 +1948,23 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         },
       });
       tickUnder(el);
-      el.style.left = r1(STAGE_W / 2 - CARD_W / 2 + m * step) + 'px';
-      el.style.top = (on ? 0 : r1(32 + Math.abs(m) * 10)) + 'px';
-      el.style.transform = `rotate(${on ? 0 : r1(m * 6)}deg)`;
-      // Le pouvoir de la carte s'écrit du côté qui dépasse de l'éventail : il reste lisible sous la carte voisine.
-      el.dataset.side = i < mid ? 'start' : i > mid ? 'end' : '';
+      if (flatRow) {
+        const [hx, hy] = handSpot(i, n, on);
+        el.style.left = r1(hx) + 'px';
+        el.style.top = r1(hy) + 'px';
+        el.style.transform = 'none';
+        el.style.zIndex = on ? '20' : '12';
+      } else {
+        el.style.left = r1(STAGE_W / 2 - CARD_W / 2 + m * step) + 'px';
+        el.style.top = (on ? 0 : r1(32 + Math.abs(m) * 10)) + 'px';
+        el.style.transform = `rotate(${on ? 0 : r1(m * 6)}deg)`;
+        // Le pouvoir de la carte s'écrit du côté qui dépasse de l'éventail : il reste lisible sous la carte voisine.
+        el.dataset.side = i < mid ? 'start' : i > mid ? 'end' : '';
+        // Les cartes se recouvrent vers l'extérieur : le rang reste lisible dans un coin de chacune.
+        el.style.zIndex = String(on ? 20 : 12 - Math.round(Math.abs(i - mid) * 2));
+      }
       // Le 7 choisi annonce son partage en toutes lettres (son bandeau n'est plus recouvert par la carte voisine).
       if (on && rankOf(card) === '7') el.querySelector('.pcard__badge')!.textContent = '+7 partagé';
-      // Les cartes se recouvrent vers l'extérieur : le rang reste lisible dans un coin de chacune.
-      el.style.zIndex = String(on ? 20 : 12 - Math.round(Math.abs(i - mid) * 2));
       el.classList.toggle('pcard--wait', !active);
       el.classList.toggle('pcard--dead', active && dead && !on);
       const ls = sel === null ? currentLesson() : null;
@@ -1767,7 +2098,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   };
   const render = () => {
     renderRematch();
-    if (drawerOn) drawerStatus.textContent = sideStatus.textContent = view.phase === 'play' ? (view.turn === me ? '· À toi de jouer' : `· ${nameOf(view.turn)} réfléchit…`)
+    if (drawerOn) drawerStatus.textContent = view.phase === 'play' ? (view.turn === me ? '· À toi de jouer' : `· ${nameOf(view.turn)} réfléchit…`)
       : view.phase === 'exchange' ? '· Échange des cartes' : '';
     renderTop();
     renderAvatars();
@@ -1937,7 +2268,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
         hit.length ? h('span', { class: 'g-moment__who g-moment__who--hit' }, avatar(avEls[hit[0]].char, avEls[hit[0]].color, 84, 'ko', { flip: true })) : null,
         h('span', { class: 'g-moment__word' + (t.length > 10 ? ' g-moment__word--long' : '') }, t)),
       text ? h('div', { class: 'g-moment__text' }, text) : null);
-    stage.append(el);
+    (fold ? stageTop : stage).append(el);
     // La case claque (elle dépasse un peu, puis se pose), tient le temps d'être lue, puis retombe.
     if (!calm()) el.animate?.([
       { transform: 'translateY(60px) scale(.6) rotate(4deg)', opacity: 0, easing: 'cubic-bezier(.2,.9,.3,1)' },
@@ -1953,7 +2284,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   /** Réglage « Planche BOUM » (dans la pause) : une page de BD plein écran à chaque bille renvoyée. */
   const boumPref = () => { try { return localStorage.getItem(BOUM_KEY) !== 'non'; } catch { return true; } };
   /** La page est composée pour la scène du téléphone ; ailleurs (pliant, tablette, manette, écran de table), la case sous le plateau suffit. */
-  const boumPageOn = () => boumPref() && !watching && layout === 'phone' && !manette();
+  const boumPageOn = () => boumPref() && !watching && (layout === 'phone' || layout === 'open') && !manette();
   /** Étoile d'explosion aux pointes irrégulières (toujours les mêmes : pas de hasard). */
   const wobBurst = (n: number, inner: number, rot: number, wob: number) => {
     const pts: string[] = [];
@@ -1974,9 +2305,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
    * dans sa réserve) et trois réactions à envoyer d'un toucher. Elle passe toute seule ; un toucher la passe tout de suite.
    * by : celui qui joue le coup ; hit : ceux dont une bille repart (jamais lui-même) ; replaying : le coup est rejoué à la fin.
    */
-  const boumPage = async (by: number, hit: number[], card: Card, tag: string, replaying: boolean) => {
+  const boumPage = async (by: number, hit: number[], card: Card, tag: string, replaying: boolean, after: GameState) => {
     toastBox.replaceChildren();
     sfx('moment');
+    // Pliant grand ouvert : le BOUM prend toute la double page.
+    if (fold === 'open') return boumSpread(by, hit, card, tag, replaying, after);
     const v = hit[0], oops = tag.startsWith('OUPS');
     const face = (s: number, size: number, humeur: Humeur) => avatar(avEls[s].char, avEls[s].color, size, humeur);
     const gone = hit.length > 1 ? `${hit.length} billes s’envolent vers leur réserve`
@@ -2020,6 +2353,64 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     await Promise.race([closed, sleep(tag ? 3300 : 2700)]);
     if (disposed) return;
     page.classList.add('g-boum--out');
+    await sleep(calm() ? 0 : 170);
+    page.remove();
+  };
+  /** « Le 5 de pique », « La Dame de cœur », « Le Joker » : la carte abattue, en toutes lettres. */
+  const cardFull = (card: Card) => {
+    const r = rankOf(card), suit = ({ S: 'pique', H: 'cœur', D: 'carreau', C: 'trèfle' } as Record<string, string>)[card[card.length - 2]];
+    const name = r === 'A' ? 'L’As' : r === 'K' ? 'Le Roi' : r === 'Q' ? 'La Dame' : r === 'J' ? 'Le Valet' : r === 'X' ? 'Le Joker' : `Le ${r}`;
+    return suit && r !== 'X' ? `${name} de ${suit}` : name;
+  };
+  /**
+   * La page BOUM en double page (maquette « TOC sur pliants ») : l'explosion et son mot à cheval sur la pliure, celui qui
+   * s'envole en haut à droite, celui qui frappe et son partenaire en bas à gauche, et « pendant ce temps », la réserve
+   * de celui qui vient d'y retourner. Elle passe toute seule ; un toucher (ou « La suite ») la passe tout de suite.
+   */
+  const boumSpread = async (by: number, hit: number[], card: Card, tag: string, replaying: boolean, after: GameState) => {
+    const v = hit[0], oops = tag.startsWith('OUPS');
+    const face = (s: number, size: number, humeur: Humeur, ombre = false) => avatar(avEls[s].char, avEls[s].color, size, humeur, { ombre });
+    const gone = hit.length > 1 ? `renvoie ${hit.length} billes d’un coup` : isMe(v) ? 'renvoie ta bille' : `renvoie la bille ${deNom(nameOf(v))}`;
+    const caption = `${isMe(by) ? 'Tu fonces… et tu ' + gone.replace(/^renvoie /, 'renvoies ') : `${nameOf(by)} fonce… et ${gone}`} !`;
+    const why = tag ? momentText(tag, by, hit) : '';
+    const fan = oops ? (by + 1) % N : partner(N, by);
+    // Pendant ce temps : sa réserve, la bille qui vient d'y retomber cerclée de jaune.
+    const back = after.pawns[v].filter((pw) => pw.p < 0).length;
+    const count = ['Aucune bille', 'Une bille', 'Deux billes', 'Trois billes', 'Quatre billes'][back] ?? `${back} billes`;
+    const exits = isMe(v) ? ' dans ta réserve. Il te faut un Roi ou un As pour ressortir.' : ' dans sa réserve. Il lui faut un Roi ou un As pour ressortir.';
+    let done: () => void = () => {};
+    const closed = new Promise<void>((r) => { done = r; });
+    const react = !replaying && !src.initiation
+      ? h('div', { class: 'pb__react' }, h('span', null, 'Réagis'),
+        ...QUICK.map((t) => tickUnder(h('button', { type: 'button', onclick: (e: Event) => { e.stopPropagation(); sendEmote(t); done(); } }, t))))
+      : null;
+    const inner = h('div', { class: 'pb__in' },
+      h('i', { class: 'pb__burst pb__burst--encre' }), h('i', { class: 'pb__burst pb__burst--jaune' }), h('i', { class: 'pb__burst pb__burst--blanc' }),
+      h('span', { class: 'pb__tag' }, `Manche ${Math.floor(view.dealNo / 3) + 1} · ${cardFull(card)}`),
+      h('div', { class: 'pb__cap' }, caption, why ? h('small', null, why) : null),
+      h('div', { class: 'pb__word', role: 'img', 'aria-label': 'BOUM !' }, 'BOUM !'),
+      h('span', { class: 'pb__hit' }, face(v, 150, 'ko')),
+      ...[[470, 190, 86], [500, 222, 64], [446, 170, 52]].map(([left, top, width]) => h('i', { class: 'pb__line', style: { left, top, width } })),
+      h('span', { class: 'pb__band' }, tag || 'À la réserve !'),
+      h('span', { class: 'pb__by' }, face(by, 216, oops ? 'panique' : 'joie', true)),
+      h('span', { class: 'pb__fan' }, face(fan, 118, 'joie', true)),
+      h('span', { class: 'pb__say' }, oops ? 'Hahaha !' : 'Ouiii !'),
+      h('div', { class: 'pb__temps' },
+        h('span', { class: 'pb__temps-k' }, isMe(v) ? 'Pendant ce temps, chez toi' : `Pendant ce temps, chez ${nameOf(v)}`),
+        h('div', { class: 'pb__temps-billes', style: { '--c': tint(v).c } }, ...[0, 1, 2, 3].map((k) => h('i', { class: k < back ? (k === back - 1 ? 'on neuf' : 'on') : undefined }))),
+        h('span', { class: 'pb__temps-t' }, count + exits)),
+      react,
+      h('button', { class: 'pb__suite', type: 'button', onclick: (e: Event) => { e.stopPropagation(); done(); } }, 'La suite'),
+      h('i', { class: 'pb__pli pb__pli--haut' }), h('i', { class: 'pb__pli pb__pli--bas' }));
+    const page = h('div', { class: 'pb' + (calm() ? ' pb--calm' : ''), onclick: () => done() },
+      h('i', { class: 'pb__rays' }), h('i', { class: 'pb__dots pb__dots--a' }), h('i', { class: 'pb__dots pb__dots--b' }), inner);
+    // La page est composée pour 752 × 832 : elle se met à l'échelle de l'écran, son fond couvre tout.
+    const W = root.clientWidth, H = root.clientHeight, s = Math.min(W / 752, H / 832);
+    inner.style.transform = `translate(${r1((W - 752 * s) / 2)}px,${r1((H - 832 * s) / 2)}px) scale(${s.toFixed(4)})`;
+    root.append(page);
+    await Promise.race([closed, sleep(tag ? 3700 : 3100)]);
+    if (disposed) return;
+    page.classList.add('pb--out');
     await sleep(calm() ? 0 : 170);
     page.remove();
   };
@@ -2109,9 +2500,18 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (seat === me && !watching) {
       const hd = prev.hands[me], idx = Math.max(0, hd.indexOf(card)), m = idx - (hd.length - 1) / 2;
       [x0, y0, r0, s0] = [STAGE_W / 2 + m * 56, 592, 0, 1];
+      if (fold) {
+        // Pliant : la main n'est plus dans la scène ; la carte part de sa place dans la rangée, à sa taille.
+        const [hx, hy] = handSpot(idx, hd.length), r = hand.getBoundingClientRect(), k = r.width / (hand.offsetWidth || 1);
+        [x0, y0] = toStage(r.left + (hx + CARD_W / 2) * k, r.top + (hy + CARD_H / 2) * k);
+        s0 = (CARD_W * k) / (92 * foldScale);
+      }
     } else {
       const [ax, ay] = g.avs[armOf(N, me, seat)];
       [x0, y0, r0, s0] = [BOARD_X + ax, BOARD_Y + ay, -20, 0.3];
+      // Les joueurs ont leur fiche à côté du plateau : la carte part de la fiche.
+      const f = fold && avMode() === 'fiches' ? ficheEls.get(seat)?.root.getBoundingClientRect() : null;
+      if (f?.width) [x0, y0] = toStage(f.left + f.width / 2, f.top + f.height / 2);
     }
     // La carte atterrit sur la défausse, au centre du plateau (vue à l'écran).
     const [dx, dy, dsc] = proj.at(180 + 34 * ds, 180);
@@ -2232,7 +2632,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const victims = hitSeats.filter((s) => s !== seat);
       // Ton doublé, ta vengeance : le moment fort se sent aussi.
       if (tag && !tag.startsWith('OUPS')) feel('bravo');
-      if (victims.length && boumPageOn()) await boumPage(seat, victims, move.card, tag, replay !== undefined);
+      if (victims.length && boumPageOn()) await boumPage(seat, victims, move.card, tag, replay !== undefined, next);
       else if (tag) await moment(tag, seat, victims, momentText(tag, seat, hitSeats));
     }
     // Maison : la bille qui file droit au fond, ou un joueur qui vient de rentrer sa dernière bille.
@@ -2294,7 +2694,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const size = next.hands[me].length;
       sfx('donne');
       tap('donne');
-      if (next.dealNo === 0) fx('screen', { kind: 'banner', y: 452, t: 'C’EST PARTI !', ms: 1500 });
+      if (next.dealNo === 0) fx('screen', { kind: 'banner', y: bannerY(), t: 'C’EST PARTI !', ms: 1500 });
       else toast(!watching && next.dealer === me ? `Tu distribues ${size} cartes` : `${nameOf(next.dealer)} distribue ${size} cartes`);
       await sleep(1300);
     } else if (prev.phase === 'exchange' && next.phase === 'play') {
@@ -2308,13 +2708,13 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       // Qui ouvre la donne, en grand pour toute la table.
       const first = nameOf(next.turn);
       const mine = !watching && next.turn === me;
-      fx('screen', { kind: 'banner', y: 452, t: mine ? 'TU COMMENCES !' : `${(first.length > 9 ? first.slice(0, 8) + '…' : first).toUpperCase()} COMMENCE !`, ms: 1700 });
+      fx('screen', { kind: 'banner', y: bannerY(), t: mine ? 'TU COMMENCES !' : `${(first.length > 9 ? first.slice(0, 8) + '…' : first).toUpperCase()} COMMENCE !`, ms: 1700 });
       opened = true;
       if (!mine) await sleep(500);
     }
     if (!watching && next.phase === 'play' && next.turn === me && (!wasMyTurn || moved)) {
       if (drawerOpen && document.activeElement !== chatInput) setDrawer(false);
-      if (!opened) fx('screen', { kind: 'banner', y: 452, t: 'À TOI DE JOUER !', ms: 1500 });
+      if (!opened) fx('screen', { kind: 'banner', y: bannerY(), t: 'À TOI DE JOUER !', ms: 1500 });
       sfx('tour');
       tap('tour');
     }
@@ -2425,11 +2825,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     const best = [...highlights].sort((a, b) => b.score - a.score || b.n - a.n).slice(0, 3).sort((a, b) => a.n - b.n);
     let skip = false;
     const skipBtn = h('button', { class: 'g-skip', type: 'button', onclick: () => { skip = true; skipBtn.disabled = true; } }, 'Passer');
-    stage.append(skipBtn);
+    (fold ? stageTop : stage).append(skipBtn);
     const show = (x: GameState) => { view = x; syncPawns(x); shown = x.lastCard; clearSel(); renderDiscard(); render(); };
     for (let k = 0; k < best.length && !skip && !disposed; k++) {
       show(best[k].prev);
-      fx('screen', { kind: 'banner', y: 452, t: best.length > 1 ? `MOMENT FORT ${k + 1}/${best.length}` : 'LE MOMENT FORT', ms: 1200 });
+      fx('screen', { kind: 'banner', y: bannerY(), t: best.length > 1 ? `MOMENT FORT ${k + 1}/${best.length}` : 'LE MOMENT FORT', ms: 1200 });
       await sleep(1250);
       await animateMove(best[k].prev, best[k].next, best[k].tag);
       if (disposed) return;
@@ -2555,6 +2955,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __tocSync: () => { view = src.state; syncPawns(view); syncTension(view); render(); } });
 
   // ---------- Démarrage ----------
+  // Pliant refermé (il a déjà montré la double page) : on rappelle qu'elle attend, le temps de le lire.
+  if (!watching && closedFoldable()) {
+    const tip = h('div', { class: 'g-deplie', role: 'status' }, icon('M4 5.500 12 4v16l-8-1.500z M12 4l8 1.500v13L12 20', 18, 2.6), 'Déplie-moi : la double page t’attend');
+    stage.append(tip);
+    setTimeout(() => tip.remove(), 7000);
+  }
   syncPawns(view);
   syncTension(view);
   music(true);
@@ -2594,10 +3000,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       document.removeEventListener('pointerdown', closeOutside, true);
       stopTimer();
       clearTimeout(toastTimer);
-      window.removeEventListener('resize', fit);
-      mqFlex.removeEventListener('change', fit);
-      mqBook.removeEventListener('change', fit);
-      posture?.removeEventListener('change', fit);
+      unwatchFold();
       src.leave();
     },
   };

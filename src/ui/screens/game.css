@@ -249,6 +249,10 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 @keyframes tocDots { to { width: 1.1em; } }
 @keyframes tocSpin { to { rotate: 360deg; } }
 
+/* Pliant refermé : la double page attend (affiché quelques secondes au début de la partie) */
+.g-deplie { position: absolute; z-index: 30; left: 62px; top: 56px; height: 30px; padding: 0 12px 0 9px; border-radius: 15px; background: var(--ink); color: #fff; display: flex; align-items: center; gap: 8px; font: 800 12px/1 var(--text); white-space: nowrap; pointer-events: none; animation: tocDeplie 7s ease-out both; }
+.g-deplie > span { color: var(--jaune); }
+@keyframes tocDeplie { 0% { opacity: 0; translate: 0 -8px; } 5%, 88% { opacity: 1; translate: 0 0; } 100% { opacity: 0; translate: 0 0; } }
 /* BOUM : Toc surgit sous le plateau */
 .toc-peek { position: absolute; left: 300px; top: 340px; z-index: 40; pointer-events: none; }
 

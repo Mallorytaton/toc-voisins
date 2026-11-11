@@ -15,12 +15,14 @@ import { type Recovered, inviteFriend, setInGame, startPresence, syncProfile, wa
 import { DEMO } from './ui/demo';
 import { h, toast } from './ui/dom';
 import { fitScreen } from './ui/fit';
+import { pose, watchFold } from './ui/fold';
 import { blockZoom, lockPortrait } from './ui/orientation';
 import { maybeOfferInstall, watchInstall } from './ui/install';
 import { button } from './ui/kit/kit';
 import { ROUTES, go, rememberLink } from './ui/nav';
 import { gameScreen } from './ui/screens/game';
 import './ui/screens/game.css';
+import './ui/screens/game-fold.css';
 import { homeScreen, savedMode } from './ui/screens/home';
 import { albumsScreen, leagueScreen, newLeagueScreen } from './ui/screens/league';
 import { onboardScreen, pickScreen, splashScreen } from './ui/screens/intro';
@@ -44,6 +46,14 @@ for (const ev of ['pointerdown', 'touchend', 'click']) document.addEventListener
 lockPortrait();
 blockZoom();
 watchInstall();
+// Pliants : la tenue en cours (grand ouvert, en livre, en chevalet, à clapet), pour ce qui est commun à tous les écrans.
+const markPose = () => {
+  const p = pose();
+  if (p === 'phone') delete document.documentElement.dataset.pli;
+  else document.documentElement.dataset.pli = p;
+};
+markPose();
+watchFold(markPose);
 
 /** Partie en cours (une seule à la fois) et salle en ligne associée. */
 let currentGame: GameSource | null = null;
