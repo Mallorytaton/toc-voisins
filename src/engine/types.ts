@@ -23,6 +23,11 @@ export interface Variants {
   kingThirteen: boolean;
   /** Le 7 peut se partager entre plus de deux pions (sinon un ou deux pions). */
   sevenAnyPawns: boolean;
+  /**
+   * Sortie de secours : après deux donnes de suite passées sans bille sur le parcours ni carte pour sortir,
+   * on peut, à la donne suivante et toujours sans carte pour sortir, défausser deux cartes au choix pour sortir une bille.
+   */
+  rescueExit: boolean;
 }
 
 /**
@@ -40,6 +45,7 @@ export const DEFAULT_VARIANTS: Variants = {
   discardOne: false,
   kingThirteen: false,
   sevenAnyPawns: false,
+  rescueExit: false,
 };
 
 /**
@@ -69,7 +75,8 @@ export interface SevenPart {
 }
 
 export type Move =
-  | { kind: 'exit'; card: Card; as: Rank; pawn: PawnRef }
+  /** pair : sortie de secours (variante rescueExit), `card` puis `pair` sont défaussées pour sortir la bille ; `as` est alors le rang de `card`. */
+  | { kind: 'exit'; card: Card; as: Rank; pawn: PawnRef; pair?: Card }
   | { kind: 'step'; card: Card; as: Rank; pawn: PawnRef; steps: number; lap?: boolean }
   | { kind: 'swap'; card: Card; as: Rank; pawn: PawnRef; target: PawnRef }
   | { kind: 'seven'; card: Card; as: Rank; parts: SevenPart[] }
@@ -113,6 +120,10 @@ export interface GameState {
   exchange: Card[];
   /** A défaussé sa main faute de coup possible pendant cette donne. */
   passed: boolean[];
+  /** Donnes de suite où la place a dû défausser sans bille sur le parcours (sortie de secours) ; remis à zéro dès qu'elle sort une bille. */
+  stuck: number[];
+  /** A dû défausser pendant cette donne sans bille sur le parcours. */
+  stuckNow: boolean[];
   /** Équipe gagnante, -1 tant que la partie continue. */
   winner: number;
   log: LogEntry[];

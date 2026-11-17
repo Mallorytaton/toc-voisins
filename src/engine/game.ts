@@ -1,6 +1,6 @@
 import { allHome, clonePawns, controlledSeat, inHome, initialPawns, partner, teamCount, teamOf } from './board';
 import { RANKS, RANK_NAMES, Rng, buildDeck, rankOf, shuffle } from './cards';
-import { Ctx, doExit, doSeven, doStep, doSwap, hasPlayableCard } from './moves';
+import { Ctx, doExit, doSeven, doStep, doSwap, hasPawnOut, hasPlayableCard, isRescue, rescuePawn } from './moves';
 import { DEFAULT_VARIANTS, GameState, Move, PawnRef, Rank, Variants } from './types';
 
 /** Tailles des donnes successives (cycle). Un nouveau paquet est mélangé à chaque cycle. */
@@ -25,6 +25,8 @@ export function newGame(n: number, variants: Variants = DEFAULT_VARIANTS, dealer
     phase: 'deal',
     exchange: Array(n).fill(''),
     passed: Array(n).fill(false),
+    stuck: Array(n).fill(0),
+    stuckNow: Array(n).fill(false),
     winner: -1,
     log: [],
     lastCard: '',
@@ -45,6 +47,9 @@ export function cloneState(st: GameState): GameState {
     deck: st.deck.slice(),
     exchange: st.exchange.slice(),
     passed: st.passed.slice(),
+    // Les parties commencées avant la sortie de secours n'ont pas ces compteurs.
+    stuck: st.stuck ? st.stuck.slice() : Array(st.n).fill(0),
+    stuckNow: st.stuckNow ? st.stuckNow.slice() : Array(st.n).fill(false),
     log: st.log.slice(),
     lastCaptures: st.lastCaptures.slice(),
     stats: { captures: st.stats.captures.slice(), exits: st.stats.exits.slice(), cards: st.stats.cards.map((c) => ({ ...c })) },
@@ -66,6 +71,9 @@ export function deal(st0: GameState, rng: Rng): GameState {
   st.phase = 'exchange';
   st.exchange = Array(st.n).fill('');
   st.passed = Array(st.n).fill(false);
+  // Sortie de secours : une donne passée sans bille sur le parcours s'ajoute aux précédentes, sinon le compte repart.
+  st.stuck = st.stuck.map((k, s) => (st.stuckNow[s] ? k + 1 : 0));
+  st.stuckNow = Array(st.n).fill(false);
   st.turn = (st.dealer + 1) % st.n;
   st.lastCard = '';
   st.lastCaptures = [];
@@ -144,6 +152,19 @@ export function applyMove(st0: GameState, move: Move): GameState {
       st.lastCard = '';
       text = `@${seat} ne peut pas jouer et défausse sa main`;
     }
+    // Défausse sans bille sur le parcours : la donne compte pour la sortie de secours.
+    if (!hasPawnOut(st0, controlledSeat(st.n, st.pawns, seat))) st.stuckNow[seat] = true;
+  } else if (isRescue(move)) {
+    // Sortie de secours : deux cartes défaussées, une bille sort.
+    const pawn = rescuePawn(st0);
+    if (!pawn || move.pawn.s !== pawn.s) throw new Error('Sortie de secours impossible');
+    if (move.pair === move.card || !hand.includes(move.card) || !hand.includes(move.pair)) throw new Error('Carte absente de la main');
+    const res = doExit({ n: st.n, v: st.variants, pawns: st.pawns }, pawn.s, move.pawn.i);
+    if (!res) throw new Error('Coup impossible');
+    caps = res;
+    st.hands[seat] = hand.filter((c) => c !== move.card && c !== move.pair);
+    st.lastCard = move.pair;
+    text = `@${seat} défausse deux cartes pour sortir ${move.pawn.s === seat ? 'un pion' : `un pion de @${move.pawn.s}`}` + capText(caps, seat);
   } else {
     const idx = hand.indexOf(move.card);
     if (idx < 0) throw new Error('Carte absente de la main');
@@ -196,13 +217,19 @@ export function applyMove(st0: GameState, move: Move): GameState {
 
   st.lastCaptures = caps;
   st.lastMove = { seat, move };
-  if (move.kind === 'exit') st.stats.exits[seat]++;
-  if (move.kind !== 'discard') {
+  if (move.kind === 'exit') {
+    st.stats.exits[seat]++;
+    // Une bille sort : le compte des donnes sans bille repart de zéro.
+    st.stuck[seat] = 0;
+    st.stuckNow[seat] = false;
+  }
+  // Les cartes d'une sortie de secours sont défaussées, pas jouées.
+  if (move.kind !== 'discard' && !isRescue(move)) {
     const rk = rankOf(move.card);
     st.stats.cards[seat][rk] = (st.stats.cards[seat][rk] ?? 0) + 1;
   }
   st.stats.captures[seat] += caps.filter((c) => teamOf(st.n, c.s) !== teamOf(st.n, seat)).length;
-  st.log = pushLog(st.log, { seat, text, card: move.card });
+  st.log = pushLog(st.log, { seat, text, card: isRescue(move) ? '' : move.card });
 
   // Victoire ?
   for (let t = 0; t < teamCount(st.n); t++) {

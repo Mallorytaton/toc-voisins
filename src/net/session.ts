@@ -130,6 +130,8 @@ export function normalizePublic(raw: Record<string, unknown>): PublicState {
     phase: (raw.phase as GameState['phase']) ?? 'deal',
     exchange: arr(raw.exchange, n, () => ''),
     passed: arr(raw.passed, n, () => false),
+    stuck: arr(raw.stuck, n, () => 0),
+    stuckNow: arr(raw.stuckNow, n, () => false),
     winner: (raw.winner as number) ?? -1,
     log: list(raw.log),
     lastCard: (raw.lastCard as string) ?? '',

@@ -1,8 +1,11 @@
 import { homeEntry, inBase, inHome, partner, teamOf, trackLen } from './board';
 import { Rng, rankOf } from './cards';
 import { applyMove } from './game';
-import { legalMoves } from './moves';
+import { isRescue, legalMoves } from './moves';
 import type { Card, GameState, Move } from './types';
+
+/** Valeurs de cartes, de celle dont on se sépare le plus volontiers à celle qu'on garde. */
+const WORTH = ['2', '3', '6', '8', '9', '10', '5', 'Q', '4', 'J', 'A', 'K', '7', 'X'];
 
 /** Score d'une position du point de vue de l'équipe de `seat` (plus c'est haut, mieux c'est). */
 function evaluate(st: GameState, seat: number): number {
@@ -34,7 +37,9 @@ export function botMove(st: GameState, rng: Rng, noise = 4): Move {
     const after = applyMove(st, m);
     // On garde les Jokers et les 7 si un coup équivalent existe avec une autre carte.
     const keep = m.kind !== 'discard' && rankOf(m.card) === 'X' ? 6 : 0;
-    const sc = evaluate(after, st.turn) - keep + rng() * noise;
+    // Sortie de secours : on jette ses deux cartes les moins utiles.
+    const cost = isRescue(m) ? (WORTH.indexOf(rankOf(m.card)) + WORTH.indexOf(rankOf(m.pair))) * 0.4 : 0;
+    const sc = evaluate(after, st.turn) - keep - cost + rng() * noise;
     if (sc > bestScore) {
       bestScore = sc;
       best = m;
@@ -58,6 +63,5 @@ export function botGift(st: GameState, seat: number): Card {
     const exit = hand.find((c) => ['A', 'K'].includes(rankOf(c)));
     if (exit) return exit;
   }
-  const order = ['2', '3', '6', '8', '9', '10', '5', 'Q', '4', 'J', 'A', 'K', '7', 'X'];
-  return hand.slice().sort((a, b) => order.indexOf(rankOf(a)) - order.indexOf(rankOf(b)))[0];
+  return hand.slice().sort((a, b) => WORTH.indexOf(rankOf(a)) - WORTH.indexOf(rankOf(b)))[0];
 }

@@ -50,10 +50,12 @@ export function playRandomGame(n: number, rng: Rng, variants: Variants, maxMoves
 
 const variantSets: Variants[] = [
   DEFAULT_VARIANTS,
-  { jackEleven: true, fiveOthers: true, sevenNoPassCapture: true, startBlocks: false, jokers: 0, discardOne: true, kingThirteen: false, sevenAnyPawns: false },
+  { jackEleven: true, fiveOthers: true, sevenNoPassCapture: true, startBlocks: false, jokers: 0, discardOne: true, kingThirteen: false, sevenAnyPawns: false, rescueExit: true },
   // Anciennes règles par défaut : Valet qui échange, 7 qui prend en passant et sur tous les pions, Roi 13, jokers.
   { ...DEFAULT_VARIANTS, jackEleven: false, sevenNoPassCapture: false, jokers: 2, kingThirteen: true, sevenAnyPawns: true },
   { ...DEFAULT_VARIANTS, jokers: 4, fiveOthers: true },
+  // Règles de base avec la sortie de secours.
+  { ...DEFAULT_VARIANTS, rescueExit: true },
 ];
 
 describe('simulation de parties aléatoires', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_VARIANTS, GameState, Move, Variants, applyMove, deal, giveCard, homeEntry, legalMoves, legalMovesFor,
+  DEFAULT_VARIANTS, GameState, Move, Rank, Variants, applyMove, botMove, deal, giveCard, homeEntry, isRescue, legalMoves, legalMovesFor,
   newGame, progressAt, sameRef, seededRng, trackLen,
 } from '../src/engine';
 
@@ -531,6 +531,128 @@ describe('défausse d’une seule carte (variante)', () => {
   it('défausser toute la main est refusé dans cette variante', () => {
     const st = mk(['QS0'], { discardOne: true });
     expect(() => applyMove(st, { kind: 'discard', card: '' })).toThrow();
+  });
+});
+
+describe('sortie de secours (variante)', () => {
+  /** Joueur 0 sans bille sortie, qui a déjà passé `stuck` donnes de suite sans pouvoir sortir. */
+  const stuckGame = (hand: string[], stuck = 2, v: Partial<Variants> = {}) => {
+    const st = mk(hand, { rescueExit: true, ...v });
+    st.stuck[0] = stuck;
+    return st;
+  };
+  const rescue = (card: string, pair: string, i = 0): Move => ({ kind: 'exit', card, as: card.slice(0, -2) as Rank, pawn: { s: 0, i }, pair });
+
+  it('après deux donnes passées sans bille sortie, deux cartes défaussées sortent une bille', () => {
+    const st = stuckGame(['QS0', '2S0', '9H0']);
+    const ms = legalMoves(st);
+    // Un choix : passer la donne reste permis.
+    expect(ms.filter((m) => m.kind === 'discard')).toEqual([{ kind: 'discard', card: '' }]);
+    expect(ms.filter(isRescue)).toHaveLength(6);
+    const after = applyMove(st, rescue('QS0', '2S0'));
+    expect(after.pawns[0][0]).toEqual({ p: 0, fresh: true });
+    expect(after.hands[0]).toEqual(['9H0']);
+    expect(after.lastCard).toBe('2S0');
+    expect(after.stuck[0]).toBe(0);
+    expect(after.stats.exits[0]).toBe(1);
+    // Les deux cartes sont défaussées, pas jouées.
+    expect(after.stats.cards[0]).toEqual({});
+    expect(after.turn).toBe(1);
+  });
+
+  it('pas avant la troisième donne', () => {
+    const st = stuckGame(['QS0', '2S0', '9H0'], 1);
+    expect(legalMoves(st)).toEqual([{ kind: 'discard', card: '' }]);
+    expect(() => applyMove(st, rescue('QS0', '2S0'))).toThrow();
+  });
+
+  it('pas avec une carte pour sortir en main', () => {
+    const st = stuckGame(['KS0', '2S0', '9H0']);
+    expect(legalMoves(st).filter(isRescue)).toEqual([]);
+    expect(() => applyMove(st, rescue('2S0', '9H0'))).toThrow();
+  });
+
+  it('pas avec une bille sur le parcours, mais les billes rentrées ne comptent pas', () => {
+    const out = stuckGame(['QS0', '2S0', '9H0']);
+    put(out, 0, 0, 10);
+    expect(legalMoves(out).filter(isRescue)).toEqual([]);
+    const home = stuckGame(['QS0', '9S0', '9H0']);
+    put(home, 0, 0, L + 4);
+    expect(legalMoves(home).filter(isRescue)).toHaveLength(6);
+    expect(applyMove(home, rescue('QS0', '9S0', 1)).pawns[0][1].p).toBe(0);
+  });
+
+  it('il faut deux cartes différentes de sa main', () => {
+    const st = stuckGame(['QS0', '2S0']);
+    expect(() => applyMove(st, rescue('QS0', 'QS0'))).toThrow();
+    expect(() => applyMove(st, rescue('QS0', '9H0'))).toThrow();
+    expect(legalMoves(stuckGame(['QS0'])).filter(isRescue)).toEqual([]);
+  });
+
+  it('sans la variante, rien ne change', () => {
+    const st = stuckGame(['QS0', '2S0', '9H0'], 5, { rescueExit: false });
+    expect(legalMoves(st)).toEqual([{ kind: 'discard', card: '' }]);
+    expect(() => applyMove(st, rescue('QS0', '2S0'))).toThrow();
+  });
+
+  it('avec la défausse d’une seule carte, on garde aussi le choix', () => {
+    const st = stuckGame(['QS0', '2S0', '9H0'], 2, { discardOne: true });
+    const ms = legalMoves(st);
+    expect(ms.filter((m) => m.kind === 'discard')).toHaveLength(3);
+    expect(ms.filter(isRescue)).toHaveLength(6);
+  });
+
+  it('la carte touchée est la première des deux défaussées', () => {
+    const st = stuckGame(['QS0', '2S0', '9H0']);
+    const ms = legalMovesFor(st, 0, 'QS0').filter(isRescue);
+    expect(ms.map((m) => m.pair).sort()).toEqual(['2S0', '9H0']);
+    expect(ms.every((m) => m.card === 'QS0')).toBe(true);
+  });
+
+  it('compte les donnes passées de suite sans bille sortie', () => {
+    /** Le joueur 0 passe la donne, puis on distribue la suivante. */
+    const passDeal = (st: GameState) => {
+      st.phase = 'play';
+      st.turn = 0;
+      st.hands = [['QS0', '2S0'], [], [], []];
+      return deal(applyMove(st, { kind: 'discard', card: '' }), seededRng(7));
+    };
+    let st = passDeal(mk([], { rescueExit: true }));
+    expect(st.stuck).toEqual([1, 0, 0, 0]);
+    st = passDeal(st);
+    expect(st.stuck).toEqual([2, 0, 0, 0]);
+    // Troisième donne : la sortie de secours est ouverte.
+    st.phase = 'play';
+    st.turn = 0;
+    st.hands = [['QS0', '2S0', '9H0'], [], [], []];
+    expect(legalMoves(st).some(isRescue)).toBe(true);
+    // Il s'en sert : le compte repart de zéro, et il ne peut pas recommencer dans la donne.
+    st = applyMove(st, rescue('QS0', '2S0'));
+    expect(st.stuck[0]).toBe(0);
+  });
+
+  it('une donne passée avec une bille sur le parcours ne compte pas', () => {
+    const st = mk(['QS0'], { rescueExit: true });
+    st.hands = [['QS0'], [], [], []];
+    put(st, 0, 0, E);
+    st.stuck[0] = 1;
+    // Devant sa maison, la Dame ne rentre pas : on peut défausser.
+    const next = deal(applyMove(st, { kind: 'discard', card: '' }), seededRng(7));
+    expect(next.stuck[0]).toBe(0);
+  });
+
+  it('le robot s’en sert et jette ses deux cartes les moins utiles', () => {
+    const st = stuckGame(['7S0', '2S0', '3H0']);
+    const m = botMove(st, () => 0.5, 0);
+    expect(isRescue(m) && [m.card, m.pair].sort()).toEqual(['2S0', '3H0']);
+  });
+
+  it('une partie commencée avant la variante garde ses coups (compteurs absents)', () => {
+    const st = mk(['QS0', '2S0'], { rescueExit: true });
+    delete (st as Partial<GameState>).stuck;
+    delete (st as Partial<GameState>).stuckNow;
+    expect(legalMoves(st)).toEqual([{ kind: 'discard', card: '' }]);
+    expect(applyMove(st, { kind: 'discard', card: '' }).stuckNow[0]).toBe(true);
   });
 });
 

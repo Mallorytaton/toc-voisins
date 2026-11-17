@@ -49,6 +49,7 @@ Contre des robots seulement, il n'y a pas de minuteur : les robots t'attendent. 
 | `jokers` | 0 | 2 jokers par paquet, qui remplacent n'importe quelle carte. |
 | `fiveOthers` | non | Le 5 fait avancer de 5 la bille d'un autre joueur. |
 | `discardOne` | non | Sans coup possible, on défausse une seule carte au choix. |
+| `rescueExit` | non | Sortie de secours : après deux donnes de suite passées sans bille sur le parcours (celles en maison ne comptent pas) ni carte pour sortir, on peut, à la donne suivante et toujours sans As, Roi ni Joker, défausser deux cartes au choix pour sortir une bille. |
 | `startBlocks` | oui | La bille tout juste sortie ne peut être ni dépassée ni prise. |
 
 ## Technique

@@ -3,7 +3,7 @@ import type { GameSource, RematchVote, TableMsg } from '../../app/game-source';
 import { draftProfile } from '../../app/profile';
 import { noteCapture, rivalOf } from '../../app/rivaux';
 import {
-  type Card, type GameState, type Move, type PawnRef, type Rank, type SevenPart, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, homeIndex, inHome, isLap, leavesHome, legalMovesFor, occupant, partner, rankOf, sameRef, squareOf, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
+  type Card, type GameState, type Move, type PawnRef, type Rank, type SevenPart, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, homeIndex, inHome, isLap, isRescue, leavesHome, legalMovesFor, occupant, partner, rankOf, rescuePawn, sameRef, squareOf, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
 } from '../../engine';
 import { type Fx, playFx } from '../board/fx';
 import { FLAT, SEATED, type Tilt, armOf, geom, pawnXY, planeShift, projector, seatedAvs, shiftCss, tilted, trackIndex } from '../board/geom';
@@ -1226,6 +1226,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
 
   // ---------- Sélection ----------
   let sel: number | null = null;
+  /** Sortie de secours : la 2e carte à défausser (la 1re est `sel`). */
+  let sel2: number | null = null;
   let jokerAs: Rank | null = null;
   let pick: PawnRef | null = null;
   let target: PawnRef | null = null;
@@ -1239,12 +1241,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
    */
   type Way = 'home' | 'lap' | 'out' | 'discard';
   let way: Way | null = null;
-  const clearSel = () => { sel = null; jokerAs = null; pick = null; target = null; chain = []; tip = null; way = null; };
+  const clearSel = () => { sel = null; sel2 = null; jokerAs = null; pick = null; target = null; chain = []; tip = null; way = null; };
 
   const myHand = () => (watching ? [] : view.hands[me] ?? []);
   const myTurn = () => !watching && !busy && view.phase === 'play' && view.turn === me;
   // L'échange se choisit même pendant l'animation de distribution.
   const giving = () => !watching && view.phase === 'exchange' && !view.exchange[me];
+  /** Sortie de secours permise à ce tour : deux donnes sans bille sortie, et toujours aucune carte pour sortir. */
+  const rescueOn = () => myTurn() && !!rescuePawn(view);
 
   /** Une arrivée possible d'une bille pendant le partage du 7. */
   interface SevenDest {
@@ -1377,6 +1381,14 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (sel === null || !myTurn()) return empty;
     const card = myHand()[sel];
     let ms = legalMovesFor(view, me, card);
+    // Sortie de secours : avec une 2e carte choisie, les deux sont défaussées et la bille sort ; sinon la carte se joue comme d'habitude.
+    const pair = sel2 === null ? '' : myHand()[sel2];
+    const rescue = pair ? ms.filter(isRescue).find((m) => m.pair === pair) : undefined;
+    if (rescue) {
+      pick = rescue.pawn;
+      return { ...empty, moves: [rescue], chosen: rescue, cands: [rescue.pawn] };
+    }
+    ms = ms.filter((m) => !isRescue(m));
     if (!ms.length) return empty;
     if (ms.every((m) => m.kind === 'discard')) return { ...empty, moves: ms, chosen: ms.find((m) => m.card === card) ?? ms[0] };
     let jokerValues: Rank[] = [];
@@ -1470,7 +1482,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   /** Places dont le coup renverrait une bille. Sur la tablette, la main du joueur n'est pas connue : on y met la carte jouée. */
   const victimsOf = (m: Move): number[] => {
     try {
-      const st = watching ? { ...view, hands: view.hands.map((hd, k) => (k === view.turn ? [m.card] : hd ?? [])) } : view;
+      const st = watching ? { ...view, hands: view.hands.map((hd, k) => (k === view.turn ? (isRescue(m) ? [m.card, m.pair] : [m.card]) : hd ?? [])) } : view;
       return applyMove(st, m).lastCaptures.map((c) => c.s);
     } catch { return []; }
   };
@@ -1643,6 +1655,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       return render();
     }
     sel = hand.indexOf(m.card);
+    if (isRescue(m)) {
+      sel2 = hand.indexOf(m.pair);
+      tip = 'Deux donnes sans bille sortie : défausse ces deux cartes pour en sortir une.';
+      return render();
+    }
     if (rankOf(m.card) === 'X') jokerAs = m.as;
     if (m.kind === 'seven') chain = m.parts.map(partOf);
     else {
@@ -1956,12 +1973,19 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (flatRow && handGrid(n).rows !== handRows) requestAnimationFrame(() => { if (!disposed) fit(); });
     hand.replaceChildren(handHalo, ...cards.map((card, i) => {
       const dead = playable.size > 0 && !playable.has(card);
-      const m = i - (n - 1) / 2, on = sel === i;
+      const m = i - (n - 1) / 2, on = sel === i || sel2 === i;
       const el = playingCard(card, {
         selected: on, ...view.variants,
         onclick: () => {
           if (!active) { tap('refus'); return toast('Patience, c’est pas ton tour !'); }
           tap(sel === i ? 'touche' : 'carte');
+          // Sortie de secours : une carte déjà choisie, la suivante est la 2e à défausser (la retoucher l'enlève).
+          if (sel !== null && sel !== i && rescueOn()) {
+            sel2 = sel2 === i ? null : i;
+            pick = null; target = null; way = null; tip = null;
+            setEmotes(false);
+            return render();
+          }
           if (sel === i) clearSel();
           else { clearSel(); sel = i; }
           setEmotes(false);
@@ -2118,6 +2142,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     return h('div', { class: 'victory__rematch' }, btn, who);
   };
   const render = () => {
+    // La 2e carte de la sortie de secours ne tient que tant que la règle s'applique.
+    if (sel2 !== null && !rescueOn()) sel2 = null;
     renderRematch();
     if (drawerOn) drawerStatus.textContent = view.phase === 'play' ? (view.turn === me ? '· À toi de jouer' : `· ${nameOf(view.turn)} réfléchit…`)
       : view.phase === 'exchange' ? '· Échange des cartes' : '';
@@ -2184,13 +2210,24 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       setCoach(ls.mood);
       t = `Leçon ${lessonNo} sur ${LESSONS.length} · ${ls.title}`;
       sub = ls.text();
+    } else if (sel === null && rescueOn()) {
+      t = 'Sortie de secours';
+      sub = 'Deux donnes sans bille sortie : touche deux cartes à défausser pour en sortir une.';
     } else if (sel === null) { t = `À toi, ${nick} !`; sub = 'Choisis une carte dans ta main.'; }
-    else if (tip) { t = 'Astuce'; sub = tip; label = pl.chosen ? (pl.chosen.kind === 'discard' ? 'Défausser' : 'Jouer !') : ''; }
+    else if (tip) { t = 'Astuce'; sub = tip; label = pl.chosen ? (pl.chosen.kind === 'discard' ? 'Défausser' : isRescue(pl.chosen) ? 'Sortir !' : 'Jouer !') : ''; }
     else {
       const c = cardLook(myHand()[sel], view.variants);
-      if (pl.chosen?.kind === 'discard') {
+      if (pl.chosen && isRescue(pl.chosen)) {
+        t = 'Sortie de secours' + (cap ? ' · capture !' : '');
+        sub = 'Tu défausses ces deux cartes et tu sors une bille.';
+        label = 'Sortir !';
+      } else if (pl.chosen?.kind === 'discard') {
         t = 'Aucun coup possible';
         sub = pl.chosen.card ? 'Défausse cette carte.' : 'Tu passes la donne.';
+        if (rescueOn()) {
+          t = 'Sortie de secours';
+          sub = `Touche une 2e carte : tu défausses les deux et tu sors une bille. Sinon, ${pl.chosen.card ? 'défausse celle-ci' : 'passe la donne'}.`;
+        }
         label = 'Défausser';
       } else if (!pl.chosen && (pl.ways?.length ?? 0) > 1) {
         t = pl.ways!.includes('out') ? 'Dans ta maison' : 'Devant ta maison';
@@ -2233,6 +2270,8 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
           sub = rankOf(myHand()[sel]) !== '7' ? 'Cette carte ne peut pas être jouée pour l’instant.'
             : view.variants.sevenAnyPawns ? 'Le 7 se joue en entier : pas assez de pas possibles ici.'
               : 'Le 7 se joue en entier, sur deux billes au plus : pas possible ici.';
+        // Sortie de secours : la carte choisie peut aussi partir à la défausse avec une autre.
+        if (rescueOn()) sub = `Sortie de secours : touche une 2e carte pour défausser les deux et sortir une bille.${pl.chosen ? ' Ou joue celle-ci.' : ''}`;
       }
     }
     hintT.replaceChildren(t, ...tChips);
@@ -2560,6 +2599,12 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       return;
     }
     flyCard(seat, move.card, prev);
+    if (isRescue(move)) {
+      // Sortie de secours : la 2e carte suit la première sur la défausse.
+      const second = move.pair;
+      setTimeout(() => { if (!disposed) flyCard(seat, second, prev); }, 170);
+      if (!mine) toast(`${nameOf(seat)} défausse deux cartes pour sortir une bille`);
+    }
     if (mine) {
       const victim = next.lastCaptures.find((c) => teamOf(N, c.s) !== teamOf(N, me));
       toast(move.kind === 'exit' ? 'Une bille de sortie. En avant !'

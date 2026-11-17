@@ -20,6 +20,7 @@ const OPTIONS: Option[] = [
   { label: 'Jokers dans le paquet', desc: 'Deux jokers par paquet, qui remplacent n’importe quelle carte.', get: (v) => v.jokers > 0, set: (v, on) => ({ ...v, jokers: on ? 2 : 0 }) },
   { label: 'Le 5 fait avancer un autre joueur', desc: 'On avance de 5 la bille de quelqu’un d’autre.', get: (v) => v.fiveOthers, set: (v, on) => ({ ...v, fiveOthers: on }) },
   { label: 'Défausser une seule carte', desc: 'Sans coup possible, on jette une carte au lieu de toute sa main.', get: (v) => v.discardOne, set: (v, on) => ({ ...v, discardOne: on }) },
+  { label: 'Sortie de secours', desc: 'Après deux donnes passées sans bille sur le parcours ni carte pour sortir, on peut défausser deux cartes pour sortir une bille.', get: (v) => v.rescueExit, set: (v, on) => ({ ...v, rescueExit: on }) },
   { label: 'Bille bloquante au départ', desc: 'Une bille qui vient de sortir ne peut être ni dépassée ni prise.', get: (v) => v.startBlocks, set: (v, on) => ({ ...v, startBlocks: on }) },
 ];
 

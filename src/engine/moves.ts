@@ -314,7 +314,41 @@ export function legalMoves(st: GameState): Move[] {
   }
   // Rien d'autre à jouer que refaire un tour ou ressortir de sa maison : on peut aussi défausser (ces coups restent un choix).
   if (hand.length > 0 && !out.some((m) => !isOptional(st, m))) out.push(...discardMoves(st, hand));
+  // Sortie de secours : un choix de plus, deux cartes défaussées (dans l'ordre : la seconde finit sur la défausse).
+  const rescue = rescuePawn(st);
+  if (rescue) {
+    for (const card of hand) {
+      for (const pair of hand) if (pair !== card) out.push({ kind: 'exit', card, as: rankOf(card) as Rank, pawn: rescue, pair });
+    }
+  }
   return out;
+}
+
+/** Donnes passées de suite sans bille sortie avant d'avoir droit à la sortie de secours. */
+export const RESCUE_AFTER = 2;
+
+/** La place a-t-elle une bille sur le parcours ? (celles déjà rentrées en maison ne comptent pas) */
+export const hasPawnOut = (st: GameState, seat: number) => st.pawns[seat].some((pw) => onTrack(st.n, pw.p));
+
+/** Sortie de secours d'un coup : les deux cartes défaussées pour sortir une bille. */
+export const isRescue = (m: Move): m is Extract<Move, { kind: 'exit' }> & { pair: Card } => m.kind === 'exit' && !!m.pair;
+
+/**
+ * Sortie de secours (variante rescueExit) : le joueur dont c'est le tour a passé deux donnes de suite sans bille
+ * sur le parcours, n'en a toujours pas, et n'a aucune carte pour sortir (As, Roi, Joker). Il peut alors défausser
+ * deux cartes pour sortir une bille. Retourne la bille qui sortirait, ou null si la règle ne s'applique pas.
+ */
+export function rescuePawn(st: GameState): PawnRef | null {
+  if (!st.variants.rescueExit || st.phase !== 'play') return null;
+  const seat = st.turn;
+  const hand = st.hands[seat];
+  if ((st.stuck?.[seat] ?? 0) < RESCUE_AFTER || hand.length < 2) return null;
+  if (hand.some((c) => ['A', 'K', 'X', '?'].includes(rankOf(c)))) return null;
+  const cs = controlledSeat(st.n, st.pawns, seat);
+  if (hasPawnOut(st, cs)) return null;
+  const i = st.pawns[cs].findIndex((pw) => inBase(pw.p));
+  if (i < 0 || !doExit({ n: st.n, v: st.variants, pawns: clonePawns(st.pawns) }, cs, i)) return null;
+  return { s: cs, i };
 }
 
 /** Défausse faute de coup : toute la main, ou une carte au choix (variante discardOne). */
@@ -329,6 +363,7 @@ function discardMoves(st: GameState, hand: Card[]): Move[] {
  */
 export function legalMovesFor(st: GameState, seat: number, card: Card): Move[] {
   if (st.phase !== 'play' || st.turn !== seat || !st.hands[seat].includes(card)) return [];
+  // Sortie de secours : `card` est la première des deux cartes défaussées.
   return legalMoves(st).filter((m) => m.kind === 'discard' ? m.card === card || m.card === '' : m.card === card);
 }
 
@@ -353,7 +388,7 @@ export function moveKey(m: Move): string {
     case 'discard':
       return `discard|${m.card}`;
     case 'exit':
-      return `exit|${m.card}|${m.as}|${m.pawn.s}.${m.pawn.i}`;
+      return `exit|${m.card}|${m.as}|${m.pawn.s}.${m.pawn.i}${m.pair ? '|+' + m.pair : ''}`;
     case 'step':
       return `step|${m.card}|${m.as}|${m.pawn.s}.${m.pawn.i}|${m.steps}${m.lap ? '|tour' : ''}`;
     case 'swap':
