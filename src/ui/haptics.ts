@@ -40,8 +40,6 @@ export const HAPTICS = {
   donne: [10, 75, 10, 75, 10, 75, 10, 75, 10],
   /** Pas ton tour */
   refus: [30, 50, 30],
-  /** Le minuteur : chacune des cinq dernières secondes */
-  urgence: 30,
   /** Un moment fort pour toi : doublé, vengeance, au millimètre, tes 4 billes rentrées */
   bravo: [20, 40, 20, 40, 60],
   victoire: [80, 60, 80, 60, 200],

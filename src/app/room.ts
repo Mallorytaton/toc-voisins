@@ -28,7 +28,7 @@ export interface RoomSnapshot {
   title?: string;
   /** Règles de la partie (variantes). */
   variants: Variants;
-  /** Partie à ton rythme : pas de minuteur, on attend les absents (plusieurs jours). */
+  /** Partie à ton rythme : on attend les absents (plusieurs jours). */
   slow?: boolean;
   /** Partie de tournoi : son code, et le membre attendu à chaque place ('' si aucun). */
   league?: string;

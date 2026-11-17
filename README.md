@@ -7,7 +7,7 @@ Le jeu de TOC en équipes, sur ton téléphone : crée ta salle, invite tes amis
 1. **Choisis ton perso** : un des 6 personnages, ta couleur et ton surnom (gardés sur le téléphone).
 2. **Crée une salle** depuis l'accueil (4 ou 6 joueurs), puis envoie le code `TOC-4821` ou le lien (« Copier », « Inviter »). Les autres le tapent dans « Code de salle » ou ouvrent le lien.
 3. **Places libres** : l'hôte peut « Compléter avec des robots ». Quand la salle est pleine, il lance la partie (compte à rebours 3-2-1-TOC !).
-4. **À ton tour** : touche une carte, puis la bille qui s'illumine si plusieurs sont possibles (le Valet demande aussi la bille à échanger, pour le 7, on touche une bille puis la case où elle arrive, les pas restants vont à l'autre bille, le Joker demande sa valeur), puis « Jouer ». Tu as 30 s, sinon un coup est joué pour toi.
+4. **À ton tour** : touche une carte, puis la bille qui s'illumine si plusieurs sont possibles (le Valet demande aussi la bille à échanger, pour le 7, on touche une bille puis la case où elle arrive, les pas restants vont à l'autre bille, le Joker demande sa valeur), puis « Jouer ». Pas de chrono : tu prends le temps qu'il te faut.
 
 Si un joueur ferme l'app ou perd le réseau, son tour est joué à sa place au bout de 30 s, et il retrouve sa place en rouvrant le lien. Depuis un autre téléphone, on peut « Prendre sa place ». Sans réseau, la salle reste sur le téléphone et on joue contre les robots.
 
@@ -20,7 +20,7 @@ Pour jouer souvent avec les mêmes personnes (entre voisins, par exemple) :
 3. **Jouer une partie** : une salle s'ouvre, chacun y retrouve sa place, les autres membres reçoivent une invitation.
 4. À chaque fin de partie, la victoire s'ajoute à l'équipe gagnante. La page du tournoi montre le score et les dernières parties.
 
-Contre des robots seulement, il n'y a pas de minuteur : les robots t'attendent. Si l'app a été fermée pendant une partie en ligne, l'accueil propose « Reprendre ».
+Si l'app a été fermée pendant une partie en ligne, l'accueil propose « Reprendre ».
 
 ### Installer sur l'écran d'accueil
 

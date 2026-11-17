@@ -203,7 +203,7 @@ export function roomScreen(room: Room, onStart: () => void, o: { wide?: boolean 
   const isHost = () => { const s = room.snapshot(); return !!s.seats[s.mySeat]?.host; };
   const rulesEditable = () => { const s = room.snapshot(); return isHost() && s.status === 'waiting' && !s.title && !!room.setVariants; };
   const rules = variantsCard(() => room.snapshot().variants, rulesEditable, (v) => room.setVariants?.(v));
-  // Rythme : en direct (30 s par coup) ou à ton rythme (sur plusieurs jours).
+  // Rythme : en direct (sans chrono, tout le monde en même temps) ou à ton rythme (sur plusieurs jours).
   const paceSum = h('span', { class: 'variants-card__sum' });
   const paceGo = h('span', { class: 'variants-card__go' });
   const paceEditable = () => isHost() && room.snapshot().status === 'waiting';
@@ -217,12 +217,12 @@ export function roomScreen(room: Room, onStart: () => void, o: { wide?: boolean 
   const openPace = () => {
     const s = room.snapshot();
     const text = h('span', { class: 'sheet__text' });
-    const tell = (slow: boolean) => { text.textContent = slow ? 'Chacun joue quand il peut, sur plusieurs jours. Tu es prévenu quand c’est ton tour.' : 'Tout le monde joue en même temps, 30 secondes par coup.'; };
+    const tell = (slow: boolean) => { text.textContent = slow ? 'Chacun joue quand il peut, sur plusieurs jours. Tu es prévenu quand c’est ton tour.' : 'Tout le monde joue en même temps, sans chrono. Si quelqu’un quitte l’app, son tour est joué à sa place au bout de 30 secondes.'; };
     tell(!!s.slow);
     const close = sheet('Rythme de la partie',
       h('span', { class: 'sheet__title' }, 'Rythme'),
       paceEditable()
-        ? segmented([{ value: false, label: 'En direct', sub: '30 s par coup' }, { value: true, label: 'À ton rythme', sub: 'sur plusieurs jours' }], !!s.slow, (v) => { room.setSlow?.(v); tell(v); })
+        ? segmented([{ value: false, label: 'En direct', sub: 'sans chrono' }, { value: true, label: 'À ton rythme', sub: 'sur plusieurs jours' }], !!s.slow, (v) => { room.setSlow?.(v); tell(v); })
         : null,
       text,
       button('OK', 'primary', () => close(), { size: 'md', block: true }));
@@ -305,7 +305,7 @@ export function roomScreen(room: Room, onStart: () => void, o: { wide?: boolean 
       ?? (s.status === 'playing' && s.mySeat < 0 ? (s.slow ? 'Partie à ton rythme déjà commencée.' : 'Partie en cours. Reprends la place d’un joueur déconnecté.')
         : full ? 'Tout le monde est là. On y va ?'
           : s.slow ? `${joined} / ${s.n} joueurs · chacun rejoint quand il veut` : `${joined} / ${s.n} joueurs · on attend les autres…`);
-    paceSum.textContent = s.slow ? 'À ton rythme, sur plusieurs jours' : 'En direct, 30 s par coup';
+    paceSum.textContent = s.slow ? 'À ton rythme, sur plusieurs jours' : 'En direct, sans chrono';
     paceGo.textContent = paceEditable() ? 'Changer ›' : 'Voir ›';
     const ready = full && host;
     launch.textContent = ready ? 'C’est parti !' : full ? 'L’hôte lance la partie…' : 'En attente…';

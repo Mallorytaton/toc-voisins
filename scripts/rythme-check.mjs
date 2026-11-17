@@ -44,7 +44,6 @@ await shot(guest, '01-salle');
 console.log('Salle TOC-' + code, '| rythme vu par Mimi :', await guest.page.locator('.pace .pill').innerText());
 await host.page.getByRole('button', { name: 'Lancer la partie' }).click();
 await Promise.all([host, guest].map((p) => p.page.waitForSelector('.game', { timeout: 20000 })));
-console.log('Minuteur affiché :', await host.page.locator('.g-timer div').evaluate((e) => getComputedStyle(e).visibility));
 
 async function act(p) {
   const t = await hint(p);

@@ -1,6 +1,6 @@
 /* ==== La partie sur un pliant ou une tablette : l'album ouvert (maquette « TOC sur pliants ») ====
    La grille remplace la scène du téléphone. Ses blocs : l'en-tête (pause, score, manche), la case du plateau, les fiches
-   des joueurs, le fil des coups, les bavards (la table : messages, réactions) et la main (consigne, mèche, cartes,
+   des joueurs, le fil des coups, les bavards (la table : messages, réactions) et la main (consigne, cartes,
    « Jouer ! »). game.ts y range les éléments de la partie, et pose --pa et --pb (les bords de la pliure quand l'appareil
    est plié), --ch (hauteur de la rangée de cartes), --u (l'inverse de l'échelle du plateau) et --bas (le bas de la case
    du plateau, dans le repère de la scène).
@@ -120,16 +120,13 @@
 .game--plume .pli[data-tenue='open'] .pop--emotes > button, .game--plume .pli[data-tenue='flip'] .pop--emotes > button { flex: none; height: 46px; padding: 0 13px; border-radius: 23px; box-shadow: 0 4px 0 var(--ink); font: 800 13px/1 var(--text); white-space: nowrap; }
 .game--plume .pli[data-tenue='open'] .pop--emotes > .pop__emoji, .game--plume .pli[data-tenue='flip'] .pop--emotes > .pop__emoji { font-size: 20px; }
 
-/* ---- La main, sous le pouce droit : la consigne, la mèche, les cartes, « Jouer ! » ---- */
+/* ---- La main, sous le pouce droit : la consigne, les cartes, « Jouer ! » ---- */
 /* La consigne tient sur une ou deux lignes : sa place est réservée, rien ne bouge quand elle change */
 .pli__recit { position: relative; height: 82px; flex: none; display: flex; align-items: flex-end; gap: 8px; }
 .pli .g-hint { min-height: 58px; padding: 8px 14px 7px; rotate: -1deg; }
 .pli .g-hint > b { font: italic 400 25px/1 var(--fx); letter-spacing: .02em; }
 .pli .g-hint > span { font: 700 13px/1.2 var(--text); }
 .pli .g-coach { margin: 0 -2px 0 -4px; }
-/* La mèche garde sa place même éteinte : rien ne bouge quand le minuteur démarre */
-.pli .g-timer { position: relative; left: auto; top: auto; width: auto; height: 22px; flex: none; margin: 0 48px 0 102px; }
-.pli .g-timer[hidden] { display: block !important; visibility: hidden; }
 .pli__cartes { position: relative; flex: none; height: var(--ch); }
 .pli .hand { position: absolute; z-index: 2; transform-origin: 0 0; scale: var(--hk, .64); }
 .pli .hand .pcard[aria-pressed='true'] { animation: none; }
@@ -193,12 +190,11 @@
 .pli[data-forme='wide'] .pli__boite { flex: none; height: auto; }
 .pli[data-forme='wide'] .pli__msg:not(:last-child) { display: none; }
 .pli[data-forme='wide'] .pli__feed { overflow: hidden; }
-/* La main : la consigne sur une ligne, la mèche à sa droite, puis les cartes et « Jouer ! » côte à côte */
+/* La main : la consigne sur une ligne, puis les cartes et « Jouer ! » côte à côte */
 .pli[data-forme='wide'] .pli__main { display: grid; grid-template-columns: minmax(0, 1fr) 124px; grid-template-rows: 58px var(--ch); gap: 8px 12px; align-items: end; }
 .pli[data-forme='wide'] .pli__recit { grid-column: 1 / -1; height: 58px; }
 .pli[data-forme='wide'] .g-hint { min-height: 44px; flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 12px; padding: 7px 14px 5px; }
 .pli[data-forme='wide'] .g-hint > b { flex: none; }
-.pli[data-forme='wide'] .g-timer { position: absolute; right: 44px; top: -30px; width: 150px; margin: 0; }
 .pli[data-forme='wide'] .pli__actions { margin: 0; min-height: 0; align-self: end; flex-direction: column-reverse; align-items: stretch; gap: 4px; padding-bottom: 6px; }
 .pli[data-forme='wide'] .pli__actions > .g-tip { min-height: 30px; font-size: 12px; align-self: center; }
 .pli[data-forme='wide'] .pli__actions > .g-play { min-width: 0; width: 120px; height: 60px; margin: 0; padding: 3px 2px 0; font-size: 24px; white-space: nowrap; }
@@ -208,7 +204,6 @@
 .pli[data-forme='trio'] .pli__pliure { left: 33.333%; box-shadow: calc(33.333cqw) 0 0 0 transparent; }
 .pli[data-forme='trio'] .pli__pliure::after { content: ''; position: absolute; top: 0; bottom: 0; left: calc(33.333cqw); width: 2px; background: inherit; }
 .pli[data-forme='trio'] .pli__case { height: 100%; }
-.pli[data-forme='trio'] .g-timer { margin: 0 48px 0 22px; }
 .pli[data-forme='trio'] .pli__main > .pli__fil { flex: 1 1 0; height: 0; min-height: 0; padding: 10px; border: 3px solid var(--ink); border-radius: 16px; background: var(--paper); box-shadow: 4px 5px 0 var(--ink); overflow: hidden; }
 .pli[data-forme='trio'] .pli__actions { margin-top: 0; }
 /* Le volet est étroit : les réactions passent à la ligne plutôt que de pousser le bouton rond hors du volet */
@@ -275,7 +270,7 @@
 .pli[data-tenue='tent'] .pli__fil--fenetre { left: 28px; top: calc(var(--pa) - 250px); width: 330px; max-height: 210px; }
 .pli[data-tenue='tent'] .pli__bavards { display: none; }
 /* Le volet du bas : la consigne en haut, les réactions à gauche des cartes, « Jouer ! » à leur droite, le dernier message dessous */
-.pli[data-tenue='tent'] .pli__main { margin: 14px 12px 14px; padding: 12px 16px 14px; display: grid; grid-template-columns: 124px minmax(0, 1fr) 124px; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px 16px; border: 2px dashed rgba(255, 255, 255, .22); border-radius: 22px; grid-template-areas: 'recit recit recit' 'puces cartes actions' 'meche boite boite'; }
+.pli[data-tenue='tent'] .pli__main { margin: 14px 12px 14px; padding: 12px 16px 14px; display: grid; grid-template-columns: 124px minmax(0, 1fr) 124px; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px 16px; border: 2px dashed rgba(255, 255, 255, .22); border-radius: 22px; grid-template-areas: 'recit recit recit' 'puces cartes actions' '. boite boite'; }
 .pli[data-tenue='tent'] .pli__recit { grid-area: recit; height: auto; margin: -24px 150px 0 150px; }
 .pli[data-tenue='tent'] .g-hint { min-height: 44px; flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 12px; padding: 7px 14px 5px; }
 .pli[data-tenue='tent'] .g-hint > b { flex: none; }
@@ -286,7 +281,6 @@
 .pli[data-tenue='tent'] .pli__actions { grid-area: actions; margin: 0; flex-direction: column; align-items: stretch; justify-content: center; gap: 12px; }
 .pli[data-tenue='tent'] .pli__actions > .g-play { order: -1; min-width: 0; width: 100%; height: 96px; margin: 0; border-radius: 22px; font-size: 34px; rotate: 2deg; }
 .pli[data-tenue='tent'] .pli__actions > .g-tip { align-self: stretch; padding: 0 8px; border: 3px solid var(--ink); border-radius: 23px; background: #fff; color: var(--ink); box-shadow: 0 4px 0 var(--ink); text-decoration: none; font-size: 13px; }
-.pli[data-tenue='tent'] .g-timer { grid-area: meche; align-self: center; margin: 0 44px 0 22px; }
 .pli[data-tenue='tent'] .pli__boite { grid-area: boite; position: relative; flex: none; height: 54px; min-height: 54px; margin-right: 140px; padding: 8px 60px 8px 14px; border-radius: 27px; justify-content: center; overflow: visible; }
 .pli[data-tenue='tent'] .pli__msg:not(:last-child), .pli[data-tenue='flip'] .pli__msg:not(:last-child) { display: none; }
 .pli[data-tenue='tent'] .pli__feed, .pli[data-tenue='flip'] .pli__feed { overflow: hidden; }
@@ -317,7 +311,6 @@
 .pli[data-tenue='flip'] .g-hint { min-height: 54px; padding: 7px 12px 6px; }
 .pli[data-tenue='flip'] .g-hint > b { font-size: 23px; }
 .pli[data-tenue='flip'] .g-hint > span { font-size: 12px; }
-.pli[data-tenue='flip'] .g-timer { margin: 0 44px 0 98px; }
 .pli[data-tenue='flip'] .pli__actions { margin-top: 0; min-height: 54px; }
 .pli[data-tenue='flip'] .pli__actions > .g-play { height: 50px; font-size: 30px; }
 .pli[data-tenue='flip'] .pli__bavards { margin-top: 8px; gap: 8px; justify-content: flex-end; }

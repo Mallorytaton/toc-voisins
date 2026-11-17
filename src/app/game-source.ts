@@ -26,7 +26,7 @@ export interface GameSource {
   readonly mySeat: number;
   readonly local: boolean;
   readonly code: string;
-  /** Partie à ton rythme : pas de minuteur, chacun joue quand il revient. */
+  /** Partie à ton rythme : on attend les absents, chacun joue quand il revient. */
   readonly slow?: boolean;
   /** Partie d'album : son nom et le numéro de l'épisode (connu un instant après l'ouverture), pour la planche de fin. */
   readonly album?: { title: string; episode?: number };

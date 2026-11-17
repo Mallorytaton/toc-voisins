@@ -31,7 +31,7 @@ const before = await hand();
 console.log('À mon tour, cartes en main :', before);
 await page.waitForTimeout(40_000);
 const after = await hand();
-console.log(`Après 40 s sans jouer : ${after} cartes, indice « ${await hint()} » ; minuteur visible : ${await page.locator('.g-timer > div').isVisible()}`);
+console.log(`Après 40 s sans jouer : ${after} cartes, indice « ${await hint()} »`);
 
 // L'app est fermée puis rouverte (même mémoire du téléphone).
 const state = await ctx.storageState({ indexedDB: true }); // la session Firebase est dans IndexedDB

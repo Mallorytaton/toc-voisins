@@ -1,7 +1,7 @@
 /* ==== L'écran de partie (direction BD) ====
    La scène fait 393 × 750 et s'adapte à l'écran par un facteur d'échelle. De haut en bas :
    la barre (4–52), la case du plateau avec les persos autour (58–412), la consigne et le bouton (424–480),
-   la mèche du minuteur (489), la main (500–690), la barre du chat (702–746).
+   la main (500–690), la barre du chat (702–746).
    Rien autour du plateau ne couvre ses trous : les persos sont dans les coins et au-dessus du bord du fond,
    les bulles partent sur le côté ou sous le plateau, les messages et les annonces passent sous le plateau. */
 
@@ -65,7 +65,7 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .table-journal .g-journal-card { font-size: 18px; }
 .pawn--aim > .bille { box-shadow: 0 0 0 3px var(--jaune), 0 0 0 5.5px var(--ink); animation: tocBob .8s ease-in-out infinite; }
 /* Écran de table : pas de main ni de bouton Jouer. */
-.game[data-layout='table'] .g-actions, .game[data-layout='table'] .g-timer, .game[data-layout='table'] .hand,
+.game[data-layout='table'] .g-actions, .game[data-layout='table'] .hand,
 .game[data-layout='table'] .g-top, .game[data-layout='table'] .g-journal-pop { display: none; }
 .game[data-layout='table'] .g-case, .game[data-layout='table'] .g-tense { top: 30px; height: 432px; }
 
@@ -366,15 +366,6 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .g-coach--pop { animation: tocPop .45s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .g-coach--pop { animation: none; } }
 
-/* ---- Minuteur : une mèche qui brûle vers la bombe ---- */
-.g-timer { position: absolute; z-index: 4; left: 38px; top: 499px; width: 290px; height: 22px; }
-.g-timer::before { content: ''; position: absolute; left: -20px; top: 1px; width: 20px; height: 20px; border: 3px solid var(--ink); border-radius: 50%; background: radial-gradient(circle at 34% 30%, #fff 0 16%, rgba(255, 255, 255, 0) 17%), #3a3566; box-sizing: border-box; }
-.g-timer > div { position: absolute; left: 0; top: 9px; width: 100%; height: 5px; border-radius: 3px; background: repeating-linear-gradient(90deg, #fff 0 7px, #c9c6e8 7px 12px); box-shadow: 0 0 0 2px var(--ink); }
-.g-timer__spark { position: absolute; right: -15px; top: -13px; width: 30px; height: 30px; background: radial-gradient(circle, #fff 0 20%, var(--jaune) 22% 60%, var(--rouge) 62%); clip-path: polygon(50% 0, 62% 30%, 93% 18%, 76% 46%, 100% 62%, 68% 66%, 68% 100%, 46% 76%, 20% 96%, 26% 64%, 0 52%, 28% 38%, 16% 8%, 42% 26%); animation: tocSpark .35s steps(2) infinite; }
-/* Les secondes qui restent, au bout de la mèche */
-.g-timer__left { position: absolute; left: 100%; top: 5px; width: 44px; text-align: right; font: 900 12px/1 var(--text); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; color: #fff; }
-@keyframes tocBurn { from { width: 100%; } to { width: 0%; } }
-@keyframes tocSpark { 50% { rotate: 24deg; scale: 1.15; } }
 
 /* ---- La main ---- */
 .hand { position: absolute; z-index: 6; left: 0; top: 538px; width: 393px; height: 200px; }
@@ -598,7 +589,7 @@ html.in-game, html.in-game body { overflow: hidden; height: 100%; min-height: 0;
 .g-skip:disabled { opacity: .5; }
 @keyframes tocFall { from { transform: translateY(0) rotate(0); } to { transform: translateY(110vh) rotate(540deg); } }
 @keyframes tocFade { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .victory__rays, .victory__confetti i, .seat-av__spin, .seat-av__pulse, .g-timer__spark { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .victory__rays, .victory__confetti i, .seat-av__spin, .seat-av__pulse { animation: none; } }
 
 /* ---- La page BOUM : une planche de BD plein écran à chaque bille renvoyée (maquette « Boum », cotes de 390 de large) ---- */
 .g-boum { position: absolute; z-index: 44; left: 0; top: 56px; width: 393px; height: 694px; background: var(--nuit); cursor: pointer; animation: tocFade .14s ease-out both; }

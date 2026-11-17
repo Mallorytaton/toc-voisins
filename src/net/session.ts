@@ -702,7 +702,7 @@ export class RoomSession implements Room {
       });
     }
     if (st.phase !== 'play' || !this.automated(st.turn)) return;
-    // Un robot réfléchit un peu ; un joueur absent garde ses 30 s.
+    // Un robot réfléchit un peu ; un joueur absent (app fermée, réseau perdu) garde 30 s pour revenir. Un joueur présent n'a pas de chrono.
     const wait = r.seats[st.turn] === BOT ? BOT_THINK_MS : Math.max(0, r.turnAt + TURN_MS - serverNow());
     const v = st.v;
     this.driveTimer = window.setTimeout(() => {

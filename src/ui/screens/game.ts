@@ -3,7 +3,7 @@ import type { GameSource, RematchVote, TableMsg } from '../../app/game-source';
 import { draftProfile } from '../../app/profile';
 import { noteCapture, rivalOf } from '../../app/rivaux';
 import {
-  type Card, type GameState, type Move, type PawnRef, type Rank, type SevenPart, HOME_SIZE, applyMove, botGift, botMove, cryptoRng, homeEntry, homeIndex, inHome, isLap, isRescue, leavesHome, legalMovesFor, occupant, partner, rankOf, rescuePawn, sameRef, squareOf, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
+  type Card, type GameState, type Move, type PawnRef, type Rank, type SevenPart, HOME_SIZE, applyMove, botMove, homeEntry, homeIndex, inHome, isLap, isRescue, leavesHome, legalMovesFor, occupant, partner, rankOf, rescuePawn, sameRef, squareOf, stepForward, teamOf, trackLen, DEAL_CYCLE, decksFor,
 } from '../../engine';
 import { type Fx, playFx } from '../board/fx';
 import { FLAT, SEATED, type Tilt, armOf, geom, pawnXY, planeShift, projector, seatedAvs, shiftCss, tilted, trackIndex } from '../board/geom';
@@ -26,7 +26,6 @@ import { type Planche, type PlancheActor, type PlancheCase, burstEl, plancheDoub
 import { GAINS } from '../../app/progress';
 
 const REPLIES = ['Aïe !', 'Tu vas voir…', 'Hahaha', 'Pas mal du tout', 'Sérieux ?'];
-const TURN_MS = 30_000;
 const STAGE_W = 393;
 const STAGE_H = 750;
 /** Le cadre du plateau (360 × 360) dans la scène */
@@ -154,7 +153,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
 
   // ---------- Mise en page ----------
   // Téléphone : la scène entière, à l'échelle de l'écran. Téléphone couché (manette) : la scène coupée en deux régions,
-  // le haut (barre, billes à choisir) et le bas (consigne, minuteur, main), dans deux volets : le bas est la même scène
+  // le haut (barre, billes à choisir) et le bas (consigne, main), dans deux volets : le bas est la même scène
   // décalée, les coordonnées ne changent pas, rien n'est reconstruit. Écran de table : le plateau et le journal.
   // Pliants et tablettes (src/ui/fold.ts) : la grille de la maquette « TOC sur pliants », où la scène ne garde que le
   // plateau (voir « Pliants : l'album ouvert », plus bas).
@@ -169,7 +168,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const stage2 = h('div', { class: 'game__stage' });
   const frame2 = h('div', { class: 'game__frame', hidden: true }, stage2);
   root.append(frame2);
-  /** Éléments du bas (indice, minuteur, main), rangés dans le second volet quand il y en a deux. */
+  /** Éléments du bas (indice, main), rangés dans le second volet quand il y en a deux. */
   const lowEls: HTMLElement[] = [];
   let layout = '';
   /** Le chat suit la mise en page (rangé plus bas, une fois le chat construit). */
@@ -911,7 +910,7 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const choicePop = h('div', { class: 'pop pop--choice', hidden: true });
   stage.append(toastBox, chatPop, emotePop, choicePop);
 
-  // ---------- Barre d'action, minuteur, main ----------
+  // ---------- Barre d'action, main ----------
   const hintT = h('b');
   const hintS = h('span');
   // « Une astuce ? » : propose un bon coup (le robot le choisit) sans le jouer à la place du joueur.
@@ -933,16 +932,11 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   if (src.initiation) setCoach('content');
   const hintEl = h('div', { class: 'g-hint', 'aria-live': 'polite' }, hintT, hintS, tipBtn, resetSeven);
   const actions = h('div', { class: 'g-actions' }, src.initiation ? coach : emoteBtn, hintEl, playBtn);
-  // Minuteur : une mèche qui brûle vers la bombe ; l'étincelle suit le bout de la mèche.
-  const timerBar = h('div', null, h('i', { class: 'g-timer__spark' }));
-  /** Les secondes qui restent, au bout de la mèche */
-  const timerLeft = h('span', { class: 'g-timer__left' });
-  const timerEl = h('div', { class: 'g-timer', 'aria-hidden': 'true', hidden: true }, timerBar, timerLeft);
   const hand = h('div', { class: 'hand' });
   /** Étoile jaune derrière la carte choisie */
   const handHalo = h('div', { class: 'hand__halo', 'aria-hidden': 'true', hidden: true });
-  stage.append(actions, timerEl, hand);
-  lowEls.push(actions, timerEl, hand, drawer);
+  stage.append(actions, hand);
+  lowEls.push(actions, hand, drawer);
   root.classList.toggle('with-drawer', drawerOn);
   layoutHook = () => {
     if (!drawerOn) return;
@@ -1140,7 +1134,6 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       pliRecit.append(...(src.initiation ? [coach] : []), hintEl);
       pliActions.append(tipBtn, resetSeven, playBtn);
       pliCartes.append(hand);
-      pliMain.insertBefore(timerEl, pliCartes);
       pliMain.append(choicePop);
       stageTop.append(fxScreen, toastBox);
       if (!src.initiation) pliPuces.append(emoteBtn, emotePop);
@@ -1625,7 +1618,6 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       const card = myHand()[sel];
       tap('jouer');
       clearSel();
-      stopTimer();
       src.give(card);
       return;
     }
@@ -1633,7 +1625,6 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     if (!pl.chosen) return;
     tap('jouer');
     clearSel();
-    stopTimer();
     src.play(pl.chosen);
   };
 
@@ -1805,48 +1796,6 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       }
     }
     return lesson;
-  };
-
-  // ---------- Minuteur de tour ----------
-  let turnTimer = 0;
-  let timerFor = '';
-  let timerTick = 0;
-  const stopTimer = () => { clearTimeout(turnTimer); clearInterval(timerTick); timerFor = ''; timerBar.style.animation = 'none'; timerEl.hidden = true; };
-  /** Un autre humain attend à la table ? Contre des robots seulement, personne n'attend : pas de minuteur. */
-  // À ton rythme, jamais de minuteur : chacun joue quand il revient.
-  const othersWaiting = () => !src.slow && src.players.some((p, k) => k !== me && !p.bot);
-  const syncTimer = () => {
-    const active = (myTurn() || giving()) && othersWaiting();
-    // Un seul minuteur par échange, et un par tour de jeu.
-    const id = view.phase === 'exchange' ? `ex|${view.dealNo}` : `play|${view.v}`;
-    if (!active) return stopTimer();
-    if (timerFor === id) return;
-    timerFor = id;
-    clearTimeout(turnTimer);
-    timerEl.hidden = false;
-    timerBar.style.animation = 'none';
-    void timerBar.offsetWidth;
-    timerBar.style.animation = `tocBurn ${TURN_MS / 1000}s linear both`;
-    // Les secondes qui restent, à côté de la mèche.
-    const end = Date.now() + TURN_MS;
-    let shownLeft = -1;
-    const tick = () => {
-      const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
-      if (left === shownLeft) return;
-      shownLeft = left;
-      timerLeft.textContent = `${left} s`;
-      // Les cinq dernières secondes se sentent dans la main, une par une.
-      if (left >= 1 && left <= 5) tap('urgence');
-    };
-    clearInterval(timerTick);
-    tick();
-    timerTick = window.setInterval(tick, 250);
-    turnTimer = window.setTimeout(() => {
-      if (disposed) return;
-      clearSel();
-      if (giving()) src.give(botGift(view, me));
-      else if (myTurn()) src.play(botMove(view, cryptoRng));
-    }, TURN_MS);
   };
 
   // ---------- Rendu ----------
@@ -2290,7 +2239,6 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
     }
     renderJournal();
     equip();
-    syncTimer();
   };
 
   // ---------- Animations des coups ----------
@@ -2791,7 +2739,6 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
   const pump = async () => {
     if (busy) return;
     busy = true;
-    stopTimer();
     while (queue.length && !disposed) {
       // Retour dans l'app (ou gros retard) : on ne rejoue pas chaque coup en retard, on saute au dernier état.
       if (document.hidden || queue.length > 2) {
@@ -3122,7 +3069,6 @@ export function gameScreen(src: GameSource, o: { onQuit: () => void }): { el: HT
       vv?.removeEventListener('scroll', placeTyping);
       window.removeEventListener('scroll', onPageScroll, true);
       document.removeEventListener('pointerdown', closeOutside, true);
-      stopTimer();
       clearTimeout(toastTimer);
       unwatchFold();
       src.leave();
